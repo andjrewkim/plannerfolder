@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Schedule Extractor</title>
+</head>
+<body>
+    <h1>Schedule Information Extractor</h1>
+    <form method="post">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <button type="submit">Submit</button>
+    </form>
+
+    {% if result %}
+        <h2>Extracted Information:</h2>
+        <p><strong>Event:</strong> {{ result.event }}</p>
+        <p><strong>Time:</strong> {{ result.time }}</p>
+        <p><strong>Date:</strong> {{ result.date }}</p>
+    {% endif %}
+</body>
+</html>
