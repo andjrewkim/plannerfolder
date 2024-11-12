@@ -3,6 +3,11 @@ from .forms import UserInputForm
 from transformers import pipeline
 import re
 
+
+def calendar_view(request):
+    events = Event.objects.all()
+    return render(request, 'calendar.html', {'events': events})
+
 # Load the NER pipeline
 ner_pipeline = pipeline("ner", model="dbmdz/bert-large-cased-finetuned-conll03-english", aggregation_strategy="simple")
 
@@ -43,7 +48,12 @@ def extract_schedule_info(user_input):
         time = ', '.join(flat_time_matches)
 
     # Prepare the extracted information
-    events_info = {'event': event.strip(), 'time': time.strip(), 'date': date.strip()}
+    events_info = {
+    'event': event.strip() if event else '',
+    'time': time.strip() if time else '',
+    'date': date.strip() if date else ''
+}
+
     return events_info
 
 def home(request):
