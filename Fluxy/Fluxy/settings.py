@@ -36,9 +36,6 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
-MIDDLEWARE.insert(1, 'whitenoise.middleware.WhiteNoiseMiddleware')
-STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
-
 
 ROOT_URLCONF = 'Fluxy.urls'
 
@@ -57,7 +54,7 @@ TEMPLATES = [
         },
     },
 ]
-
+#blank comment
 WSGI_APPLICATION = 'Fluxy.wsgi.application'
 
 # Database
