@@ -58,7 +58,7 @@ TEMPLATES = [
     },
 ]
 
-WSGI_APPLICATION = 'Fluxy.Fluxy.wsgi.application'
+WSGI_APPLICATION = 'Fluxy.wsgi.application'
 
 # Database
 # For SQLite (default)
