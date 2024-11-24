@@ -4,6 +4,13 @@ services:
     env: python
     plan: free
     buildCommand: pip install --no-cache-dir -r requirements.txt
-    startCommand: cd Fluxy && gunicorn Fluxy.wsgi:application --bind 0.0.0.0:$PORT
+    startCommand: gunicorn Fluxy.wsgi:application --bind 0.0.0.0:$PORT
     regions:
       - oregon
+envVars:
+  - key: PYTHONPATH
+    value: /opt/render/project/src
+buildCommand: |
+  echo "Python Path:"
+  python -c "import sys; print(sys.path)"
+  pip install --no-cache-dir -r requirements.txt
