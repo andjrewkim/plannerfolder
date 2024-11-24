@@ -4,6 +4,6 @@ services:
     env: python
     plan: free
     buildCommand: pip install --no-cache-dir -r requirements.txt
-    startCommand: gunicorn Fluxy.wsgi:application --bind 0.0.0.0:$PORT # Replace "myproject" with your Django project name
+    startCommand: gunicorn Fluxy.Fluxy.wsgi:application --bind 0.0.0.0:$PORT # Replace "myproject" with your Django project name
     regions:
       - oregon

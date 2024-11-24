@@ -1,3 +1,7 @@
+import sys
+sys.path.append(r'C:\Users\vexr0\OneDrive\Desktop\Codod\10-29-24\DjajaFlux2')  # Your root folder
+sys.path.append(r'C:\Users\vexr0\OneDrive\Desktop\Codod\10-29-24\DjajaFlux2\Fluxy')  # Add the fluxy directory
+
 """
 WSGI config for Fluxy project.
 
@@ -7,12 +11,9 @@ For more information on this file, see
 https://docs.djangoproject.com/en/5.1/howto/deployment/wsgi/
 """
 
-print("Loading WSGI application...")
-# Fluxy/wsgi.py
-
 import os
 from django.core.wsgi import get_wsgi_application
 
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'Fluxy.settings')
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'Fluxy.Fluxy.settings')
 
-app = get_wsgi_application()
+application = get_wsgi_application()
