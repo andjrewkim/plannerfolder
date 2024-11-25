@@ -17,7 +17,7 @@ SECRET_KEY = 'django-insecure-o$6dky9m&k81lced^&l+93@g4bgsjh&&#6thp$_%w#63)@4@e&
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['*']  # For testing - make more specific for production
+ALLOWED_HOSTS = ['flux-qcj2.onrender.com', '127.0.0.1', 'localhost']
 
 
 # Application definition
