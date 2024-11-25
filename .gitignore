@@ -6,18 +6,3 @@ __pycache__/
 # Environment files and folders
 myenv/
 .venv/
-*.env  # For environment variable files (optional)
-
-# Database files
-db.sqlite3
-
-# Logs and debug files
-*.log
-
-# IDE/editor files
-.vscode/
-.idea/
-
-# System-specific files
-.DS_Store
-Thumbs.db
