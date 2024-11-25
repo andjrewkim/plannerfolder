@@ -1,5 +1,10 @@
 # Fluxy/settings.py
 
+import os
+
+PORT = os.getenv('PORT', 8080)
+
+
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
