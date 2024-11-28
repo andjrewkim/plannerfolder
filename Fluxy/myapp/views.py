@@ -4,6 +4,64 @@ from transformers import pipeline
 import re
 
 
+# myapp/views.py
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework import status
+from .models import CalendarEvent
+from .serializers import CalendarEventSerializer
+
+class CalendarEventCreate(APIView):  # Define the class as a subclass of APIView
+    def post(self, request):
+        # Get the event details from the request body
+        event = request.data.get('event')  # Get the event name or description
+        time = request.data.get('time')  # Get the event time
+        date = request.data.get('date')  # Get the event date
+        
+        # Create a dictionary with the event data
+        event_data = {
+            'event': event,  # 'event' field from the request
+            'time': time,    # 'time' field from the request
+            'date': date,    # 'date' field from the request
+        }
+
+        # Use the CalendarEventSerializer to validate and save the data
+        serializer = CalendarEventSerializer(data=event_data)
+        if serializer.is_valid():  # Check if the data is valid
+            serializer.save()  # Save the event to the database
+            return Response(serializer.data, status=status.HTTP_201_CREATED)  # Return a successful response
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)  # Return errors if the data is invalid
+
+
+
+
+"""
+from api.models import CalendarEvent
+from api.serializers import CalendarEventSerializer
+from rest_framework import status
+from rest_framework.response import Response
+
+def create_calendar_event(request):
+    text_input = request.data.get('text_input')
+    # Extract relevant information from the text input
+    title = 'Tennis practice'
+    start_time = '2023-05-27T19:00:00'
+    end_time = '2023-05-27T20:00:00'
+
+    event_data = {
+        'title': title,
+        'start_time': start_time,
+        'end_time': end_time,
+    }
+    serializer = CalendarEventSerializer(data=event_data)
+    if serializer.is_valid():
+        serializer.save()
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+"""
+
+
+
 def calendar_view(request):
     events = Event.objects.all()
     return render(request, 'calendar.html', {'events': events})
