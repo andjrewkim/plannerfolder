@@ -2,10 +2,30 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Schedule Extractor</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Calendar</title>
+
+    <!-- Import Map -->
+    <script type='importmap'>
+      {
+        "imports": {
+          "@fullcalendar/core": "https://cdn.skypack.dev/@fullcalendar/core@6.1.15",
+          "@fullcalendar/daygrid": "https://cdn.skypack.dev/@fullcalendar/daygrid@6.1.15"
+        }
+      }
+    </script>
+    <style>
+      /* Basic styling for the calendar */
+      #calendar {
+        max-width: 900px;
+        margin: 40px auto;
+      }
+    </style>
 </head>
 <body>
     <h1>Schedule Information Extractor</h1>
+
+    <!-- Schedule Form -->
     <form method="post">
         {% csrf_token %}
         {{ form.as_p }}
@@ -18,6 +38,66 @@
         <p><strong>Time:</strong> {{ result.time }}</p>
         <p><strong>Date:</strong> {{ result.date }}</p>
     {% endif %}
+
+    <!-- FullCalendar -->
+    <div id="calendar"></div>
+
+    <!-- FullCalendar Script -->
+    <script type="module">
+        import { Calendar } from '@fullcalendar/core';
+        import dayGridPlugin from '@fullcalendar/daygrid';
+
+        document.addEventListener('DOMContentLoaded', function() {
+            const calendarEl = document.getElementById('calendar');
+            const calendar = new Calendar(calendarEl, {
+                plugins: [dayGridPlugin],
+                initialView: 'dayGridMonth',
+                headerToolbar: {
+                    left: 'prev,next today',
+                    center: 'title',
+                    right: 'dayGridMonth,timeGridWeek,timeGridDay',
+                },
+                events: '/api/events/', // Fetch events from your API
+                editable: true,
+                selectable: true,
+                dateClick: function(info) {
+                    const eventName = prompt('Enter Event Name:');
+                    if (eventName) {
+                        const eventData = {
+                            event: eventName,
+                            date: info.dateStr,  // FullCalendar provides the clicked date
+                            time: '00:00',       // Default time; you can enhance this
+                        };
+
+                        fetch('/api/events/', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'X-CSRFToken': getCSRFToken(), // Add CSRF token
+                            },
+                            body: JSON.stringify(eventData),
+                        })
+                        .then(response => {
+                            if (response.ok) {
+                                alert('Event created successfully!');
+                                calendar.refetchEvents(); // Refresh events
+                            } else {
+                                alert('Failed to create event.');
+                            }
+                        })
+                        .catch(error => console.error('Error:', error));
+                    }
+                },
+            });
+
+            calendar.render();
+        });
+
+        // Function to get CSRF token from the page
+        function getCSRFToken() {
+            const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+            return csrfToken;
+        }
+    </script>
 </body>
 </html>
-

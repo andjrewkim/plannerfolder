@@ -1,77 +1,19 @@
 from django.shortcuts import render
 from .forms import UserInputForm
 from transformers import pipeline
-import re
-
-
-# myapp/views.py
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework import status
-from .models import CalendarEvent
-from .serializers import CalendarEventSerializer
-
-class CalendarEventCreate(APIView):  # Define the class as a subclass of APIView
-    def post(self, request):
-        # Get the event details from the request body
-        event = request.data.get('event')  # Get the event name or description
-        time = request.data.get('time')  # Get the event time
-        date = request.data.get('date')  # Get the event date
-        
-        # Create a dictionary with the event data
-        event_data = {
-            'event': event,  # 'event' field from the request
-            'time': time,    # 'time' field from the request
-            'date': date,    # 'date' field from the request
-        }
-
-        # Use the CalendarEventSerializer to validate and save the data
-        serializer = CalendarEventSerializer(data=event_data)
-        if serializer.is_valid():  # Check if the data is valid
-            serializer.save()  # Save the event to the database
-            return Response(serializer.data, status=status.HTTP_201_CREATED)  # Return a successful response
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)  # Return errors if the data is invalid
-
-
-
-
-"""
-from api.models import CalendarEvent
-from api.serializers import CalendarEventSerializer
-from rest_framework import status
-from rest_framework.response import Response
-
-def create_calendar_event(request):
-    text_input = request.data.get('text_input')
-    # Extract relevant information from the text input
-    title = 'Tennis practice'
-    start_time = '2023-05-27T19:00:00'
-    end_time = '2023-05-27T20:00:00'
-
-    event_data = {
-        'title': title,
-        'start_time': start_time,
-        'end_time': end_time,
-    }
-    serializer = CalendarEventSerializer(data=event_data)
-    if serializer.is_valid():
-        serializer.save()
-        return Response(serializer.data, status=status.HTTP_201_CREATED)
-    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-"""
-
-
-
-def calendar_view(request):
-    events = Event.objects.all()
-    return render(request, 'calendar.html', {'events': events})
 
 # Load the NER pipeline
 ner_pipeline = pipeline("ner", model="dbmdz/bert-large-cased-finetuned-conll03-english", aggregation_strategy="simple")
 
+#__________________________________________________________________________________________________
+
+import datetime
+import re
+
 def extract_schedule_info(user_input):
     entities = ner_pipeline(user_input)
     event, time, date = "", "", ""
+
     for entity in entities:
         if entity['entity_group'] in ['MISC', 'ORG']:
             event += " " + entity['word']
@@ -79,6 +21,7 @@ def extract_schedule_info(user_input):
             time += " " + entity['word']
         elif entity['entity_group'] == 'DATE':
             date += " " + entity['word']
+
     event = event.strip()
     time = time.strip()
     date = date.strip() if date.strip() else None
@@ -98,29 +41,92 @@ def extract_schedule_info(user_input):
     day_names = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
     found_days = [day for day in day_names if day.lower() in user_input.lower()]
 
-    # Set date if found
+    # If days are found, convert to actual date
     if found_days:
-        date = ', '.join(found_days)
+        # Get today's date
+        today = datetime.date.today()
+        # Convert found days to actual dates
+        date = []
+        for day in found_days:
+            day_index = day_names.index(day)
+            # Calculate the days difference from today
+            days_diff = (day_index - today.weekday()) % 7  # Calculate days until the next occurrence
+            target_date = today + datetime.timedelta(days=days_diff)
+            date.append(target_date.strftime('%Y-%m-%d'))  # Format as YYYY-MM-DD
+        date = ', '.join(date)
+
+    # Handle time extraction and conversion to 24-hour format
     if time_matches:
         flat_time_matches = [match for group in time_matches for match in group if match]
         time = ', '.join(flat_time_matches)
+    
+    # Convert time (e.g., "5pm" or "5:00pm") to 24-hour format if necessary
+    if time:
+        time = convert_to_24_hour_format(time)
 
     # Prepare the extracted information
     events_info = {
-    'event': event.strip() if event else '',
-    'time': time.strip() if time else '',
-    'date': date.strip() if date else ''
-}
+        'event': event.strip() if event else '',
+        'time': time.strip() if time else '',
+        'date': date.strip() if date else ''
+    }
 
     return events_info
+
+def convert_to_24_hour_format(time_str):
+    """Converts time in 12-hour format (e.g., '5pm') to 24-hour format (e.g., '17:00')."""
+    try:
+        # Check if the time is in a 12-hour format and convert to 24-hour format
+        time_obj = datetime.datetime.strptime(time_str, '%I%p')  # e.g., '5pm' -> '17:00'
+        return time_obj.strftime('%H:%M')  # '17:00'
+    except ValueError:
+        # If the time is already in 24-hour format (e.g., '17:00'), return it unchanged
+        try:
+            time_obj = datetime.datetime.strptime(time_str, '%H:%M')  # e.g., '17:00'
+            return time_obj.strftime('%H:%M')
+        except ValueError:
+            return time_str  # Return original if no valid format is found
+
+
+
+#___________________________________________________________________________________
+
+
+from django.shortcuts import render
+from .forms import UserInputForm
+from .models import CalendarEvent
 
 def home(request):
     result = None
     if request.method == "POST":
         form = UserInputForm(request.POST)
         if form.is_valid():
+            # Get user input from the form
             user_input = form.cleaned_data['user_input']
+            
+            # Extract schedule information
             result = extract_schedule_info(user_input)
+
+            # Save the extracted information to the database
+            if result:
+                CalendarEvent.objects.create(
+                    event=result.get("event"),
+                    time=result.get("time"),
+                    date=result.get("date"),
+                )
     else:
         form = UserInputForm()
-    return render(request, 'home.html', {'form': form, 'result': result})
+
+    # Get all events to display in the calendar
+    events = CalendarEvent.objects.all()
+
+    # Pass the form, result, and events to the template
+    return render(request, 'home.html', {
+        'form': form,
+        'result': result,
+        'events': events,
+    })
+
+def calendar_view(request):
+    events = Event.objects.all()
+    return render(request, 'calendar.html', {'events': events})

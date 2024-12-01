@@ -98,6 +98,13 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 STATIC_URL = 'static/'
 
+# If you're using Django's default static file storage
+STATICFILES_STORAGE = 'django.contrib.staticfiles.storage.StaticFilesStorage'
+
+# Directory where static files are collected (for production)
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')  # Make sure this path is correct
+
+
 # Default primary key field type
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
