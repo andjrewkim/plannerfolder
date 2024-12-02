@@ -19,6 +19,14 @@ DEBUG = True
 
 ALLOWED_HOSTS = ['flux-qcj2.onrender.com', '127.0.0.1', 'localhost']
 
+CSRF_COOKIE_SECURE = False  # Only for development, set to True in production with HTTPS
+CSRF_TRUSTED_ORIGINS = ['http://localhost:8000']  # Add your local or production domain
+
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:8000",  # Example: Frontend running locally
+    "http://127.0.0.1:8000",
+    "http://your-frontend-domain.com",  # Replace with your frontend's domain
+]
 
 # Application definition
 
@@ -29,6 +37,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'corsheaders',
     'rest_framework',
     'myapp',  # Make sure you have this app created or remove it if not
 ]
@@ -97,6 +106,10 @@ USE_TZ = True
 
 # Static files (CSS, JavaScript, Images)
 STATIC_URL = 'static/'
+
+STATICFILES_DIRS = [
+    os.path.join(BASE_DIR, "myapp", "static"),
+]
 
 # If you're using Django's default static file storage
 STATICFILES_STORAGE = 'django.contrib.staticfiles.storage.StaticFilesStorage'

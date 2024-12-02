@@ -1,44 +1,45 @@
+// Import FullCalendar modules
+import { Calendar } from '@fullcalendar/core';
+import dayGridPlugin from '@fullcalendar/daygrid';
 
-/*
-document.addEventListener("DOMContentLoaded", function () {
-    const calendarEl = document.getElementById("calendar");
+// FullCalendar Initialization
+document.addEventListener('DOMContentLoaded', function () {
+    const calendarEl = document.getElementById('calendar');
 
-    const calendar = new FullCalendar.Calendar(calendarEl, {
-        initialView: "dayGridMonth", // Month view
+    const calendar = new Calendar(calendarEl, {
+        plugins: [dayGridPlugin],
         headerToolbar: {
-            left: "prev,next today",
-            center: "title",
-            right: "dayGridMonth,timeGridWeek,timeGridDay",
+            left: 'prev,next today',
+            center: 'title',
+            right: 'dayGridMonth,timeGridWeek,timeGridDay',
         },
-        events: "/api/events/", // Fetch events from your API
-        editable: true,         // Allow drag-and-drop editing
-        selectable: true,       // Allow selecting time slots
-        dateClick: function (info) {
-            const eventName = prompt("Enter Event Name:");
-            if (eventName) {
-                const eventData = {
-                    event: eventName,
-                    date: info.dateStr,  // FullCalendar provides the clicked date
-                    time: "00:00",       // Default time; you can enhance this
-                };
+        events: '/api/events/', // Fetch events from your API
 
-                fetch("/api/events/", {
-                    method: "POST",
+        // Handle event click (to delete)
+        eventClick: function (info) {
+            if (confirm("Do you want to delete this event?")) {
+                const eventId = info.event.id; // Get the event ID
+                
+                console.log(`Event ID to delete: ${eventId}`);
+
+                // Make a DELETE request to the backend
+                fetch(`/api/events/${eventId}/`, {
+                    method: 'DELETE',
                     headers: {
-                        "Content-Type": "application/json",
-                        "X-CSRFToken": getCSRFToken(), // Add CSRF token
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': getCSRFToken(),  // Pass the CSRF token if needed
                     },
-                    body: JSON.stringify(eventData),
+                    credentials: 'include',  // Include cookies for cross-origin requests if necessary
                 })
                 .then(response => {
                     if (response.ok) {
-                        alert("Event created successfully!");
-                        calendar.refetchEvents(); // Refresh events
+                        alert('Event deleted!');
+                        calendar.refetchEvents(); // Refresh events after deletion
                     } else {
-                        alert("Failed to create event.");
+                        alert('Failed to delete event.');
                     }
                 })
-                .catch(error => console.error("Error:", error));
+                .catch(error => console.error('Error:', error));
             }
         },
     });
@@ -46,9 +47,8 @@ document.addEventListener("DOMContentLoaded", function () {
     calendar.render();
 });
 
-// Function to get CSRF token from the page
+// CSRF token function for security
 function getCSRFToken() {
-    const csrfToken = document.querySelector("[name=csrfmiddlewaretoken]").value;
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
     return csrfToken;
 }
-*/
