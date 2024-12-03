@@ -33,7 +33,6 @@ document.addEventListener('DOMContentLoaded', function () {
                 })
                 .then(response => {
                     if (response.ok) {
-                        alert('Event deleted!');
                         calendar.refetchEvents(); // Refresh events after deletion
                     } else {
                         alert('Failed to delete event.');

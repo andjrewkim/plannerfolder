@@ -25,7 +25,7 @@ CSRF_TRUSTED_ORIGINS = ['http://localhost:8000']  # Add your local or production
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:8000",  # Example: Frontend running locally
     "http://127.0.0.1:8000",
-    "http://your-frontend-domain.com",  # Replace with your frontend's domain
+    "https://flux-qcj2.onrender.com",  # Replace with your frontend's domain
 ]
 
 # Application definition
@@ -50,7 +50,10 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'corsheaders.middleware.CorsMiddleware',
 ]
+
+
 
 
 ROOT_URLCONF = 'Fluxy.urls'
