@@ -4,6 +4,8 @@ from rest_framework import status
 from .models import CalendarEvent
 from .serializers import CalendarEventSerializer
 
+from datetime import datetime
+
 class CalendarEventCreate(APIView):  # Define the class as a subclass of APIView
     def get(self, request):
         # Retrieve all events from the database
@@ -60,3 +62,24 @@ class CalendarEventCreate(APIView):  # Define the class as a subclass of APIView
             return Response({"message": "Event deleted successfully."}, status=status.HTTP_200_OK)
         except CalendarEvent.DoesNotExist:
             return Response({"message": "Event not found."}, status=status.HTTP_404_NOT_FOUND)
+
+
+
+    def put(self, request, *args, **kwargs):
+        event_id = kwargs.get('event_id')
+        try:
+            event = CalendarEvent.objects.get(id=event_id)
+        except CalendarEvent.DoesNotExist:
+            return Response({"message": "Event not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        updated_data = request.data
+        if 'start' in updated_data:
+            start_datetime = datetime.fromisoformat(updated_data['start'])
+            updated_data['date'] = start_datetime.date()
+            updated_data['time'] = start_datetime.time()
+
+        serializer = CalendarEventSerializer(event, data=updated_data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

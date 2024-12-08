@@ -13,7 +13,7 @@ document.addEventListener('DOMContentLoaded', function () {
             center: 'title',
             right: 'dayGridMonth,timeGridWeek,timeGridDay',
         },
-        events: '/api/events/', // Fetch events from your API endpoint
+        events: '/api/events/', // Fetch events from your API
 
         // Handle event click (to edit/delete)
         eventClick: function (info) {
@@ -27,8 +27,8 @@ document.addEventListener('DOMContentLoaded', function () {
             const dateInput = document.getElementById('eventDate');
 
             titleInput.value = info.event.title;
-            timeInput.value = info.event.start.toISOString().substring(11, 16); // Format time (HH:mm)
-            dateInput.value = info.event.start.toISOString().substring(0, 10); // Format date (YYYY-MM-DD)
+            timeInput.value = info.event.start.toISOString().substring(11, 16); // Format time
+            dateInput.value = info.event.start.toISOString().substring(0, 10); // Format date
 
             // Save changes to the event
             const form = document.getElementById('editEventForm');
@@ -36,9 +36,8 @@ document.addEventListener('DOMContentLoaded', function () {
                 e.preventDefault();
 
                 const updatedEvent = {
-                    event: titleInput.value,
-                    time: timeInput.value,
-                    date: dateInput.value,
+                    title: titleInput.value,
+                    start: `${dateInput.value}T${timeInput.value}:00`,
                 };
 
                 // Send PUT request to update the event
