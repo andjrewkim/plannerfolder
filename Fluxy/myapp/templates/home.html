@@ -24,26 +24,43 @@
     </style>
 </head>
 <body>
-    <h1>-</h1>
+  <h1>-</h1>
 
-    <!-- Schedule Form -->
-    <form method="post">
-        {% csrf_token %}
-        {{ form.as_p }}
-        <button type="submit">Submit</button>
-    </form>
+  <form method="post">
+      {% csrf_token %}
+      {{ form.as_p }}
+      <button type="submit">Submit</button>
+  </form>
 
-    {% if result %}
-        <h2>Extracted Information:</h2>
-        <p><strong>Event:</strong> {{ result.event }}</p>
-        <p><strong>Time:</strong> {{ result.time }}</p>
-        <p><strong>Date:</strong> {{ result.date }}</p>
-    {% endif %}
+  {% if result %}
+      <h2>Extracted Information:</h2>
+      <p><strong>Event:</strong> {{ result.event }}</p>
+      <p><strong>Time:</strong> {{ result.time }}</p>
+      <p><strong>Date:</strong> {{ result.date }}</p>
+  {% endif %}
 
-    <!-- FullCalendar -->
-    <div id="calendar"></div>
+  <!-- FullCalendar -->
+  <div id="calendar"></div>
 
-    <!-- Link to the external JavaScript file for FullCalendar -->
-    <script type="module" src="{% static 'js/calendar.js' %}"></script>
-</body>
+    <!-- Modal -->
+  <!-- Modal for Editing Events -->
+  <div id="editEventModal" class="modal">
+    <div class="modal-content">
+      <span class="close">&times;</span>
+      <h2>Edit Event</h2>
+      <form id="editEventForm">
+        <label for="eventTitle">Event Title:</label>
+        <input type="text" id="eventTitle" name="eventTitle" required>
+        <label for="eventTime">Time:</label>
+        <input type="time" id="eventTime" name="eventTime" required>
+        <label for="eventDate">Date:</label>
+        <input type="date" id="eventDate" name="eventDate" required>
+        <button type="submit">Save</button>
+      </form>
+      <button id="deleteEventButton" style="background-color: red; color: white; margin-top: 10px;">Delete Event</button>
+    </div>
+  </div>
+
+
+  <script type="module" src="{% static 'js/calendar.js' %}"></script>
 </html>
