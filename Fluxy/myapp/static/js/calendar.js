@@ -27,8 +27,13 @@ document.addEventListener('DOMContentLoaded', function () {
             const dateInput = document.getElementById('eventDate');
 
             titleInput.value = info.event.title;
-            timeInput.value = info.event.start.toISOString().substring(11, 16); // Format time
-            dateInput.value = info.event.start.toISOString().substring(0, 10); // Format date
+
+            // Format time correctly
+            const eventDate = new Date(info.event.start);
+            timeInput.value = eventDate.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' });
+
+            // Format date correctly
+            dateInput.value = info.event.start.toISOString().substring(0, 10);
 
             // Save changes to the event
             const form = document.getElementById('editEventForm');

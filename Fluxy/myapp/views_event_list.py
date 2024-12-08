@@ -1,8 +1,8 @@
 from django.http import JsonResponse
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from .models import CalendarEvent  # Assuming your event model is called CalendarEvent
 from rest_framework import status
+from .models import CalendarEvent
 
 class CalendarEventCreate(APIView):
     
@@ -23,7 +23,7 @@ class CalendarEventCreate(APIView):
     
     # Handle DELETE requests to delete an event
     def delete(self, request, *args, **kwargs):
-        event_id = request.data.get('event_id')  # Get event_id from the request
+        event_id = kwargs.get('event_id')  # Get event_id from the URL
 
         try:
             event = CalendarEvent.objects.get(id=event_id)
