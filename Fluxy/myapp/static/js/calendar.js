@@ -33,7 +33,14 @@ document.addEventListener('DOMContentLoaded', function () {
             timeInput.value = eventDate.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' });
 
             // Format date correctly
-            dateInput.value = info.event.start.toISOString().substring(0, 10);
+            //dateInput.value = info.event.start.toISOString().substring(0, 10);
+
+            const localDate = new Date(info.event.start);
+            const year = localDate.getFullYear();
+            const month = String(localDate.getMonth() + 1).padStart(2, '0'); // Month is zero-based
+            const day = String(localDate.getDate()).padStart(2, '0');
+            dateInput.value = `${year}-${month}-${day}`;
+
 
             // Save changes to the event
             const form = document.getElementById('editEventForm');
@@ -44,6 +51,8 @@ document.addEventListener('DOMContentLoaded', function () {
                     title: titleInput.value,
                     start: `${dateInput.value}T${timeInput.value}:00`,
                 };
+                console.log("Title Input Value:", titleInput.value);
+
 
                 // Send PUT request to update the event
                 fetch(`/api/events/${eventId}/`, {
@@ -55,6 +64,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     credentials: 'include',
                     body: JSON.stringify(updatedEvent),
                 })
+                
                 .then(response => {
                     if (response.ok) {
                         modal.style.display = 'none';
@@ -65,7 +75,10 @@ document.addEventListener('DOMContentLoaded', function () {
                 })
                 .catch(error => console.error('Error:', error));
             };
+            console.log("Title Input Value:", titleInput.value);
 
+
+            
             // Handle delete event
             const deleteButton = document.getElementById('deleteEventButton');
             deleteButton.onclick = function () {
