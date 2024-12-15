@@ -63,23 +63,36 @@ class CalendarEventCreate(APIView):  # Define the class as a subclass of APIView
         except CalendarEvent.DoesNotExist:
             return Response({"message": "Event not found."}, status=status.HTTP_404_NOT_FOUND)
 
-
-
     def put(self, request, *args, **kwargs):
-        event_id = kwargs.get('event_id')
+        event_id = kwargs.get('event_id')  # Get the event ID
         try:
+            # Try to fetch the event
             event = CalendarEvent.objects.get(id=event_id)
         except CalendarEvent.DoesNotExist:
             return Response({"message": "Event not found."}, status=status.HTTP_404_NOT_FOUND)
 
+        # Get updated data
         updated_data = request.data
+
+        # Parse and update date and time if 'start' is provided
         if 'start' in updated_data:
             start_datetime = datetime.fromisoformat(updated_data['start'])
             updated_data['date'] = start_datetime.date()
             updated_data['time'] = start_datetime.time()
 
+        # Validate the title field
+        if 'title' in updated_data:
+            if not updated_data['title'].strip():  # Ensure title is not empty
+                return Response({"message": "Event title cannot be empty."}, status=status.HTTP_400_BAD_REQUEST)
+
+            # Update the event name
+            updated_data['event'] = updated_data.pop('title')
+
+        # Use the serializer to validate and save the updated data
         serializer = CalendarEventSerializer(event, data=updated_data, partial=True)
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data, status=status.HTTP_200_OK)
+
+        # Return validation errors
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
