@@ -48,7 +48,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 e.preventDefault();
 
                 const updatedEvent = {
-                    title: titleInput.value,
+                    title: `${titleInput.value}`,
                     start: `${dateInput.value}T${timeInput.value}:00`,
                 };
                 console.log("Title Input Value:", titleInput.value);

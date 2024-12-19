@@ -25,8 +25,7 @@
     </style>
     
     <!-- link to the modal css styling -->
-    <link rel="stylesheet" href="/static/css/modalstyle.css">
-
+    <link rel="stylesheet" href="modalstyle.css">
 
 
 </head>
@@ -49,30 +48,24 @@
   <!-- FullCalendar -->
   <div id="calendar"></div>
 
+    <!-- Modal -->
+  <!-- Modal for Editing Events -->
   <div id="editEventModal" class="modal">
     <div class="modal-content">
       <span class="close">&times;</span>
       <h2>Edit Event</h2>
       <form id="editEventForm">
-        <div class="form-row">
-          <label for="eventTitle">Event Title:</label>
-          <input type="text" id="eventTitle" name="eventTitle" required>
-        </div>
-        <div class="form-row">
-          <label for="eventTime">Time:</label>
-          <input type="time" id="eventTime" name="eventTime" required>
-        </div>
-        <div class="form-row">
-          <label for="eventDate">Date:</label>
-          <input type="date" id="eventDate" name="eventDate" required>
-        </div>
+        <label for="eventTitle">Event Title:</label>
+        <input type="text" id="eventTitle" name="eventTitle" required>
+        <label for="eventTime">Time:</label>
+        <input type="time" id="eventTime" name="eventTime" required>
+        <label for="eventDate">Date:</label>
+        <input type="date" id="eventDate" name="eventDate" required>
         <button type="submit">Save</button>
-        <button id="deleteEventButton" style="background-color: red;">Delete Event</button>
       </form>
+      <button id="deleteEventButton" style="background-color: red; color: white; margin-top: 10px;">Delete Event</button>
     </div>
   </div>
-  
-  
 
 
   <script type="module" src="{% static 'js/calendar.js' %}"></script>
