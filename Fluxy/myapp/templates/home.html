@@ -15,6 +15,7 @@
         }
       }
     </script>
+    
     <style>
       /* Basic styling for the calendar */
       #calendar {
@@ -22,11 +23,11 @@
         margin: 40px auto;
       }
       
+
     </style>
     
     <!-- link to the modal css styling -->
     <link rel="stylesheet" href="static/css/modalstyle.css">
-
 
 </head>
 <body>
@@ -48,7 +49,6 @@
   <!-- FullCalendar -->
   <div id="calendar"></div>
 
-    <!-- Modal -->
   <!-- Modal for Editing Events -->
   <div id="editEventModal" class="modal">
     <div class="modal-content">
@@ -67,6 +67,6 @@
     </div>
   </div>
 
-
   <script type="module" src="{% static 'js/calendar.js' %}"></script>
+</body>
 </html>
