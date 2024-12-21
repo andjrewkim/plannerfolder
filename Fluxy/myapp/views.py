@@ -127,6 +127,9 @@ def home(request):
         'events': events,
     })
     
+def settings(request):
+    return render(request, 'settings.html')
+    
     
 
 

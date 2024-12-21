@@ -1,10 +1,45 @@
-<!DOCTYPE html>
+{% extends 'base.html' %}
 {% load static %}
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Calendar</title>
+
+{% block content %}
+    <!-- Your unique page content for the calendar -->
+    <h1>Event Calendar</h1>
+
+    <form method="post" class="calendar-form">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <button type="submit" class="submit-button">Submit</button>
+    </form>
+
+    {% if result %}
+        <div class="extracted-info">
+            <h2>Extracted Information:</h2>
+            <p><strong>Event:</strong> <span>{{ result.event }}</span></p>
+            <p><strong>Time:</strong> <span>{{ result.time }}</span></p>
+            <p><strong>Date:</strong> <span>{{ result.date }}</span></p>
+        </div>
+    {% endif %}
+
+    <!-- FullCalendar -->
+    <div id="calendar"></div>
+
+    <!-- Modal for Editing Events -->
+    <div id="editEventModal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2>Edit Event</h2>
+            <form id="editEventForm">
+                <label for="eventTitle">Event Title:</label>
+                <input type="text" id="eventTitle" name="eventTitle" required>
+                <label for="eventTime">Time:</label>
+                <input type="time" id="eventTime" name="eventTime" required>
+                <label for="eventDate">Date:</label>
+                <input type="date" id="eventDate" name="eventDate" required>
+                <button type="submit" class="save-button">Save</button>
+            </form>
+            <button id="deleteEventButton" class="delete-button">Delete Event</button>
+        </div>
+    </div>
 
     <!-- Import Map -->
     <script type='importmap'>
@@ -15,67 +50,20 @@
         }
       }
     </script>
-    
+
     <style>
-      /* Basic styling for the calendar */
-      #calendar {
-        max-width: 900px;
-        margin: 40px auto;
-      }
+        /* Basic styling for the calendar */
+        #calendar {
+            max-width: 900px;
+            margin: 40px auto;
+        }
     </style>
-    
-    <!-- Modal-specific styles -->
+
+    <!-- Include modal, input, and navbar styles -->
     <link rel="stylesheet" href="{% static 'css/modalstyle.css' %}">
-    
-    <!-- Input field styles -->
     <link rel="stylesheet" href="{% static 'css/inputtext.css' %}">
-    
-    <!-- Navbar-specific styles -->
     <link rel="stylesheet" href="{% static 'css/navbar.css' %}">
 
-</head>
-<body>
-  <h1>Event Calendar</h1>
-
-  <form method="post" class="calendar-form">
-      {% csrf_token %}
-      {{ form.as_p }}
-      <button type="submit" class="submit-button">Submit</button>
-  </form>
-
-  {% if result %}
-      <div class="extracted-info">
-        <h2>Extracted Information:</h2>
-        <p><strong>Event:</strong> <span>{{ result.event }}</span></p>
-        <p><strong>Time:</strong> <span>{{ result.time }}</span></p>
-        <p><strong>Date:</strong> <span>{{ result.date }}</span></p>
-      </div>
-  {% endif %}
-
-  <!-- FullCalendar -->
-  <div id="calendar"></div>
-
-  <!-- Modal for Editing Events -->
-  <div id="editEventModal" class="modal">
-    <div class="modal-content">
-      <span class="close">&times;</span>
-      <h2>Edit Event</h2>
-      <form id="editEventForm">
-        <label for="eventTitle">Event Title:</label>
-        <input type="text" id="eventTitle" name="eventTitle" required>
-        <label for="eventTime">Time:</label>
-        <input type="time" id="eventTime" name="eventTime" required>
-        <label for="eventDate">Date:</label>
-        <input type="date" id="eventDate" name="eventDate" required>
-        <button type="submit" class="save-button">Save</button>
-      </form>
-      <button id="deleteEventButton" class="delete-button">Delete Event</button>
-    </div>
-  </div>
-  
-  
-
-
-  <script type="module" src="{% static 'js/calendar.js' %}"></script>
-</body>
-</html>
+    <!-- Your custom JS file -->
+    <script type="module" src="{% static 'js/calendar.js' %}"></script>
+{% endblock %}
