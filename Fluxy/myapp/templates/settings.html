@@ -1,0 +1,42 @@
+{% extends 'base.html' %}
+
+{% block content %}
+{% load static %}
+<div class="settings-container">
+    <h1>Settings</h1>
+
+    <div class="settings-section">
+        <h2>Account Settings</h2>
+        <p>Manage your account settings, change your username, email, or password.</p>
+        <a href="/account-settings/" class="btn">Edit Account</a>
+    </div>
+
+    <div class="settings-section">
+        <h2>Appearance</h2>
+        <p>Customize your theme and preferences.</p>
+
+        <div class="theme-selection">
+            <h3>Choose Theme</h3>
+            <button class="btn">Light Theme</button>
+            <button class="btn">Dark Theme</button>
+        </div>
+
+        <div class="dark-mode">
+            <h3>Enable Dark Mode</h3>
+            <label for="dark-mode-toggle">
+                <input type="checkbox" id="dark-mode-toggle" name="dark_mode">
+                Enable Dark Mode
+            </label>
+        </div>
+    </div>
+
+    <div class="settings-section">
+        <h2>Premium Features</h2>
+        <p>Upgrade to premium for additional features and customization options.</p>
+        <a href="/premium" class="btn">Upgrade to Premium</a>
+    </div>
+</div>
+
+<link rel="stylesheet" href="{% static 'css/settings.css' %}">
+
+{% endblock %}
