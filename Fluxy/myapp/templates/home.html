@@ -22,28 +22,34 @@
         max-width: 900px;
         margin: 40px auto;
       }
-      
-
     </style>
     
-    <!-- link to the modal css styling -->
-    <link rel="stylesheet" href="static/css/modalstyle.css">
+    <!-- Modal-specific styles -->
+    <link rel="stylesheet" href="{% static 'css/modalstyle.css' %}">
+    
+    <!-- Input field styles -->
+    <link rel="stylesheet" href="{% static 'css/inputtext.css' %}">
+    
+    <!-- Navbar-specific styles -->
+    <link rel="stylesheet" href="{% static 'css/navbar.css' %}">
 
 </head>
 <body>
-  <h1>-</h1>
+  <h1>Event Calendar</h1>
 
-  <form method="post">
+  <form method="post" class="calendar-form">
       {% csrf_token %}
       {{ form.as_p }}
-      <button type="submit">Submit</button>
+      <button type="submit" class="submit-button">Submit</button>
   </form>
 
   {% if result %}
-      <h2>Extracted Information:</h2>
-      <p><strong>Event:</strong> {{ result.event }}</p>
-      <p><strong>Time:</strong> {{ result.time }}</p>
-      <p><strong>Date:</strong> {{ result.date }}</p>
+      <div class="extracted-info">
+        <h2>Extracted Information:</h2>
+        <p><strong>Event:</strong> <span>{{ result.event }}</span></p>
+        <p><strong>Time:</strong> <span>{{ result.time }}</span></p>
+        <p><strong>Date:</strong> <span>{{ result.date }}</span></p>
+      </div>
   {% endif %}
 
   <!-- FullCalendar -->
@@ -61,11 +67,14 @@
         <input type="time" id="eventTime" name="eventTime" required>
         <label for="eventDate">Date:</label>
         <input type="date" id="eventDate" name="eventDate" required>
-        <button type="submit">Save</button>
+        <button type="submit" class="save-button">Save</button>
       </form>
-      <button id="deleteEventButton" style="background-color: red; color: white; margin-top: 10px;">Delete Event</button>
+      <button id="deleteEventButton" class="delete-button">Delete Event</button>
     </div>
   </div>
+  
+  
+
 
   <script type="module" src="{% static 'js/calendar.js' %}"></script>
 </body>

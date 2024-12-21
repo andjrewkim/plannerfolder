@@ -126,6 +126,9 @@ def home(request):
         'result': result,
         'events': events,
     })
+    
+    
+
 
 def calendar_view(request):
     events = Event.objects.all()

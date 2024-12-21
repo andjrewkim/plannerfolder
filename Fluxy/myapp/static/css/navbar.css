@@ -1,0 +1,37 @@
+/* Grey box navbar.css */
+.navbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 20px;
+    background-color: #5e5e5e; /* Dark gray background */
+    color: white; /* Text color */
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); /* Optional: light shadow for depth */
+    position: fixed; /* Fixes the navbar to the top of the page */
+    top: 0; /* Ensures the navbar is positioned at the top */
+    left: 0; /* Ensures the navbar stretches to the left edge */
+    width: 100%; /* Makes the navbar span the full width of the page */
+    z-index: 1000; /* Ensures it stays on top of other content */
+}
+
+body {
+    padding-top: 60px; /* Add padding to the top to avoid content being hidden under the navbar */
+}
+
+
+
+
+
+
+
+
+.navbar .menu img {
+    width: 24px; /* Set a fixed width */
+    height: auto; /* Maintain aspect ratio */
+    cursor: pointer; /* Optional: make it clickable */
+    transition: transform 0.2s; /* Optional: smooth hover effect */
+}
+
+.navbar .menu img:hover {
+    transform: scale(1.1); /* Optional: slight zoom on hover */
+}

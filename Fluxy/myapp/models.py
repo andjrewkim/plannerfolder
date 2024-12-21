@@ -1,10 +1,11 @@
-# models.py
 from django.db import models
+# In models.py
+
 
 class CalendarEvent(models.Model):
-    event = models.CharField(max_length=100)  # This will correspond to 'event' in the serializer
-    date = models.DateField()  # Corresponds to 'date' in the serializer
-    time = models.TimeField()  # Corresponds to 'time' in the serializer
+    event = models.CharField(max_length=255)
+    date = models.DateField()
+    time = models.TimeField()
 
     def __str__(self):
-        return self.event  # You can return the 'event' field as the string representation
+        return f'{self.event} on {self.date} at {self.time}'

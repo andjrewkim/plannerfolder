@@ -1,0 +1,50 @@
+/* Basic styling for the calendar */
+#calendar {
+    max-width: 900px;
+    margin: 40px 0; /* Remove centering by changing 'auto' to '0' */
+}
+
+/* Align the form inputs to the left */
+.calendar-form {
+    max-width: 600px;
+    margin: 20px 0; /* Remove centering by changing 'auto' to '0' */
+    padding: 20px;
+    border-radius: 8px;
+    background-color: #fff;
+    text-align: left; /* Ensure text inside the form is aligned to the left */
+}
+
+/* Ensure inputs are aligned properly */
+.calendar-form input {
+    width: 100%;
+    padding: 12px;
+    margin: 10px 0;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-size: 16px;
+    background-color: #f9f9f9;
+    text-align: left; /* Align text inside inputs to the left */
+}
+
+/* Styling for extracted information */
+.extracted-info {
+    margin-top: 20px;
+    text-align: left; /* Ensure extracted info is aligned to the left */
+}
+
+.extracted-info h2 {
+    font-size: 1.5rem;
+    margin-bottom: 10px;
+    color: #333;
+}
+
+.extracted-info p {
+    font-size: 1rem;
+    color: #555;
+    margin: 5px 0;
+}
+
+.extracted-info span {
+    font-weight: bold;
+    color: #000000;
+}
