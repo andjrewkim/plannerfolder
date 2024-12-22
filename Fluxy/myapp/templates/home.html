@@ -2,26 +2,40 @@
 {% load static %}
 
 {% block content %}
-    <!-- Your unique page content for the calendar -->
+    <!-- Page Header -->
     <h1>Event Calendar</h1>
 
-    <form method="post" class="calendar-form">
-        {% csrf_token %}
-        {{ form.as_p }}
-        <button type="submit" class="submit-button">Submit</button>
-    </form>
-
-    {% if result %}
-        <div class="extracted-info">
-            <h2>Extracted Information:</h2>
-            <p><strong>Event:</strong> <span>{{ result.event }}</span></p>
-            <p><strong>Time:</strong> <span>{{ result.time }}</span></p>
-            <p><strong>Date:</strong> <span>{{ result.date }}</span></p>
+    <!-- Container with Sidebar and Main Content -->
+    <div class="container">
+        <!-- Sidebar with Widgets -->
+        <div class="sidebar" id="sidebar">
+            <div class="resize-handle"></div>
+            <div class="widget">Widget 1</div>
+            <div class="widget">Widget 2</div>
+            <div class="widget">Widget 3</div>
         </div>
-    {% endif %}
 
-    <!-- FullCalendar -->
-    <div id="calendar"></div>
+        <!-- Main Content Area -->
+        <div class="main-content">
+            <form method="post" class="calendar-form">
+                {% csrf_token %}
+                {{ form.as_p }}
+                <button type="submit" class="submit-button">Submit</button>
+            </form>
+
+            {% if result %}
+                <div class="extracted-info">
+                    <h2>Extracted Information:</h2>
+                    <p><strong>Event:</strong> <span>{{ result.event }}</span></p>
+                    <p><strong>Time:</strong> <span>{{ result.time }}</span></p>
+                    <p><strong>Date:</strong> <span>{{ result.date }}</span></p>
+                </div>
+            {% endif %}
+
+            <!-- FullCalendar -->
+            <div id="calendar"></div>
+        </div>
+    </div>
 
     <!-- Modal for Editing Events -->
     <div id="editEventModal" class="modal">
@@ -51,21 +65,18 @@
       }
     </script>
 
-    <style>
-        #calendar {
-          width: 80%; /* Adjust the width as a percentage of the parent container */
-          max-width: 10000px; /* Optional: Set a maximum width for larger screens */
-          margin: 40px auto; /* Center the calendar horizontally */
-          min-width: 300px; /* Optional: Prevent it from getting too small */
-        }
-      
-    </style>
+    <!-- Link Your CSS -->
+    <link rel="stylesheet" href="{% static 'css/container.css' %}">
 
     <!-- Include modal, input, and navbar styles -->
     <link rel="stylesheet" href="{% static 'css/modalstyle.css' %}">
     <link rel="stylesheet" href="{% static 'css/inputtext.css' %}">
     <link rel="stylesheet" href="{% static 'css/navbar.css' %}">
 
-    <!-- Your custom JS file -->
+    <!-- JS for Calendar -->
     <script type="module" src="{% static 'js/calendar.js' %}"></script>
+
+    <!-- JS for Resizable Sidebar -->
+    <script src="{% static 'js/resizing.js' %}"></script>
+
 {% endblock %}
