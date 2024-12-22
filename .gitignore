@@ -7,6 +7,7 @@ __pycache__/
 myenv/
 .venv/
 *.env  # For environment variable files (optional)
+venv
 
 # Database files
 db.sqlite3
