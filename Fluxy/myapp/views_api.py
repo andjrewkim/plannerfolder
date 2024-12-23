@@ -17,6 +17,7 @@ class CalendarEventCreate(APIView):  # Define the class as a subclass of APIView
                 "id": event.id,             # Include the event ID
                 "title": event.event,       # Event title
                 "start": f"{event.date}T{event.time}",  # Combine date and time for FullCalendar
+                "color": event.color, 
             }
             for event in events
         ]
@@ -29,12 +30,14 @@ class CalendarEventCreate(APIView):  # Define the class as a subclass of APIView
         event = request.data.get('event')  # Get the event name or description
         time = request.data.get('time')   # Get the event time
         date = request.data.get('date')   # Get the event date
+        color = request.data.get('color', "#000") #blue color as default :)
 
         # Create a dictionary with the event data
         event_data = {
             'event': event,  # 'event' field from the request
             'time': time,    # 'time' field from the request
             'date': date,    # 'date' field from the request
+            'color': color,
         }
 
         # Use the CalendarEventSerializer to validate and save the data
@@ -47,7 +50,9 @@ class CalendarEventCreate(APIView):  # Define the class as a subclass of APIView
                 "id": event_instance.id,  # Include the event ID
                 "event": event_instance.event,
                 "time": event_instance.time,
-                "date": event_instance.date
+                "date": event_instance.date,
+                "color": event_instance.color
+
             }, status=status.HTTP_201_CREATED)  # Return a successful response
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)  # Return errors if the data is invalid

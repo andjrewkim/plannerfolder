@@ -5,4 +5,4 @@ from .models import CalendarEvent
 class CalendarEventSerializer(serializers.ModelSerializer):
     class Meta:
         model = CalendarEvent
-        fields = ['id', 'event', 'time', 'date']  # Directly use these fields from the model
+        fields = ['id', 'event', 'time', 'date', 'color']  # Directly use these fields from the model

@@ -10,7 +10,14 @@
         <!-- Sidebar with Widgets -->
         <div class="sidebar" id="sidebar">
             <div class="resize-handle"></div>
-            <div class="widget">Widget 1</div>
+            <div class="widget">
+                <h3>Today's Schedule</h3>
+                <ul id="today-events">
+                    <!-- Events for the current date will be dynamically added here -->
+                </ul>
+            </div>
+            
+            
             <div class="widget">Widget 2</div>
             <div class="widget">Widget 3</div>
         </div>
@@ -65,6 +72,20 @@
       }
     </script>
 
+
+    <style>
+        #calendar {
+          width: 40%; /* Adjust the width as a percentage of the parent container */
+          max-width: 10000px; /* Optional: Set a maximum width for larger screens */
+          margin: 40px auto; /* Center the calendar horizontally */
+          min-width: 300px; /* Optional: Prevent it from getting too small */
+        }
+      
+    </style>
+
+
+
+
     <!-- Link Your CSS -->
     <link rel="stylesheet" href="{% static 'css/container.css' %}">
 
@@ -78,5 +99,7 @@
 
     <!-- JS for Resizable Sidebar -->
     <script src="{% static 'js/resizing.js' %}"></script>
+
+    <script src="{% static 'js/todolist.js' %}"></script>
 
 {% endblock %}

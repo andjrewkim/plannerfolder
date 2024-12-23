@@ -25,7 +25,7 @@ CSRF_TRUSTED_ORIGINS = ['http://localhost:8000']  # Add your local or production
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:8000",  # Example: Frontend running locally
     "http://127.0.0.1:8000",
-    "https://flux-qcj2.onrender.com",  # Replace with your frontend's domain
+    "https://flux-qcj2.onrender.com",
 ]
 
 # Application definition
@@ -39,7 +39,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'corsheaders',
     'rest_framework',
-    'myapp',  # Make sure you have this app created or remove it if not
+    'myapp',
 ]
 
 MIDDLEWARE = [
