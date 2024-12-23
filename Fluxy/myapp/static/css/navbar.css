@@ -21,16 +21,13 @@ body {
 
 
 
-
-
-
-
 .navbar .menu img {
-    width: 100px; /* Set a fixed width */
-    height: auto; /* Maintain aspect ratio */
-    cursor: pointer; /* Optional: make it clickable */
-    transition: transform 0.2s; /* Optional: smooth hover effect */
+    width: 30px; /* New size */
+    height: 30px;
+    min-width: 0; /* Remove minimum width */
+    max-width: none; /* Allow resizing freely */
 }
+
 
 .navbar .menu img:hover {
     transform: scale(1.1); /* Optional: slight zoom on hover */
