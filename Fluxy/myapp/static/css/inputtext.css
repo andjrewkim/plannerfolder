@@ -1,0 +1,89 @@
+/* Main Form Styling */
+.calendar-form {
+    max-width: 400px; /* Keeps the form compact */
+    background-color: #fff; /* Clean white background */
+    border: 1px solid #ddd; /* Subtle border */
+    border-radius: 8px; /* Slightly rounded edges for modern look */
+    padding: 15px 20px;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1); /* Subtle shadow */
+    font-family: 'Roboto', sans-serif; /* Google-like font */
+    margin-left: 10px; /* Not centered, slight indentation */
+}
+
+/* Form Inputs */
+.calendar-form input[type="text"], 
+.calendar-form input[type="email"], 
+.calendar-form input[type="password"], 
+.calendar-form select, 
+.calendar-form textarea {
+    width: 93%;
+    padding: 10px 12px;
+    font-size: 14px; /* Slightly smaller font for compact design */
+    border: 1px solid #ccc; /* Neutral border */
+    border-radius: 6px; /* Subtle rounded edges */
+    background-color: #f9f9f9; /* Light grey background for contrast */
+    color: #333; /* Dark grey text for readability */
+    margin-bottom: 12px; /* Consistent spacing between inputs */
+    transition: border-color 0.2s ease, background-color 0.2s ease;
+}
+
+/* Focus Effects */
+.calendar-form input:focus, 
+.calendar-form select:focus, 
+.calendar-form textarea:focus {
+    border-color: #4285F4; /* Google blue for focus */
+    background-color: #fff; /* Highlights active field */
+    outline: none;
+    box-shadow: 0 0 5px rgba(66, 133, 244, 0.2); /* Subtle glow */
+}
+
+/* Labels */
+.calendar-form label {
+    font-size: 12px; /* Compact label size */
+    font-weight: 500; /* Slightly bold for visibility */
+    color: #555; /* Medium grey text */
+    margin-bottom: 5px; /* Space above input */
+    display: block; /* Ensures label is above input */
+}
+
+/* Submit Button */
+.submit-button {
+    display: inline-block;
+    width: auto; /* No full width, more streamlined */
+    padding: 8px 15px;
+    font-size: 14px; /* Compact button text */
+    font-weight: 600; /* Slightly bold for emphasis */
+    color: #fff; /* White text */
+    background-color: #4285F4; /* Google blue */
+    border: none;
+    border-radius: 6px; /* Matches inputs */
+    cursor: pointer;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); /* Light shadow for depth */
+    transition: background-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+/* Submit Button Hover */
+.submit-button:hover {
+    background-color: #3367D6; /* Darker blue on hover */
+    box-shadow: 0 3px 6px rgba(0, 0, 0, 0.15); /* Enhanced shadow */
+}
+
+/* Submit Button Active */
+.submit-button:active {
+    background-color: #285AB1; /* Even darker on click */
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); /* Reset shadow */
+}
+
+/* Textarea Specific Styling */
+.calendar-form textarea {
+    height: 100px; /* Moderate height */
+    resize: none; /* Disable resizing for consistency */
+}
+
+/* General Layout */
+.main-content {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start; /* Left-aligned layout */
+    gap: 10px; /* Spacing between elements */
+}
