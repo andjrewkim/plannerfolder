@@ -1,89 +1,78 @@
-/* Main Form Styling */
+/* Align the form inputs to the left */
 .calendar-form {
-    max-width: 400px; /* Keeps the form compact */
-    background-color: #fff; /* Clean white background */
-    border: 1px solid #ddd; /* Subtle border */
-    border-radius: 8px; /* Slightly rounded edges for modern look */
-    padding: 15px 20px;
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1); /* Subtle shadow */
-    font-family: 'Roboto', sans-serif; /* Google-like font */
-    margin-left: 10px; /* Not centered, slight indentation */
-}
-
-/* Form Inputs */
-.calendar-form input[type="text"], 
-.calendar-form input[type="email"], 
-.calendar-form input[type="password"], 
-.calendar-form select, 
-.calendar-form textarea {
-    width: 93%;
-    padding: 10px 12px;
-    font-size: 14px; /* Slightly smaller font for compact design */
-    border: 1px solid #ccc; /* Neutral border */
-    border-radius: 6px; /* Subtle rounded edges */
-    background-color: #f9f9f9; /* Light grey background for contrast */
-    color: #333; /* Dark grey text for readability */
-    margin-bottom: 12px; /* Consistent spacing between inputs */
-    transition: border-color 0.2s ease, background-color 0.2s ease;
-}
-
-/* Focus Effects */
-.calendar-form input:focus, 
-.calendar-form select:focus, 
-.calendar-form textarea:focus {
-    border-color: #4285F4; /* Google blue for focus */
-    background-color: #fff; /* Highlights active field */
-    outline: none;
-    box-shadow: 0 0 5px rgba(66, 133, 244, 0.2); /* Subtle glow */
-}
-
-/* Labels */
-.calendar-form label {
-    font-size: 12px; /* Compact label size */
-    font-weight: 500; /* Slightly bold for visibility */
-    color: #555; /* Medium grey text */
-    margin-bottom: 5px; /* Space above input */
-    display: block; /* Ensures label is above input */
-}
-
-/* Submit Button */
-.submit-button {
-    display: inline-block;
-    width: auto; /* No full width, more streamlined */
-    padding: 8px 15px;
-    font-size: 14px; /* Compact button text */
-    font-weight: 600; /* Slightly bold for emphasis */
-    color: #fff; /* White text */
-    background-color: #4285F4; /* Google blue */
-    border: none;
-    border-radius: 6px; /* Matches inputs */
-    cursor: pointer;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); /* Light shadow for depth */
-    transition: background-color 0.2s ease, box-shadow 0.2s ease;
-}
-
-/* Submit Button Hover */
-.submit-button:hover {
-    background-color: #3367D6; /* Darker blue on hover */
-    box-shadow: 0 3px 6px rgba(0, 0, 0, 0.15); /* Enhanced shadow */
-}
-
-/* Submit Button Active */
-.submit-button:active {
-    background-color: #285AB1; /* Even darker on click */
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); /* Reset shadow */
-}
-
-/* Textarea Specific Styling */
-.calendar-form textarea {
-    height: 100px; /* Moderate height */
-    resize: none; /* Disable resizing for consistency */
-}
-
-/* General Layout */
-.main-content {
+    max-width: 600px;
+    margin: 10px 0; /* Remove centering by changing 'auto' to '0' */
+    padding: 10px;
+    border-radius: 8px;
+    background-color: #fff;
+    text-align: left; /* Ensure text inside the form is aligned to the left */
     display: flex;
     flex-direction: column;
-    align-items: flex-start; /* Left-aligned layout */
-    gap: 10px; /* Spacing between elements */
+}
+
+/* Ensure inputs are aligned properly */
+.calendar-form input {
+    width: 100%;
+    padding: 12px;
+    margin: 10px 0;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-size: 16px;
+    background-color: #f9f9f9;
+    text-align: left; /* Align text inside inputs to the left */
+}
+
+/* Styling for the button */
+.calendar-form button {
+    padding: 8px 12px; /* Reduce button size */
+    font-size: 14px;
+}
+
+/* Styling for extracted information */
+.extracted-info {
+    margin-top: 10px; /* Reduce the top margin */
+    position: relative; /* Place it on the right of the form */
+    top: -50px;
+    right: -50px;
+}
+
+.extracted-info h2 {
+    font-size: 1.2rem; /* Adjust header size */
+    margin-bottom: 10px;
+    color: #333;
+}
+
+.extracted-info p {
+    font-size: 0.9rem; /* Adjust paragraph size */
+    color: #555;
+    margin: 5px 0;
+}
+
+.extracted-info span {
+    font-weight: bold;
+    color: #000;
+}
+
+/* Changing text box size for 'Enter your text' */
+.calendar-form textarea {
+    width: 200px; /* Adjust width */
+    height: 100px; /* Adjust height */
+    border: 2px solid #ccc; /* Border style */
+    border-radius: 8px; /* Rounded corners */
+    padding: 8px; /* Padding inside the text box */
+    font-size: 14px; /* Font size */
+    resize: vertical; /* Allow vertical resizing only */
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); /* Subtle shadow */
+}
+
+/* Focus state for the calendar form */
+.calendar-form textarea:focus {
+    border-color: #007bff; /* Highlight border color on focus */
+    box-shadow: 0 0 5px rgba(0, 123, 255, 0.5); /* Highlight effect */
+    outline: none; /* Remove default outline */
+}
+
+/* Styling for page header */
+h1 {
+    font-size: 1.8rem; /* Adjust page header size */
 }

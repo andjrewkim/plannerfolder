@@ -1,6 +1,7 @@
 .container {
     display: flex;
     height: 100vh; /* Full viewport height */
+    overflow: hidden; /* Prevent children from overlapping parent edges */
 }
 
 .sidebar {
@@ -9,11 +10,13 @@
     max-width: 500px; /* Maximum width */
     background-color: #f0f0f0;
     border-right: 1px solid #ddd;
-    overflow-y: auto;
+    overflow-y: auto; /* Enable vertical scrolling */
+    padding: 10px; /* Add padding for rounded corners */
+    box-sizing: border-box; /* Ensure padding is included in width calculations */
     position: relative;
 }
 
-.resize-handle { /* Match the class used in JS */
+.resize-handle {
     width: 5px;
     cursor: ew-resize;
     background-color: #ccc;
@@ -24,12 +27,17 @@
     z-index: 10;
 }
 
+.main-content {
+    flex-grow: 1;
+    padding: 20px;
+}
+
 .widget {
-    padding: 10px;
-    margin: 10px;
-    background: #e4e4e4;
-    border: 1px solid #ccc;
-    border-radius: 4px;
+    margin: 10px 5px; /* Add spacing from sidebar edges */
+    padding: 15px;
+    border-radius: 10px; /* Rounded corners */
+    background-color: #ffffff; /* Widget background */
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); /* Soft shadow */
 }
 
 .main-content {
