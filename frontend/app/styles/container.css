@@ -1,0 +1,141 @@
+.calendar-title {
+    font-size: 1.5rem; /* Smaller font size */
+    font-weight: bold; /* Keep it bold for emphasis */
+    color: #444; /* Slightly lighter gray for text */
+    text-align: center; /* Center the title */
+    margin: 10px 0; /* Reduce spacing above and below */
+    padding: 5px; /* Minimal inner spacing */
+    background-color: #e9e9e9; /* Light gray background */
+    border-radius: 4px; /* Subtler rounded corners */
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); /* Reduced shadow */
+  }
+  
+
+
+.container {
+    display: flex;
+    height: 100vh; /* Full viewport height */
+    overflow: hidden; /* Prevent children from overlapping parent edges */
+}
+
+.sidebar {
+    width: 300px; /* Default width */
+    min-width: 150px; /* Minimum width */
+    max-width: 500px; /* Maximum width */
+    background-color: #f0f0f0;
+    border-right: 1px solid #ddd;
+    overflow-y: auto; /* Enable vertical scrolling */
+    padding: 10px; /* Add padding for rounded corners */
+    box-sizing: border-box; /* Ensure padding is included in width calculations */
+    position: relative;
+}
+
+.resize-handle {
+    width: 5px;
+    cursor: ew-resize;
+    background-color: #ccc;
+    position: absolute;
+    top: 0;
+    right: 0;
+    height: 100%;
+    z-index: 10;
+}
+
+.main-content {
+    flex-grow: 1;
+    padding: 20px;
+}
+
+.widget {
+    margin: 10px 5px; /* Add spacing from sidebar edges */
+    padding: 15px;
+    border-radius: 10px; /* Rounded corners */
+    background-color: #ffffff; /* Widget background */
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); /* Soft shadow */
+}
+
+.main-content {
+    flex-grow: 1;
+    padding: 20px;
+}
+
+
+/*WIGET WUMPUS*/
+/* Widget Container */
+.widget {
+    margin: 20px 0;
+    padding: 15px 20px;
+    background-color: #ffffff; /* Clean white background */
+    border: 1px solid #ddd; /* Subtle border */
+    border-radius: 10px; /* Rounded corners for modern feel */
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); /* Soft shadow */
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.widget:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 6px 10px rgba(0, 0, 0, 0.15);
+}
+
+/* Widget Header */
+.widget h3 {
+    margin-bottom: 20px;
+    font-size: 22px;
+    font-weight: 600;
+    color: #333;
+    border-bottom: 2px solid #4285F4; /* Google blue accent */
+    padding-bottom: 8px;
+    letter-spacing: 0.5px;
+}
+
+/* Today's Events List */
+#today-events {
+    list-style-type: none;
+    padding: 0;
+    margin: 0;
+}
+
+/* Individual Event Item */
+#today-events li {
+    display: flex; /* Flex layout for alignment */
+    align-items: center;
+    justify-content: space-between; /* Space out title and time */
+    margin: 15px 0;
+    padding: 15px;
+    background-color: #f7f9fc; /* Subtle background */
+    list-style: none;
+    border-radius: 8px; /* Rounded corners */
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); /* Card-like shadow */
+    transition: background-color 0.3s, transform 0.2s, box-shadow 0.3s;
+}
+
+#today-events li:hover {
+    background-color: #eef3fb; /* Slightly darker hover background */
+    transform: translateY(-2px); /* Lift on hover */
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15); /* Stronger shadow on hover */
+}
+
+/* Event Title */
+#today-events li .event-title {
+    font-size: 16px;
+    font-weight: 500;
+    color: #333;
+    flex-grow: 1;
+    padding-right: 10px; /* Space between title and time */
+}
+
+/* Event Time */
+#today-events li .event-time {
+    font-size: 14px;
+    font-weight: 400;
+    color: #555;
+    background-color: #eef3fb; /* Light tag background */
+    padding: 5px 10px;
+    border-radius: 15px; /* Capsule-like appearance */
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.1); /* Subtle inner shadow */
+    transition: background-color 0.3s;
+}
+
+#today-events li:hover .event-time {
+    background-color: #dbe6f7; /* Slightly brighter hover */
+}
