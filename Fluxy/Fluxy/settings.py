@@ -30,6 +30,20 @@ CORS_ALLOWED_ORIGINS = [
     "http://127.0.0.1:8000",
     "https://flux-qcj2.onrender.com",
 ]
+CORS_ALLOW_CREDENTIALS = True
+
+
+
+# settings.py
+CORS_ALLOW_METHODS = [
+    'GET',
+    'POST',
+    'PUT',
+    'PATCH',
+    'DELETE',
+    'OPTIONS',
+]
+
 
 # Application definition
 

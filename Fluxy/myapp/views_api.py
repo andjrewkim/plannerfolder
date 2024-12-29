@@ -101,3 +101,15 @@ class CalendarEventCreate(APIView):  # Define the class as a subclass of APIView
 
         # Return validation errors
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+
+from rest_framework import viewsets
+from .models import CalendarEvent
+from .serializers import CalendarEventSerializer
+
+class CalendarEventViewSet(viewsets.ModelViewSet):
+    queryset = CalendarEvent.objects.all()
+    serializer_class = CalendarEventSerializer
+
+    # Optionally add custom actions here if needed
