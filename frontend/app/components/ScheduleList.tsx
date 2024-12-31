@@ -1,7 +1,7 @@
 import React from 'react';
 
 const ScheduleList = ({ result }: { result: any[] }) => {
-  if (!result || result.length === 0) return <p>No events to display.</p>;
+  if (!result || result.length === 0) return <p></p>;
 
   return (
     <div className="extracted-info">

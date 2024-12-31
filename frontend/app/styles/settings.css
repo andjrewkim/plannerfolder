@@ -1,0 +1,112 @@
+/* General Settings Page Styles */
+.settings-container {
+    padding: 40px;
+    max-width: 800px;
+    margin: 0 auto;
+    background: #f4f7fa;
+    border-radius: 8px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  }
+  
+  .settings-container h1 {
+    text-align: center;
+    font-size: 2.5rem;
+    color: #333;
+    margin-bottom: 30px;
+  }
+  
+  .settings-section {
+    padding: 20px;
+    background: white;
+    margin-bottom: 20px;
+    border-radius: 8px;
+    border: 1px solid #ddd;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+  }
+  
+  .settings-section h2 {
+    font-size: 1.8rem;
+    color: #333;
+    margin-bottom: 15px;
+    position: relative;
+  }
+  
+  /* Line to separate sections */
+  .settings-section::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 4px;
+    background: linear-gradient(90deg, #007bff, #00bcd4);
+    border-radius: 4px;
+  }
+  
+  .settings-section p {
+    font-size: 1rem;
+    color: #666;
+    margin-bottom: 15px;
+  }
+  
+  .dark-mode {
+    display: flex;
+    align-items: center;
+    margin-top: 10px;
+  }
+  
+  .dark-mode h3 {
+    margin-right: 10px;
+    font-size: 1.2rem;
+  }
+  
+  input[type='checkbox'] {
+    width: 20px;
+    height: 20px;
+    cursor: pointer;
+  }
+  
+  /* Button Styles */
+  .btn {
+    display: inline-block;
+    background-color: #007bff;
+    color: white;
+    padding: 12px 20px;
+    text-decoration: none;
+    border-radius: 30px;
+    transition: background-color 0.3s ease;
+    font-size: 1rem;
+  }
+  
+  .btn:hover {
+    background-color: #0056b3;
+  }
+  
+  .btn:active {
+    background-color: #003f7f;
+  }
+  
+  /* Responsive Design for Small Screens */
+  @media (max-width: 600px) {
+    .settings-container {
+      padding: 20px;
+    }
+  
+    .settings-container h1 {
+      font-size: 2rem;
+    }
+  
+    .settings-section h2 {
+      font-size: 1.6rem;
+    }
+  
+    .dark-mode h3 {
+      font-size: 1rem;
+    }
+  
+    .btn {
+      font-size: 0.9rem;
+      padding: 10px 15px;
+    }
+  }
+  
