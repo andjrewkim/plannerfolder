@@ -86,7 +86,7 @@ const Calendar = () => {
   };
 
   const handleEventDelete = async (eventId: string) => {
-    if (!confirm('Do you want to delete this event?')) return;
+    //if (!confirm('Do you want to delete this event?')) return;   USE MAYBE THIS ALERTS FOR DELETE EVENT
 
     try {
       const response = await fetch(`http://127.0.0.1:8000/api/events/${eventId}/`, {

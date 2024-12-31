@@ -30,10 +30,7 @@ const Page = () => {
           
           {/* Display error message if any */}
           {error && <p style={{ color: 'red' }}>{error}</p>}
-          
-          {/* Display the result if available */}
-          {result && <p>Event created successfully: {JSON.stringify(result)}</p>}
-          
+                    
           <ScheduleList result={result} />
           <Calendar />
         </div>
