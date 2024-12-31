@@ -4,15 +4,17 @@ import Calendar from './components/Calendar';
 import Sidebar from './components/Sidebar';
 import EditModal from './components/EditModal';
 import ScheduleList from './components/ScheduleList';
+import EventForm from './components/EventForm';
 import './styles/container.css';
 
 const Page = () => {
   const [modalOpen, setModalOpen] = useState(false);
-  const [result, setResult] = useState(null);
+  const [result, setResult] = useState<any>(null);  // Store the result from EventForm
+  const [error, setError] = useState<string | null>(null);  // Store error message from EventForm
 
   return (
     <>
-      <h1 className="calendar-title"></h1>
+      <h1 className="calendar-title">Event Calendar</h1>
       <div className="container">
         <Sidebar />
         <div className="main-content">
@@ -22,6 +24,16 @@ const Page = () => {
             {/* Adjust form fields as needed */}
             <button type="submit" className="submit-button">Submit</button>
           </form>
+          
+          {/* Pass setResult and setError to EventForm as props */}
+          <EventForm setResult={setResult} setError={setError} />
+          
+          {/* Display error message if any */}
+          {error && <p style={{ color: 'red' }}>{error}</p>}
+          
+          {/* Display the result if available */}
+          {result && <p>Event created successfully: {JSON.stringify(result)}</p>}
+          
           <ScheduleList result={result} />
           <Calendar />
         </div>

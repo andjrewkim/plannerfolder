@@ -3,6 +3,7 @@ from rest_framework.response import Response
 from rest_framework import status
 from .models import CalendarEvent
 from .serializers import CalendarEventSerializer
+from .views import extract_schedule_info  # Import the function you've already written
 
 from datetime import datetime
 
@@ -26,36 +27,42 @@ class CalendarEventCreate(APIView):  # Define the class as a subclass of APIView
         return Response(data, status=status.HTTP_200_OK)
 
     def post(self, request):
-        # Get the event details from the request body
-        event = request.data.get('event')  # Get the event name or description
-        time = request.data.get('time')   # Get the event time
-        date = request.data.get('date')   # Get the event date
-        color = request.data.get('color', "#000") #blue color as default :)
+        # Get the raw event text from the request body
+        input_text = request.data.get('input_text')  # Assume the input text is sent with the key 'input_text'
 
-        # Create a dictionary with the event data
-        event_data = {
-            'event': event,  # 'event' field from the request
-            'time': time,    # 'time' field from the request
-            'date': date,    # 'date' field from the request
-            'color': color,
-        }
+        if not input_text:
+            return Response({"error": "Input text is required."}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Use the CalendarEventSerializer to validate and save the data
-        serializer = CalendarEventSerializer(data=event_data)
-        if serializer.is_valid():  # Check if the data is valid
-            event_instance = serializer.save()  # Save the event to the database
+        try:
+            # Extract event details from the raw input text using your pre-written function
+            extracted_data = extract_schedule_info(input_text)
 
-            # Return the event with the ID included in the response
-            return Response({
-                "id": event_instance.id,  # Include the event ID
-                "event": event_instance.event,
-                "time": event_instance.time,
-                "date": event_instance.date,
-                "color": event_instance.color
+            # The extracted data should contain 'event', 'date', and 'time'
+            event_data = {
+                'event': extracted_data['event'],  # Extracted event name
+                'date': extracted_data['date'],    # Extracted event date
+                'time': extracted_data['time'],    # Extracted event time
+                'color': request.data.get('color', "#000"),  # Default color if not provided
+            }
 
-            }, status=status.HTTP_201_CREATED)  # Return a successful response
+            # Use the CalendarEventSerializer to validate and save the event data
+            serializer = CalendarEventSerializer(data=event_data)
+            if serializer.is_valid():  # Check if the data is valid
+                event_instance = serializer.save()  # Save the event to the database
 
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)  # Return errors if the data is invalid
+                # Return the event data with the ID included in the response
+                return Response({
+                    "id": event_instance.id,  # Include the event ID
+                    "event": event_instance.event,
+                    "time": event_instance.time,
+                    "date": event_instance.date,
+                    "color": event_instance.color
+                }, status=status.HTTP_201_CREATED)  # Return a successful response
+
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)  # Return errors if the data is invalid
+
+        except Exception as e:
+            return Response({"error": f"Error extracting event details: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     def delete(self, request, *args, **kwargs):
         event_id = kwargs.get('event_id')  # Get event_id from the URL
@@ -101,6 +108,7 @@ class CalendarEventCreate(APIView):  # Define the class as a subclass of APIView
 
         # Return validation errors
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
 
 
 
