@@ -1,0 +1,68 @@
+/* Container for the event form */
+form {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start; /* Align everything to the left */
+    justify-content: flex-start;
+    width: auto;
+    margin: 10px; /* Add some space around the form */
+    padding: 0;
+    box-sizing: border-box;
+    overflow: hidden;
+
+}
+
+/* Textarea styling (small, black outline) */
+textarea {
+    width: 200px; /* Small width */
+    height: 30px; /* Small height */
+    padding: 5px;
+    margin-bottom: 10px;
+    border: 1px solid #000; /* Black outline */
+    font-size: 14px;
+    color: #333;
+    background-color: transparent; /* No background color */
+    resize: none; /* Disable resizing */
+    overflow: hidden; /* Prevent scrolling */
+    box-sizing: border-box;
+}
+
+/* Textarea placeholder */
+textarea::placeholder {
+    color: #aaa;
+}
+
+/* Button styling (small and simple) */
+button {
+    padding: 5px 0px; /* Small padding */
+    background-color: transparent; /* No background */
+    color: #000; /* Black text */
+    border: 1px solid #000; /* Black outline */
+    border-radius: 4px;
+    font-size: 14px;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+    width: 100px; /* Fixed small width */
+    margin-top: 10px; /* Space above button */
+}
+
+/* Button hover effect */
+button:hover {
+    background-color: #f0f0f0; /* Light background on hover */
+}
+
+/* Error message styling */
+.error {
+    color: #ff4d4d;
+    margin-top: 10px;
+    font-size: 14px;
+    text-align: left;
+}
+
+/* Success message styling */
+.success {
+    color: #4CAF50;
+    margin-top: 10px;
+    font-size: 14px;
+    text-align: left;
+}

@@ -14,7 +14,7 @@ const Page = () => {
 
   return (
     <>
-      <h1 className="calendar-title">Event Calendar</h1>
+      {/* <h1 className="calendar-title">Event Calendar</h1> */}
       <div className="container">
         <Sidebar />
         <div className="main-content">
@@ -22,7 +22,6 @@ const Page = () => {
           <form method="post" className="calendar-form">
             <input type="hidden" name="csrfmiddlewaretoken" value="Django-CSRF-Token" />
             {/* Adjust form fields as needed */}
-            <button type="submit" className="submit-button">Submit</button>
           </form>
           
           {/* Pass setResult and setError to EventForm as props */}

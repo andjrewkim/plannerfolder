@@ -1,0 +1,8 @@
+#calendar {
+    width: 90%;  /* Adjust the width */
+    height: 80vh !important;  /* Set the height to 80% of the viewport height */
+    margin-left: 2rem;
+    margin-top: 2rem;
+
+}
+

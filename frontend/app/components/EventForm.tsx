@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { createEvent } from '../services/apiService';  // Import the API service
+import '../styles/eventform.css';
+
 
 interface EventFormProps {
   setResult: React.Dispatch<React.SetStateAction<any>>;

@@ -18,8 +18,36 @@ const Calendar = () => {
   const calendarRef = useRef(null);
 
   useEffect(() => {
+    // Fetch events when the component mounts
     fetchEvents();
+
+//-----CHANGE CALENDAR HEIGHT BASED ON HEIGHT OF WINDOW BECAUSE CSS DOESN"T WORK----------------------------------------------------------------------------------------------
+
+    // Set the calendar height initially and on window resize
+    const updateCalendarHeight = () => {
+      if (calendarRef.current) {
+        const calendarApi = calendarRef.current.getApi();
+        const calendarEl = calendarApi.el;
+
+        // Adjust the height of the calendar based on the window height
+        calendarEl.style.height = `${window.innerHeight * 0.8}px`;  // 80% of the viewport height
+        calendarApi.updateSize(); // Update the calendar size
+      }
+    };
+
+    // Initial call to set the height
+    updateCalendarHeight();
+
+    // Add resize event listener to adjust the height dynamically
+    window.addEventListener('resize', updateCalendarHeight);
+
+    // Cleanup event listener on component unmount
+    return () => {
+      window.removeEventListener('resize', updateCalendarHeight);
+    };
   }, []);
+
+//-----------------------------------------------------------------------------------------------------------------------------------------------------------
 
   const fetchEvents = async () => {
     try {
@@ -86,8 +114,6 @@ const Calendar = () => {
   };
 
   const handleEventDelete = async (eventId: string) => {
-    //if (!confirm('Do you want to delete this event?')) return;   USE MAYBE THIS ALERTS FOR DELETE EVENT
-
     try {
       const response = await fetch(`http://127.0.0.1:8000/api/events/${eventId}/`, {
         method: 'DELETE',
@@ -134,7 +160,6 @@ const Calendar = () => {
           ref={calendarRef}
           plugins={[dayGridPlugin]}
           initialView="dayGridMonth"
-          height="auto"
           events={events}
           eventClick={handleEventClick}
         />
