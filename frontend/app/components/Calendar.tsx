@@ -11,7 +11,11 @@ interface EventDetails {
   date: string;
 }
 
-const Calendar = () => {
+interface CalendarProps {
+  onEventChange: () => void; // Callback to notify parent of event changes
+}
+
+const Calendar: React.FC<CalendarProps> = ({ onEventChange }) => {
   const [modalOpen, setModalOpen] = useState(false);
   const [eventDetails, setEventDetails] = useState<EventDetails | null>(null);
   const [events, setEvents] = useState([]);
@@ -21,7 +25,7 @@ const Calendar = () => {
     // Fetch events when the component mounts
     fetchEvents();
 
-//-----CHANGE CALENDAR HEIGHT BASED ON HEIGHT OF WINDOW BECAUSE CSS DOESN"T WORK----------------------------------------------------------------------------------------------
+    //-----CHANGE CALENDAR HEIGHT BASED ON HEIGHT OF WINDOW BECAUSE CSS DOESN'T WORK----------------------------------------------------------------------------------------------
 
     // Set the calendar height initially and on window resize
     const updateCalendarHeight = () => {
@@ -30,7 +34,7 @@ const Calendar = () => {
         const calendarEl = calendarApi.el;
 
         // Adjust the height of the calendar based on the window height
-        calendarEl.style.height = `${window.innerHeight * 0.8}px`;  // 80% of the viewport height
+        calendarEl.style.height = `${window.innerHeight * 0.8}px`; // 80% of the viewport height
         calendarApi.updateSize(); // Update the calendar size
       }
     };
@@ -47,16 +51,18 @@ const Calendar = () => {
     };
   }, []);
 
-//-----------------------------------------------------------------------------------------------------------------------------------------------------------
+  //-----------------------------------------------------------------------------------------------------------------------------------------------------------
 
   const fetchEvents = async () => {
     try {
       const response = await fetch('http://127.0.0.1:8000/api/events/');
       const data = await response.json();
-      setEvents(data.map((event: any) => ({
-        ...event,
-        start: formatEventDate(event.start),
-      })));
+      setEvents(
+        data.map((event: any) => ({
+          ...event,
+          start: formatEventDate(event.start),
+        }))
+      );
     } catch (error) {
       console.error('Error fetching events:', error);
     }
@@ -78,12 +84,16 @@ const Calendar = () => {
   const getCSRFToken = () => {
     const token = document.cookie
       .split('; ')
-      .find(row => row.startsWith('csrftoken='))
+      .find((row) => row.startsWith('csrftoken='))
       ?.split('=')[1];
     return token || '';
   };
 
-  const handleSave = async (e: React.FormEvent, eventId: string, updatedEvent: EventDetails) => {
+  const handleSave = async (
+    e: React.FormEvent,
+    eventId: string,
+    updatedEvent: EventDetails
+  ) => {
     e.preventDefault();
 
     const formattedEvent = {
@@ -105,6 +115,7 @@ const Calendar = () => {
       if (response.ok) {
         setModalOpen(false);
         fetchEvents(); // Refresh events
+        onEventChange(); // Notify parent of event change
       } else {
         alert('Failed to update event.');
       }
@@ -126,7 +137,8 @@ const Calendar = () => {
 
       if (response.ok) {
         setModalOpen(false);
-        fetchEvents();
+        fetchEvents(); // Refresh events
+        onEventChange(); // Notify parent of event change
       } else {
         alert('Failed to delete event.');
       }
