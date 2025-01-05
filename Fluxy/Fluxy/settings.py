@@ -57,6 +57,9 @@ INSTALLED_APPS = [
     'corsheaders',
     'rest_framework',
     'myapp',
+    'whitenoise.runserver_nostatic',  # For development purposes
+
+    
 ]
 
 MIDDLEWARE = [
@@ -92,8 +95,10 @@ TEMPLATES = [
         },
     },
 ]
+
+
 #blank comment
-WSGI_APPLICATION = 'Fluxy.wsgi.application'
+#WSGI_APPLICATION = 'Fluxy.wsgi.application'
 
 # Database
 # For SQLite (default)
