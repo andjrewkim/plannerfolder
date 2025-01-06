@@ -1,10 +1,10 @@
 from .forms import UserInputForm
 from .models import CalendarEvent
-from llama_cpp import Llama
 import json
 import os
 import re
 import requests
+
 from tqdm import tqdm
 
 import spacy
@@ -14,257 +14,180 @@ from typing import Dict, Optional, Any, List, Set
 from typing import Dict, List, Set, Tuple
 from difflib import get_close_matches
 from collections import defaultdict
-
-from datetime import datetime, timedelta
 from typing import Optional, Union, Dict, List, Tuple
-import re
 from calendar import month_name, month_abbr
 import pytz
+from typing import Optional, Dict, Any
+import calendar
+
+
 
 class DateHandler:
     def __init__(self):
-        # Initialize relative time indicators
-        self.relative_indicators = {
-            'next': 1,
-            'following': 1,
-            'upcoming': 1,
-            'last': -1,
-            'previous': -1,
-            'past': -1,
-            'this': 0
-        }
+        # Build month mappings including variants
+        self.month_mappings: Dict[str, int] = {}
+        for i, month in enumerate(calendar.month_name[1:], 1):
+            self.month_mappings[month.lower()] = i
+            self.month_mappings[month[:3].lower()] = i
+        # Add numeric months
+        for i in range(1, 13):
+            self.month_mappings[str(i)] = i
+            self.month_mappings[f"{i:02d}"] = i
 
-        # Build comprehensive weekday mappings
+        # Weekday mappings (0 = Monday, 6 = Sunday)
         self.weekday_mappings = {
-            'monday': 0, 'mon': 0, 'mo': 0,
-            'tuesday': 1, 'tue': 1, 'tu': 1, 'tues': 1,
-            'wednesday': 2, 'wed': 2, 'we': 2,
-            'thursday': 3, 'thu': 3, 'th': 3, 'thur': 3, 'thurs': 3,
-            'friday': 4, 'fri': 4, 'fr': 4,
-            'saturday': 5, 'sat': 5, 'sa': 5,
-            'sunday': 6, 'sun': 6, 'su': 6
-        }
-        
-        # Build month mappings
-        self.month_mappings = {}
-        for i, (full, abbr) in enumerate(zip(month_name[1:], month_abbr[1:]), 1):
-            self.month_mappings.update({
-                full.lower(): i,
-                abbr.lower(): i,
-                full[:3].lower(): i,
-                f"{i}": i,
-                f"{i:02d}": i
-            })
-
-        # Number mappings including ordinals
-        self.number_mappings = {
-            'one': 1, 'first': 1, '1st': 1,
-            'two': 2, 'second': 2, '2nd': 2,
-            'three': 3, 'third': 3, '3rd': 3,
-            'four': 4, 'fourth': 4, '4th': 4,
-            'five': 5, 'fifth': 5, '5th': 5,
-            'six': 6, 'sixth': 6, '6th': 6,
-            'seven': 7, 'seventh': 7, '7th': 7,
-            'eight': 8, 'eighth': 8, '8th': 8,
-            'nine': 9, 'ninth': 9, '9th': 9,
-            'ten': 10, 'tenth': 10, '10th': 10,
-            'eleven': 11, 'eleventh': 11, '11th': 11,
-            'twelve': 12, 'twelfth': 12, '12th': 12,
-            'thirteen': 13, 'thirteenth': 13, '13th': 13,
-            'fourteen': 14, 'fourteenth': 14, '14th': 14,
-            'fifteen': 15, 'fifteenth': 15, '15th': 15,
-            'sixteen': 16, 'sixteenth': 16, '16th': 16,
-            'seventeen': 17, 'seventeenth': 17, '17th': 17,
-            'eighteen': 18, 'eighteenth': 18, '18th': 18,
-            'nineteen': 19, 'nineteenth': 19, '19th': 19,
-            'twenty': 20, 'twentieth': 20, '20th': 20,
-            'thirty': 30, 'thirtieth': 30, '30th': 30,
-            'thirty-first': 31, '31st': 31
+            'monday': 0, 'mon': 0,
+            'tuesday': 1, 'tue': 1,
+            'wednesday': 2, 'wed': 2,
+            'thursday': 3, 'thu': 3,
+            'friday': 4, 'fri': 4,
+            'saturday': 5, 'sat': 5,
+            'sunday': 6, 'sun': 6
         }
 
-        # Relative day terms
-        self.relative_day_terms = {
+        # Special date keywords
+        self.special_dates = {
             'today': 0,
-            'tonight': 0,
-            'now': 0,
             'tomorrow': 1,
-            'tmr': 1,
-            'tmrw': 1,
-            'tom': 1,
             'yesterday': -1,
-            'day after tomorrow': 2,
-            'day before yesterday': -2
+            'next week': 7,
+            'last week': -7
         }
 
-    def handle_dates(self, text: str) -> Optional[datetime]:
+    def parse_date(self, text: str) -> Optional[datetime]:
         """Main entry point for date parsing"""
         if not text:
             return None
 
         text = text.lower().strip()
         
-        # Try each parsing method in order
-        methods = [
-            self._parse_relative_day,
+        # Try each parser in order
+        parsers = [
+            self._parse_special_date,
             self._parse_relative_weekday,
-            self._parse_specific_date,
             self._parse_month_day,
             self._parse_formal_date
         ]
 
-        for method in methods:
+        for parser in parsers:
             try:
-                result = method(text)
+                result = parser(text)
                 if result:
                     return result
-            except Exception:
+            except Exception as e:
                 continue
 
         return None
 
-    def _parse_relative_day(self, text: str) -> Optional[datetime]:
-        """Handle relative day expressions"""
+    def _parse_special_date(self, text: str) -> Optional[datetime]:
+        """Parse special date terms like 'today', 'tomorrow', etc."""
         now = datetime.now()
         
-        # Check direct matches first
-        for term, days in self.relative_day_terms.items():
+        # Check special dates dictionary
+        for term, days in self.special_dates.items():
             if term in text:
                 return now + timedelta(days=days)
 
-        # Handle "in X days/weeks"
-        in_match = re.search(r'in\s+(\d+|[a-zA-Z\-]+)\s+(day|week)s?', text)
-        if in_match:
-            number = in_match.group(1)
-            unit = in_match.group(2)
-            
-            # Convert word to number if needed
-            if number.isdigit():
-                num = int(number)
-            else:
-                num = self.number_mappings.get(number, 0)
-            
-            if unit == 'day':
-                return now + timedelta(days=num)
-            elif unit == 'week':
-                return now + timedelta(weeks=num)
+        # Handle "in X days"
+        match = re.search(r'in\s+(\d+)\s+days?', text)
+        if match:
+            days = int(match.group(1))
+            return now + timedelta(days=days)
 
         return None
 
     def _parse_relative_weekday(self, text: str) -> Optional[datetime]:
-        """Handle relative weekday expressions"""
+        """Parse weekday expressions like 'next monday', 'this friday'"""
         now = datetime.now()
-        
-        # Match pattern for complex relative weekday expressions
-        pattern = r'(?:(next|following|this|last|previous)\s+)?(?:(next)\s+)?([a-zA-Z]+day|mon|tue|wed|thu|fri|sat|sun)'
-        match = re.search(pattern, text)
-        
-        if match:
-            first_modifier = match.group(1) or 'this'
-            second_modifier = match.group(2)
-            weekday = match.group(3)
-            
-            # Get target weekday number (0-6)
-            target_weekday = self.weekday_mappings.get(weekday)
-            if target_weekday is None:
-                return None
+
+        # Match weekday patterns
+        for day, day_num in self.weekday_mappings.items():
+            if day not in text:
+                continue
+
+            is_next = 'next' in text
+            is_last = 'last' in text
             
             current_weekday = now.weekday()
+            target_weekday = day_num
             
-            # Calculate days until the next occurrence of target weekday
+            if is_last:
+                # Go back to last occurrence
+                days_diff = (current_weekday - target_weekday) % 7
+                if days_diff == 0:
+                    days_diff = 7
+                return now - timedelta(days=days_diff)
+            
+            # Calculate days until next occurrence
             days_ahead = (target_weekday - current_weekday) % 7
-            if days_ahead == 0:  # If it's the same day
+            if days_ahead == 0 and not is_next:
                 days_ahead = 7
+            
+            # Add extra week if "next" is specified
+            if is_next:
+                days_ahead += 7
                 
-            result_date = now + timedelta(days=days_ahead)
-            
-            # Handle modifiers
-            if first_modifier in ['next', 'following']:
-                # "Next" means the one after the upcoming one
-                result_date += timedelta(days=7)
-            elif first_modifier in ['last', 'previous']:
-                # Go back two weeks and then forward to the target day
-                result_date = now - timedelta(days=14)
-                days_ahead = (target_weekday - result_date.weekday()) % 7
-                result_date += timedelta(days=days_ahead)
-            
-            # Add extra week for "next next"
-            if second_modifier == 'next':
-                result_date += timedelta(days=7)
-            
-            return result_date
-        
-        return None
+            return now + timedelta(days=days_ahead)
 
-    def _parse_specific_date(self, text: str) -> Optional[datetime]:
-        """Handle specific date expressions like '8th of January'"""
-        now = datetime.now()
-        
-        # Pattern for "Xth of Month" or "Month Xth"
-        patterns = [
-            r'(?:the\s+)?(\d+(?:st|nd|rd|th)?|[a-zA-Z\-]+)\s+(?:of\s+)?([a-zA-Z]+)',  # 8th of January
-            r'([a-zA-Z]+)\s+(?:the\s+)?(\d+(?:st|nd|rd|th)?|[a-zA-Z\-]+)'  # January 8th
-        ]
-        
-        for pattern in patterns:
-            match = re.search(pattern, text)
-            if match:
-                groups = match.groups()
-                
-                # Determine which group is the month and which is the day
-                if groups[0].lower() in self.month_mappings:
-                    month_str, day_str = groups
-                else:
-                    day_str, month_str = groups
-                
-                # Convert month
-                month = self.month_mappings.get(month_str.lower())
-                if not month:
-                    continue
-                
-                # Convert day
-                day_str = re.sub(r'(?:st|nd|rd|th)', '', day_str)
-                if day_str.isdigit():
-                    day = int(day_str)
-                else:
-                    day = self.number_mappings.get(day_str.lower())
-                
-                if day and 1 <= day <= 31:
-                    # Try to create date, handling invalid dates (e.g., Feb 31)
-                    try:
-                        return datetime(now.year, month, day)
-                    except ValueError:
-                        continue
-        
         return None
 
     def _parse_month_day(self, text: str) -> Optional[datetime]:
-        """Handle month and day expressions"""
+        """Parse month and day combinations"""
         now = datetime.now()
         
-        # Look for month names
+        # Remove common words and clean up text
+        text = re.sub(r'\b(of|the|st|nd|rd|th)\b', '', text)
+        text = ' '.join(text.split())
+        
+        # Try to find month
+        found_month = None
+        month_value = None
+        
         for month_name, month_num in self.month_mappings.items():
             if month_name in text:
-                # Find nearby numbers
-                numbers = re.findall(r'\d+', text)
-                if numbers:
-                    # Use the closest number to the month name as the day
-                    try:
-                        day = int(numbers[0])
-                        if 1 <= day <= 31:
-                            return datetime(now.year, month_num, day)
-                    except (ValueError, IndexError):
-                        continue
+                found_month = month_name
+                month_value = month_num
+                break
         
-        return None
+        if not found_month:
+            return None
+
+        # Find day number
+        day_match = re.search(r'\b(\d{1,2})\b', text)
+        if not day_match:
+            # If just month is specified, use the 1st
+            day_value = 1
+        else:
+            day_value = int(day_match.group(1))
+            
+        # Validate day
+        if not (1 <= day_value <= 31):
+            return None
+            
+        # Try to create date
+        try:
+            # If the date would be in the past, use next year
+            year = now.year
+            date = datetime(year, month_value, day_value)
+            if date < now:
+                date = datetime(year + 1, month_value, day_value)
+            return date
+        except ValueError:
+            return None
 
     def _parse_formal_date(self, text: str) -> Optional[datetime]:
-        """Handle formal date formats (YYYY-MM-DD, MM/DD/YYYY, etc.)"""
-        # Try various formal date formats
+        """Parse formal date formats (YYYY-MM-DD, DD/MM/YYYY, etc.)"""
+        # Remove any surrounding text
+        text = text.strip()
+        
+        # Common date formats
         formats = [
-            "%Y-%m-%d", "%Y/%m/%d",  # ISO format
-            "%d/%m/%Y", "%m/%d/%Y",  # US/UK formats
-            "%d-%m-%Y", "%m-%d-%Y",  # Alternative separators
-            "%d.%m.%Y", "%m.%d.%Y"   # Dot separator
+            "%Y-%m-%d",
+            "%d/%m/%Y",
+            "%m/%d/%Y",
+            "%Y/%m/%d",
+            "%d-%m-%Y",
+            "%m-%d-%Y"
         ]
         
         for fmt in formats:
@@ -272,135 +195,103 @@ class DateHandler:
                 return datetime.strptime(text, fmt)
             except ValueError:
                 continue
-            
+                
         return None
 
-    def is_valid_date(self, date: datetime) -> bool:
-        """Validate if a date is reasonable"""
-        if not isinstance(date, datetime):
-            return False
-            
-        now = datetime.now()
-        hundred_years = timedelta(days=365*100)
+# Example usage
+if __name__ == "__main__":
+    handler = DateHandler()
+    
+    test_cases = [
+        "april 15",
+        "15th of april",
+        "next monday",
+        "last friday",
+        "tomorrow",
+        "in 3 days",
+        "next week",
+        "2024-01-05",
+        "this wednesday",
+        "april",
+        "tomorrow at 3pm",
+        "next thursday",
+        "may 1st",
+    ]
+    
+    for test in test_cases:
+        result = handler.parse_date(test)
+        print(f"{test}: {result}")
         
-        try:
-            return (now - hundred_years < date < now + hundred_years and
-                    1 <= date.month <= 12 and
-                    1 <= date.day <= 31)
-        except:
-            return False
+        
+import re
+from typing import Dict, Optional, List, Any
 
 class TimeParser:
     def __init__(self):
-        """Initialize time parser with comprehensive patterns for all natural language variations"""
+        """Initialize time parser with essential patterns for time parsing"""
         # Core time patterns
-        self.time_formats = [
-            # Standard times with meridian
-            r'(?P<hour>\d{1,2})[:.](?P<minute>\d{2})\s*(?P<meridian>am|pm|AM|PM|a\.m\.|p\.m\.)',
-            # Times with space before meridian
-            r'(?P<hour>\d{1,2})\s+(?P<minute>\d{2})\s*(?P<meridian>am|pm|AM|PM|a\.m\.|p\.m\.)',
-            # Hour only with meridian
-            r'(?P<hour>\d{1,2})\s*(?P<meridian>am|pm|AM|PM|a\.m\.|p\.m\.)',
+        self.time_patterns = [
             # 24-hour format
-            r'(?P<hour>\d{2}):?(?P<minute>\d{2})',
-            # Simple hour
-            r'\b(?P<hour>\d{1,2})\b(?!\d|:|\.|[ap])',
-            # Hour and minutes without meridian
-            r'(?P<hour>\d{1,2})[:.]\s*(?P<minute>\d{2})(?!\s*[ap]\.?m\.?)',
-            # Written numbers (one through twelve)
-            r'\b(?P<hour>one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)\s*(?P<meridian>am|pm|AM|PM|a\.m\.|p\.m\.)',
+            r'(?P<hour>2[0-3]|[01]?[0-9]):(?P<minute>[0-5][0-9])',  # 13:30, 23:59
+            r'(?P<hour>2[0-3]|[01][0-9])(?P<minute>[0-5][0-9])',    # 1330, 2359
+            
+            # AM/PM formats
+            r'(?P<hour>\d{1,2})[:.](?P<minute>\d{2})\s*(?P<meridian>am|pm|AM|PM|a\.m\.|p\.m\.)',
+            r'(?P<hour>\d{1,2})\s*(?P<meridian>am|pm|AM|PM|a\.m\.|p\.m\.)',
+            
+            # Time range format
+            r'(?P<hour>\d{1,2})\s*-\s*(?P<end_hour>\d{1,2})\s*(?P<meridian>am|pm|AM|PM|a\.m\.|p\.m\.)',
         ]
-
-        # Context patterns for finding times
-        self.time_contexts = [
-            # Starting contexts
-            r'(?:start(?:s|ing)?(?:\s+at)?|from|begin(?:s|ning)?|commenc(?:es|ing)|open(?:s|ing)?|kicks?\s+off)\s+(?P<time>.*?)(?=\s+(?:to|until|til|till|-|ends?|for|and|\n|$))',
-            # Ending contexts
-            r'(?:to|until|til|till|-|ends?(?:\s+at)?|finish(?:es|ing)?|clos(?:es|ing)?)\s+(?P<time>.*?)(?=\s+(?:for|and|\n|$))',
-            # At specific time
-            r'\bat\s+(?P<time>.*?)(?=\s+(?:to|until|til|till|ends?|for|and|\n|$))',
-        ]
-
-        # Comprehensive duration patterns
-        self.duration_patterns = [
-            # Standard format with optional 'for'
-            r'(?:for\s+)?(?:an?\s+)?(?P<hours>\d+|\b(?:one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)\b)\s*(?:hour|hours|hr|hrs|h)s?\b(?:\s+and\s+(?P<minutes>\d+|\b(?:one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|twenty|thirty|forty|fifty)\b)\s*(?:minute|minutes|min|mins|m)s?\b)?',
-            # Just minutes
-            r'(?:for\s+)?(?:an?\s+)?(?P<minutes>\d+|\b(?:one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|twenty|thirty|forty|fifty)\b)\s*(?:minute|minutes|min|mins|m)s?\b',
-            # Duration words
-            r'(?:for\s+)?(?:an?\s+)?(?:half\s+(?:an?\s+)?hour|quarter\s+(?:of\s+)?(?:an?\s+)?hour|hour\s+and\s+(?:a\s+)?half)',
-            # Informal duration
-            r'(?:lasting|duration(?:\s+of)?|running\s+for|goes?\s+for)\s+(?P<hours>\d+|\b(?:one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)\b)\s*(?:hour|hours|hr|hrs|h)s?',
-            # Very informal duration
-            r'\b(?:an?\s+hour|half\s+hour|quarter\s+hour)\b',
-        ]
-
-        # Number word mappings
-        self.number_words = {
-            'one': 1, 'two': 2, 'three': 3, 'four': 4, 'five': 5,
-            'six': 6, 'seven': 7, 'eight': 8, 'nine': 9, 'ten': 10,
-            'eleven': 11, 'twelve': 12, 'thirteen': 13, 'fourteen': 14,
-            'fifteen': 15, 'sixteen': 16, 'seventeen': 17, 'eighteen': 18,
-            'nineteen': 19, 'twenty': 20, 'twentyone': 21, 'twenty one': 21, 'twenty-one': 21,
-            'twentytwo': 22, 'twenty two': 22, 'twenty-two': 22,
-            'twentythree': 23, 'twenty three': 23, 'twenty-three': 23,
-            'twentyfour': 24, 'twenty four': 24, 'twenty-four': 24,
-            'twentyfive': 25, 'twenty five': 25, 'twenty-five': 25,
-            'twentysix': 26, 'twenty six': 26, 'twenty-six': 26,
-            'twentyseven': 27, 'twenty seven': 27, 'twenty-seven': 27,
-            'twentyeight': 28, 'twenty eight': 28, 'twenty-eight': 28,
-            'twentynine': 29, 'twenty nine': 29, 'twenty-nine': 29,
-            'thirty': 30, 'thirtyone': 31, 'thirty one': 31, 'thirty-one': 31,
-            'thirtytwo': 32, 'thirty two': 32, 'thirty-two': 32,
-            'thirtythree': 33, 'thirty three': 33, 'thirty-three': 33,
-            'thirtyfour': 34, 'thirty four': 34, 'thirty-four': 34,
-            'thirtyfive': 35, 'thirty five': 35, 'thirty-five': 35,
-            'thirtysix': 36, 'thirty six': 36, 'thirty-six': 36,
-            'thirtyseven': 37, 'thirty seven': 37, 'thirty-seven': 37,
-            'thirtyeight': 38, 'thirty eight': 38, 'thirty-eight': 38,
-            'thirtynine': 39, 'thirty nine': 39, 'thirty-nine': 39,
-            'forty': 40, 'fortyone': 41, 'forty one': 41, 'forty-one': 41,
-            'fortytwo': 42, 'forty two': 42, 'forty-two': 42,
-            'fortythree': 43, 'forty three': 43, 'forty-three': 43,
-            'fortyfour': 44, 'forty four': 44, 'forty-four': 44,
-            'fortyfive': 45, 'forty five': 45, 'forty-five': 45,
-            'fortysix': 46, 'forty six': 46, 'forty-six': 46,
-            'fortyseven': 47, 'forty seven': 47, 'forty-seven': 47,
-            'fortyeight': 48, 'forty eight': 48, 'forty-eight': 48,
-            'fortynine': 49, 'forty nine': 49, 'forty-nine': 49,
-            'fifty': 50, 'fiftyone': 51, 'fifty one': 51, 'fifty-one': 51,
-            'fiftytwo': 52, 'fifty two': 52, 'fifty-two': 52,
-            'fiftythree': 53, 'fifty three': 53, 'fifty-three': 53,
-            'fiftyfour': 54, 'fifty four': 54, 'fifty-four': 54,
-            'fiftyfive': 55, 'fifty five': 55, 'fifty-five': 55,
-            'fiftysix': 56, 'fifty six': 56, 'fifty-six': 56,
-            'fiftyseven': 57, 'fifty seven': 57, 'fifty-seven': 57,
-            'fiftyeight': 58, 'fifty eight': 58, 'fifty-eight': 58,
-            'fiftynine': 59, 'fifty nine': 59, 'fifty-nine': 59,
-            'sixty': 60
-        }
-
 
         # Special time expressions
         self.special_times = {
             'noon': '12:00',
             'midnight': '00:00',
-            'midday': '12:00',
             'morning': '09:00',
             'afternoon': '14:00',
             'evening': '19:00',
             'night': '20:00',
+        }
+        
+        
+        self.number_words = {
+            'one': 1, 'two': 2, 'three': 3, 'four': 4, 'five': 5,
+            'six': 6, 'seven': 7, 'eight': 8, 'nine': 9, 'ten': 10,
+            'eleven': 11, 'twelve': 12
+        }
+        
+        self.duration_patterns = [
+            # Numeric hours
+            r'(?:for\s+)?(?P<hours>\d+)\s*(?:hour|hours|hr|hrs|h)s?(?:\s+(?:and\s+)?(?P<minutes>\d+)\s*(?:minute|minutes|min|mins|m)s?)?',
+            # Word number hours
+            r'(?:for\s+)?(?P<hours>one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)\s*(?:hour|hours|hr|hrs|h)s?(?:\s+(?:and\s+)?(?P<minutes>\d+)\s*(?:minute|minutes|min|mins|m)s?)?',
+            # Minutes only
+            r'(?:for\s+)?(?P<minutes>\d+)\s*(?:minute|minutes|min|mins|m)s?',
+            # Special durations
+            r'(?:an|a)\s+hour',
+            r'half\s+(?:an\s+)?hour',
+            r'quarter\s+(?:of\s+)?(?:an\s+)?hour',
+        ]
+
+
+        self.date_patterns = [
+            r'\b(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\s+\d{1,2}\b',
+            r'\b\d{1,2}\s+(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\b',
+        ]
+
+
+        self.special_times = {
+            'noon': '12:00',
+            'midnight': '00:00',
+            'morning': '09:00',
+            'afternoon': '14:00',
+            'evening': '19:00',
+            'night': '20:00',
+            'midday': '12:00',
             'lunchtime': '12:00',
-            'lunch': '12:00',
-            'breakfast': '08:00',
-            'dinner': '18:00',
-            'dawn': '06:00',
-            'dusk': '18:00',
-            'sunset': '18:00',
-            'sunrise': '06:00',
         }
 
-        # Special duration expressions
+        # Special duration values (in minutes)
         self.special_durations = {
             'an hour': 60,
             'a hour': 60,
@@ -408,137 +299,97 @@ class TimeParser:
             'half an hour': 30,
             'quarter hour': 15,
             'quarter of an hour': 15,
-            'hour and a half': 90,
-            'hour and half': 90,
-            'couple hours': 120,
-            'a few hours': 180,  # "A few hours" is typically 3 hours
-            'several hours': 240,
         }
+        
+        self.compiled_time_patterns = [re.compile(pattern, re.IGNORECASE) for pattern in self.time_patterns]
+        self.compiled_duration_patterns = [re.compile(pattern, re.IGNORECASE) for pattern in self.duration_patterns]
+        self.compiled_date_patterns = [re.compile(pattern, re.IGNORECASE) for pattern in self.date_patterns]
+        self.special_times_pattern = re.compile(
+            r'\b(' + '|'.join(self.special_times.keys()) + r')\b', 
+            re.IGNORECASE
+        )
 
-        # Compile all patterns
-        self.time_patterns = [re.compile(pattern, re.IGNORECASE) for pattern in self.time_formats]
-        self.context_patterns = [re.compile(pattern, re.IGNORECASE) for pattern in self.time_contexts]
-        self.duration_patterns = [re.compile(pattern, re.IGNORECASE) for pattern in self.duration_patterns]
-        self.special_times_pattern = re.compile(r'\b(' + '|'.join(self.special_times.keys()) + r')\b', re.IGNORECASE)
-
-    def parse_time(self, text: str) -> Dict[str, Any]:
-        """Parse text to extract time information with improved accuracy"""
+    def parse_time(self, text: str) -> Dict[str, Optional[str]]:
+        """
+        Parse time and duration from text and return start and end times.
+        
+        Args:
+            text: Input text containing time information
+            
+        Returns:
+            Dictionary with 'start_time' and 'end_time' keys (values may be None)
+        """
         result = {
             'start_time': None,
-            'end_time': None,
-            'duration': None,
-            'is_all_day': False,
-            'debug_info': {}  # For debugging purposes
+            'end_time': None
         }
 
-        # Check for all-day indicators
-        if self._is_all_day(text):
-            result['is_all_day'] = True
-            return result
+        # First check for special times
+        special_match = self.special_times_pattern.search(text)
+        if special_match:
+            result['start_time'] = self.special_times[special_match.group().lower()]
 
-        # First try to extract times with context
-        times_with_context = self._extract_times_with_context(text)
-        if times_with_context.get('start_time'):
-            result['start_time'] = times_with_context['start_time']
-        if times_with_context.get('end_time'):
-            result['end_time'] = times_with_context['end_time']
+        # Then check for time patterns
+        for pattern in self.compiled_time_patterns:
+            matches = pattern.finditer(text)
+            for match in matches:
+                # Skip if part of a date
+                if self._is_part_of_date(text, match.start(), match.end()):
+                    continue
 
-        # If no times found with context, try to find any times
-        if not result['start_time']:
-            all_times = self._find_all_times(text)
-            if all_times:
-                result['start_time'] = all_times[0]
-                if len(all_times) > 1:
-                    result['end_time'] = all_times[1]
+                groups = match.groupdict()
+                
+                # Handle time range format (e.g., "2-4pm")
+                if 'end_hour' in groups:
+                    range_result = self._handle_range(
+                        groups['hour'],
+                        groups['end_hour'],
+                        groups.get('meridian', '')
+                    )
+                    if range_result:
+                        return range_result
+                
+                # Handle single time
+                time = self._parse_time_match(match)
+                if time:
+                    if not result['start_time']:
+                        result['start_time'] = time
+                    elif not result['end_time']:
+                        result['end_time'] = time
 
-        # Extract duration and calculate end time
-        duration_info = self._extract_duration(text)
-        if duration_info:
-            result['duration'] = duration_info['total_minutes']
-            result['debug_info']['duration_found'] = duration_info
-
-            # Calculate end time if we have start time
-            if result['start_time']:
+        # Check for duration if we have a start time but no end time
+        if result['start_time'] and not result['end_time']:
+            duration_minutes = self._extract_duration(text)
+            if duration_minutes:
+                # Convert start_time to datetime for calculation
                 start_dt = datetime.strptime(result['start_time'], '%H:%M')
-                end_dt = start_dt + timedelta(minutes=duration_info['total_minutes'])
+                end_dt = start_dt + timedelta(minutes=duration_minutes)
                 result['end_time'] = end_dt.strftime('%H:%M')
 
         return result
 
-    def _is_all_day(self, text: str) -> bool:
-        """Check if the event is all-day with expanded patterns"""
-        all_day_indicators = [
-            'all day', 'all-day', 'whole day', 'full day', 'entire day',
-            'throughout the day', 'during the day', 'all day long',
-            'all through the day', 'the whole day'
-        ]
-        return any(indicator in text.lower() for indicator in all_day_indicators)
-
-
-    def _extract_times_with_context(self, text: str) -> Dict[str, Optional[str]]:
-        """Extract times with their context (start/end)"""
-        result = {'start_time': None, 'end_time': None}
-        
-        # Replace special time words
-        for special_word, time_value in self.special_times.items():
-            text = re.sub(r'\b' + special_word + r'\b', time_value, text, flags=re.IGNORECASE)
-
-        # Find start and end times using context
-        for pattern in self.context_patterns:
-            match = pattern.search(text)
-            if match:
-                time_text = match.group('time')
-                parsed_time = self._parse_single_time(time_text)
-                
-                if 'start' in pattern.pattern or 'from' in pattern.pattern:
-                    result['start_time'] = parsed_time
-                elif 'end' in pattern.pattern or 'until' in pattern.pattern:
-                    result['end_time'] = parsed_time
-
-        return result
-
-    def _find_all_times(self, text: str) -> list:
-        """Find all time mentions in the text"""
-        times = []
-        
-        # Check for special times
-        special_matches = self.special_times_pattern.finditer(text)
-        for match in special_matches:
-            word = match.group().lower()
-            times.append(self.special_times[word])
-
-        # Check for regular time patterns
-        for pattern in self.time_patterns:
-            matches = pattern.finditer(text)
-            for match in matches:
-                time = self._parse_time_match(match)
-                if time:
-                    times.append(time)
-
-        return sorted(list(set(times)))
-
+    def _is_part_of_date(self, text: str, start_pos: int, end_pos: int) -> bool:
+        """Check if the matched text is part of a date"""
+        for pattern in self.compiled_date_patterns:
+            for match in pattern.finditer(text):
+                if start_pos >= match.start() and end_pos <= match.end():
+                    return True
+        return False
 
     def _parse_time_match(self, match: re.Match) -> Optional[str]:
-        """Parse time with enhanced meridian handling and null safety"""
+        """Parse a time match and return in 24-hour format"""
         try:
             groups = match.groupdict()
+            hour_str = groups['hour']
             
-            # Add null safety checks for hour and minute
-            hour_str = groups.get('hour')
-            if hour_str is None:
-                return None
+            # Convert word numbers to digits
+            if isinstance(hour_str, str) and hour_str.lower() in self.number_words:
+                hour = self.number_words[hour_str.lower()]
+            else:
+                hour = int(hour_str)
                 
-            minute_str = groups.get('minute', '0')  # Default to '0' for minute
+            minute = int(groups.get('minute', '0'))
             meridian = groups.get('meridian', '').lower().replace('.', '')
-
-            # Convert word numbers to digits if necessary
-            if not isinstance(hour_str, str) or not hour_str.isdigit():
-                hour_str = str(self.number_words.get(str(hour_str).lower(), 0))
-            if not isinstance(minute_str, str) or not minute_str.isdigit():
-                minute_str = str(self.number_words.get(str(minute_str).lower(), 0))
-
-            hour = int(hour_str)
-            minute = int(minute_str)
 
             # Convert to 24-hour format
             if meridian:
@@ -546,9 +397,6 @@ class TimeParser:
                     hour += 12
                 elif meridian.startswith('a') and hour == 12:
                     hour = 0
-            elif hour < 12:
-                # If no meridian and hour < 12, keep as is (assumes 24-hour format)
-                pass
 
             # Validate time
             if not (0 <= hour <= 23 and 0 <= minute <= 59):
@@ -556,76 +404,77 @@ class TimeParser:
 
             return f"{hour:02d}:{minute:02d}"
 
-        except (ValueError, AttributeError) as e:
-            print(f"Error parsing time match: {e}")  # Add debugging
+        except (ValueError, AttributeError):
             return None
 
+    def _extract_duration(self, text: str) -> Optional[int]:
+        """Extract duration from text and return total minutes"""
+        # Check special durations first
+        for special, minutes in self.special_durations.items():
+            if special in text.lower():
+                return minutes
 
-    def _parse_single_time(self, time_text: str) -> Optional[str]:
-        """Parse a single time string"""
-        # Check if it's a special time
-        if time_text.lower() in self.special_times:
-            return self.special_times[time_text.lower()]
-
-        # Try each time pattern
-        for pattern in self.time_patterns:
-            match = pattern.search(time_text)
-            if match:
-                return self._parse_time_match(match)
-
-        return None
-
-    def _extract_duration(self, text: str) -> Optional[Dict[str, Any]]:
-        """Extract duration with enhanced pattern matching and null safety"""
-
-        
-        result = {
-            'total_minutes': 0,
-            'hours': 0,
-            'minutes': 0,
-            'pattern_matched': None
-        }
-
-        # First check special duration expressions
-        for expr, minutes in self.special_durations.items():
-            if expr in text.lower():
-                result['total_minutes'] = minutes
-                result['hours'] = minutes // 60
-                result['minutes'] = minutes % 60
-                result['pattern_matched'] = f"special_duration:{expr}"
-                return result
-
-        # Then check regular duration patterns
-        for pattern in self.duration_patterns:
+        # Check duration patterns
+        for pattern in self.compiled_duration_patterns:
             match = pattern.search(text)
             if match:
                 groups = match.groupdict()
+                total_minutes = 0
                 
-                # Convert word numbers to digits if necessary
-                hours_str = str(groups.get('hours', '0'))
-                minutes_str = str(groups.get('minutes', '0'))
+                # Handle hours
+                if groups.get('hours'):
+                    hours_str = groups['hours']
+                    if hours_str.isdigit():
+                        hours = int(hours_str)
+                    else:
+                        hours = self.number_words.get(hours_str.lower(), 0)
+                    total_minutes += hours * 60
                 
+                # Handle minutes
+                if groups.get('minutes'):
+                    minutes = int(groups['minutes'])
+                    total_minutes += minutes
                 
-                # Convert to integers with word number support
-                if hours_str.isdigit():
-                    hours = int(hours_str)
-                else:
-                    hours = self.number_words.get(hours_str.lower(), 0)
-                    
-                if minutes_str.isdigit():
-                    minutes = int(minutes_str)
-                else:
-                    minutes = self.number_words.get(minutes_str.lower(), 0)
-                
-                
-                result['hours'] = hours
-                result['minutes'] = minutes
-                result['total_minutes'] = hours * 60 + minutes
-                result['pattern_matched'] = pattern.pattern
-                return result
+                return total_minutes
 
         return None
 
+    def _handle_range(self, start_hour_str: str, end_hour_str: str, meridian: str) -> Optional[Dict[str, str]]:
+        """Handle time ranges like 2-4pm"""
+        try:
+            # Convert word numbers if necessary
+            if start_hour_str.lower() in self.number_words:
+                start_hour = self.number_words[start_hour_str.lower()]
+            else:
+                start_hour = int(start_hour_str)
+                
+            if end_hour_str.lower() in self.number_words:
+                end_hour = self.number_words[end_hour_str.lower()]
+            else:
+                end_hour = int(end_hour_str)
+            
+            meridian = meridian.lower().replace('.', '')
+            
+            # Convert to 24-hour format
+            if meridian.startswith('p'):
+                if start_hour != 12:
+                    start_hour += 12
+                if end_hour != 12:
+                    end_hour += 12
+            elif meridian.startswith('a'):
+                if start_hour == 12:
+                    start_hour = 0
+                if end_hour == 12:
+                    end_hour = 0
+                    
+            return {
+                'start_time': f"{start_hour:02d}:00",
+                'end_time': f"{end_hour:02d}:00"
+            }
+        except (ValueError, AttributeError):
+            return None
+        
+        
 class ScheduleSpellChecker:
     def __init__(self):
         # Load spaCy model for basic tokenization and lemmatization
@@ -1235,37 +1084,60 @@ class AdvancedScheduleExtractor:
 
     def _extract_category_and_context(self, text: str) -> Dict[str, Any]:
         """
-        Extract event category with improved context awareness and strict categorization rules.
-        Prevents false positives and miscategorization by considering full context.
+        Extract event category with comprehensive context awareness and robust categorization rules.
+        Handles a wide variety of event types while maintaining accuracy and context sensitivity.
         """
         text_lower = text.lower()
         words = set(text_lower.split())
         doc = self.nlp(text_lower)
         
-        # Define strict category patterns with required and excluded terms
+        # Define comprehensive category patterns with required and excluded terms
         category_rules = {
+            'travel': {
+                'required_contexts': [
+                    # Transportation
+                    (['flight', 'plane', 'train', 'bus', 'ship', 'cruise'], 1),
+                    # Travel activities
+                    (['trip', 'vacation', 'journey', 'travel', 'touring', 'sightseeing'], 1),
+                    # Travel logistics
+                    (['airport', 'station', 'terminal', 'boarding', 'departure', 'arrival'], 1)
+                ],
+                'exclude_if': [],
+                'context_override': {
+                    'virtual trip': 'virtual_event',
+                    'business trip': 'work'
+                }
+            },
             'school': {
                 'required_contexts': [
-                    # Must have educational institution or academic terms
-                    (['class', 'lecture', 'school', 'university', 'college', 'course'], 1),
-                    # Or specific academic activities
-                    (['exam', 'study', 'homework', 'assignment', 'thesis'], 1)
+                    # Educational institutions
+                    (['school', 'university', 'college', 'academy', 'institute', 'campus'], 1),
+                    # Academic activities
+                    (['class', 'lecture', 'seminar', 'workshop', 'tutorial', 'lab'], 1),
+                    # Academic tasks
+                    (['exam', 'test', 'quiz', 'assignment', 'homework', 'thesis', 'project'], 1),
+                    # Academic events
+                    (['graduation', 'orientation', 'ceremony', 'symposium'], 1)
                 ],
-                'exclude_if': ['party', 'contest', 'game', 'social'],
+                'exclude_if': ['party'],
                 'context_override': {
-                    'art class': 'social',  # Art class outside school context is likely social
-                    'cooking class': 'social',
+                    'art class': 'hobby_and_leisure',
+                    'cooking class': 'hobby_and_leisure',
                     'fitness class': 'health_and_wellness'
                 }
             },
             'work': {
                 'required_contexts': [
-                    # Must have business-specific terms
-                    (['meeting', 'presentation', 'client', 'work', 'office', 'business'], 1),
-                    # Or specific work activities
-                    (['interview', 'deadline', 'conference', 'review'], 1)
+                    # Business activities
+                    (['meeting', 'presentation', 'conference', 'workshop', 'training', 'seminar'], 1),
+                    # Work-related
+                    (['work', 'office', 'business', 'job', 'career', 'professional'], 1),
+                    # Professional events
+                    (['interview', 'deadline', 'review', 'report', 'project', 'launch'], 1),
+                    # Remote work
+                    (['remote', 'virtual', 'online', 'zoom', 'teams', 'webinar'], 1)
                 ],
-                'exclude_if': ['school', 'party', 'social'],
+                'exclude_if': ['party'],
                 'context_override': {
                     'social meeting': 'social',
                     'club meeting': 'social'
@@ -1273,12 +1145,16 @@ class AdvancedScheduleExtractor:
             },
             'social': {
                 'required_contexts': [
-                    # Social gatherings and events
-                    (['party', 'gathering', 'celebration', 'dinner', 'lunch', 'drinks'], 1),
-                    # Or entertainment activities
-                    (['movie', 'concert', 'show', 'festival', 'entertainment'], 1)
+                    # Social gatherings
+                    (['party', 'gathering', 'meetup', 'hangout', 'get-together', 'celebration'], 1),
+                    # Social activities
+                    (['dinner', 'lunch', 'brunch', 'drinks', 'coffee', 'dating'], 1),
+                    # Entertainment
+                    (['movie', 'concert', 'show', 'festival', 'theater', 'club'], 1),
+                    # Social events
+                    (['wedding', 'reception', 'anniversary', 'birthday', 'shower', 'engagement'], 1)
                 ],
-                'exclude_if': [],  # Social can overlap with other categories
+                'exclude_if': [],
                 'context_override': {
                     'business dinner': 'work',
                     'family dinner': 'family'
@@ -1286,10 +1162,14 @@ class AdvancedScheduleExtractor:
             },
             'sports': {
                 'required_contexts': [
-                    # Sports activities
-                    (['game', 'match', 'practice', 'training', 'competition'], 1),
+                    # Sports events
+                    (['game', 'match', 'tournament', 'competition', 'race', 'marathon'], 1),
+                    # Training
+                    (['practice', 'training', 'workout', 'exercise', 'session', 'class'], 1),
                     # Specific sports
-                    (['soccer', 'basketball', 'football', 'tennis', 'golf'], 1)
+                    (['soccer', 'basketball', 'football', 'tennis', 'golf', 'baseball', 'volleyball'], 1),
+                    # Fitness activities
+                    (['gym', 'swimming', 'cycling', 'running', 'hiking', 'climbing'], 1)
                 ],
                 'exclude_if': ['video game', 'board game'],
                 'context_override': {
@@ -1297,27 +1177,161 @@ class AdvancedScheduleExtractor:
                     'game night': 'social'
                 }
             },
-            'health_and_wellness': {
+            'health': {
                 'required_contexts': [
-                    # Medical appointments
-                    (['doctor', 'dentist', 'therapy', 'checkup', 'appointment'], 1),
-                    # Health activities
-                    (['workout', 'exercise', 'yoga', 'meditation'], 1)
+                    # Medical
+                    (['doctor', 'dentist', 'physician', 'specialist', 'clinic', 'hospital'], 1),
+                    # Appointments
+                    (['appointment', 'checkup', 'consultation', 'examination', 'screening', 'test'], 1),
+                    # Mental health
+                    (['therapy', 'counseling', 'psychiatrist', 'psychologist', 'treatment'], 1),
+                    # Wellness activities
+                    (['yoga', 'meditation', 'massage', 'spa', 'wellness', 'healing'], 1)
                 ],
                 'exclude_if': [],
                 'context_override': {
-                    'workout party': 'social'
+                    'wellness party': 'social'
                 }
             },
             'family': {
                 'required_contexts': [
-                    # Family-specific events
-                    (['family', 'parents', 'kids', 'relatives'], 1),
+                    # Family members
+                    (['family', 'parents', 'children', 'kids', 'relatives', 'siblings', 'mother', 'father', 'son', 'daughter', 'brother', 'sister', 'aunt', 'uncle', 'grandparents', 'grandmother', 'grandfather', 'nephew', 'niece', 'cousin', 'in-laws', 'stepmother', 'stepfather', 'stepsister', 'stepbrother', 'half-sibling', 'guardian'], 1),
+                    
+                    # Family events
+                    (['reunion', 'gathering', 'dinner', 'celebration', 'party', 'holiday', 'wedding', 'anniversary', 'birthday', 'christmas', 'thanksgiving', 'easter', 'new year', 'family event', 'picnic', 'barbecue', 'family outing', 'family gathering', 'family celebration', 'graduation', 'baby shower', 'wedding anniversary', 'brunch', 'reception', 'family barbecue'], 1),
+                    
                     # Family activities
-                    (['reunion', 'gathering', 'visit'], 1)
+                    (['visit', 'vacation', 'trip', 'outing', 'meal', 'celebration', 'holiday', 'road trip', 'staycation', 'reunion', 'camping', 'hiking', 'picnic', 'pool party', 'movie night', 'board games', 'family fun', 'game night', 'family movie', 'family hike', 'park visit', 'family bonding', 'family games'], 1)
+                ],
+                'exclude_if': [],
+                'context_override': {
+                    'family business': 'work'
+                }
+            },
+            'hobby_and_leisure': {
+                'required_contexts': [
+                    # Creative hobbies
+                    (['painting', 'drawing', 'crafting', 'photography', 'writing', 'music'], 1),
+                    # Learning
+                    (['class', 'workshop', 'lesson', 'tutorial', 'practice', 'session'], 1),
+                    # Gaming
+                    (['gaming', 'game', 'playing', 'stream', 'tournament', 'competition'], 1),
+                    # Other hobbies
+                    (['gardening', 'cooking', 'baking', 'reading', 'collecting', 'making'], 1)
+                ],
+                'exclude_if': [],
+                'context_override': {
+                    'work project': 'work',
+                    'school project': 'school'
+                }
+            },
+            'virtual_event': {
+                'required_contexts': [
+                    # Online events
+                    (['webinar', 'livestream', 'broadcast', 'stream', 'virtual', 'online'], 1),
+                    # Virtual activities
+                    (['zoom', 'teams', 'meet', 'hangout', 'call', 'conference'], 1)
                 ],
                 'exclude_if': [],
                 'context_override': {}
+            },
+            'shopping_and_errands': {
+                'required_contexts': [
+                    # Shopping
+                    (['shopping', 'store', 'mall', 'market', 'shop', 'buying'], 1),
+                    # Errands
+                    (['errand', 'pickup', 'delivery', 'return', 'purchase', 'order'], 1),
+                    # Services
+                    (['appointment', 'service', 'maintenance', 'repair', 'installation'], 1)
+                ],
+                'exclude_if': [],
+                'context_override': {}
+            },
+            'cultural': {
+                'required_contexts': [
+                    # East Asian Traditions
+                    (['jesa', 'charye', 'seollal', 'chuseok', 'qingming', 'chunfen', 'dongzhi',  # Korean and Chinese
+                    'hanami', 'obon', 'shichigosan', 'setsubun', 'tanabata',  # Japanese
+                    'tet', 'ghost festival', 'mid-autumn', 'lunar new year', 'spring festival'], 1),  # Vietnamese & General
+                    
+                    # South Asian Celebrations
+                    (['diwali', 'holi', 'navratri', 'durga puja', 'sankranti', 'lohri', 'pongal',
+                    'onam', 'baisakhi', 'karva chauth', 'raksha bandhan', 'ganesh chaturthi',
+                    'buddha purnima', 'magh bihu', 'gudi padwa', 'ugadi'], 1),
+                    
+                    # Middle Eastern & Islamic
+                    (['ramadan', 'eid al-fitr', 'eid al-adha', 'ashura', 'mawlid',
+                    'nowruz', 'muharram', 'shab-e-barat', 'laylat al-qadr',
+                    'sukkot', 'passover', 'hanukkah', 'rosh hashanah', 'yom kippur'], 1),
+                    
+                    # European Traditions
+                    (['oktoberfest', 'bastille day', 'guy fawkes', 'st patrick', 'burns night',
+                    'midsummer', 'krampusnacht', 'sinterklaas', 'la tomatina',
+                    'carnival', 'fasching', 'swedish lucia', 'hogmanay'], 1),
+                    
+                    # African Celebrations
+                    (['kwanzaa', 'homowo', 'egungun', 'enkutatash', 'timkat',
+                    'umhlanga', 'zulu reed dance', 'mombasa carnival', 'fete gede',
+                    'essaouira gnawa', 'festima', 'gerewol'], 1),
+                    
+                    # Latin American & Caribbean
+                    (['dia de los muertos', 'carnival', 'cinco de mayo', 'las posadas',
+                    'feria de las flores', 'inti raymi', 'fiesta de la candelaria',
+                    'junkanoo', 'crop over', 'carnival', 'independence day'], 1),
+                    
+                    # Pacific & Indigenous
+                    (['matariki', 'pasifika', 'heiva i tahiti', 'merrie monarch',
+                    'naidoc week', 'national aboriginal day', 'pow wow',
+                    'gathering of nations', 'indigenous peoples day'], 1),
+                    
+                    # Religious Festivals (Cross-Cultural)
+                    (['christmas', 'easter', 'vesak', 'bodhi day', 'magha puja',
+                    'guru purnima', 'krishna janmashtami', 'makar sankranti',
+                    'beltane', 'samhain', 'ostara', 'yule', 'imbolc', 'lughnasadh'], 1),
+                    
+                    # Modern Cultural Events
+                    (['pride parade', 'cultural festival', 'heritage day', 'independence day',
+                    'national day', 'new year', 'lantern festival', 'harvest festival',
+                    'food festival', 'cultural fair', 'ethnic celebration'], 1),
+                    
+                    # Traditional Activities
+                    (['ceremony', 'ritual', 'procession', 'pilgrimage', 'blessing',
+                    'feast', 'offering', 'prayer', 'meditation', 'commemoration',
+                    'ancestral worship', 'traditional dance', 'folk music'], 1),
+                    
+                    # Cultural Locations
+                    (['temple', 'shrine', 'mosque', 'church', 'synagogue', 'monastery',
+                    'cultural center', 'community hall', 'sacred site', 'heritage site',
+                    'historical site', 'traditional market', 'festival grounds'], 1),
+                    
+                    # Cultural Arts & Performances
+                    (['traditional dance', 'folk music', 'cultural performance',
+                    'traditional theater', 'puppet show', 'story telling',
+                    'tea ceremony', 'calligraphy', 'traditional art',
+                    'martial arts demonstration', 'traditional crafts'], 1),
+                    
+                    # Traditional Food Events
+                    (['feast', 'food festival', 'traditional cooking', 'ceremonial meal',
+                    'harvest celebration', 'tea ceremony', 'traditional banquet',
+                    'food offering', 'communal dining', 'festive meal'], 1),
+                    
+                    # Cultural Games & Sports
+                    (['traditional games', 'folk sports', 'ritual competition',
+                    'traditional wrestling', 
+                    'ceremonial race', 'traditional boat race', 'kite festival'], 1),
+                    
+                    # Seasonal & Natural Events
+                    (['harvest festival', 'spring festival', 'summer solstice',
+                    'winter solstice', 'equinox celebration', 'full moon festival',
+                    'new year celebration', 'seasonal ritual', 'planting festival'], 1)
+                ],
+                'exclude_if': ['cancelled', 'postponed'],
+                'context_override': {
+                    'cultural appropriation': None,
+                    'cultural sensitivity training': 'work',
+                    'cultural studies class': 'school'
+                }
             }
         }
         
@@ -1352,33 +1366,21 @@ class AdvancedScheduleExtractor:
             if context_score > 0:
                 matched_categories.append((category, context_score))
         
-        # Special case: Contest/Competition detection
-        if 'contest' in text_lower or 'competition' in text_lower:
-            # Analyze surrounding context to determine category
-            contest_words = text_lower.split()
-            contest_idx = next((i for i, word in enumerate(contest_words) 
-                            if word in ['contest', 'competition']), -1)
-            
-            if contest_idx > 0:
-                # Look at words before contest/competition for context
-                context_word = contest_words[contest_idx - 1]
-                for category, rules in category_rules.items():
-                    if any(context_word in term_list for term_list, _ in rules['required_contexts']):
-                        matched_categories.append((category, 0.8))
-                        break
-                else:
-                    # If no specific category matches, default to public_events
-                    matched_categories.append(('public_events', 0.6))
-        
         # Select best category or return None
         if matched_categories:
             best_match = max(matched_categories, key=lambda x: x[1])
             return {
                 'category': best_match[0],
                 'confidence': best_match[1],
-                'subcategories': []  # Simplified as requested
+                'subcategories': []
             }
         
+        return {
+            'category': None,
+            'confidence': 0,
+            'subcategories': []
+        }
+            
         return {
             'category': None,
             'confidence': 0,
@@ -1400,216 +1402,128 @@ class AdvancedScheduleExtractor:
         from collections import defaultdict
         
         patterns = {
-            'business': [
-                r'(?i)(meeting|call|conference|presentation|interview|training|workshop)',
-                r'(?i)(sync|standup|review|planning|sprint|quarterly|weekly)',
-                r'(?i)(discussion|briefing|session|alignment|consultation)',
-                r'(?i)(webinar|seminar|retreat|business summit|client meeting)',
-                r'(?i)(negotiation|strategy session|product launch|kickoff)',
-                r'(?i)(corporate event|board meeting|team meeting|town hall)',
+            'activities': [
+                # Exercise & Sports
+        r'(?i)(workout|gym|training|exercising|lifting|cardio|running|swimming|cycling|hiking|climbing|jogging|skiing|snowboarding|surfing|boxing|martial arts|sparring|fitness|pilates|yoga|crossfit|jump rope|sprints|stretching|rowing|spin class|aerobics|kickboxing|gymnastics|Zumba|boxing match|wrestling|taekwondo|archery)',
+        r'(?i)(gaming|streaming|playing|speedrunning|streaming|raid|match|game night|board games|video games|party games|poker|chess|esports|multiplayer|LAN party|role-playing|strategy games|arcade|trivia|quiz night|virtual reality|card games|tabletop games|dungeons and dragons|game tournament)',
+        r'(?i)(sleep|nap|rest|relaxing|meditation|mindfulness|break|chill|hanging out|lounging|unwinding|downtime|taking it easy|power nap|catnap|recharging|repose|siesta|mental health break)',
+        r'(?i)(drinking|partying|clubbing|bar hopping|pub crawl|night out|cocktail hour|happy hour|celebration|event|date|hangout|meetup|gathering|get-together|catch up|party|birthday|wedding|reunion|socializing|festival|theater|show|concert|performance|gig|open mic|music concert|comedy show|karaoke|stand-up|art exhibit|gallery opening|film screening)',
+        r'(?i)(eating|dining|lunch|dinner|breakfast|brunch|snack|cookout|bbq|barbecue|picnic|potluck|feast|tasting|restaurant|cafe|food truck|coffee date|food delivery|grocery shopping|meal prep|grilling|cooking|baking|meal planning|food prep|fast food|takeout|cooking class|wine tasting|tea time)',
+        r'(?i)(flight|trip|journey|travel|commute|drive|ride|vacation|getaway|tour|expedition|excursion|visit|holiday|road trip|staycation|business trip|cruise|weekend trip|tourism|flight booking|trip planning|transportation|bus ride|train ride|subway ride|carpool|uber|lyft|taxi|public transport)',
+        r'(?i)(meeting|call|conference|presentation|interview|training|work|shift|overtime|project|task|assignment|deadline|briefing|consultation|workshop|teleconference|seminar|team call|virtual meeting|project planning|client call|one-on-one|review|catch-up|business lunch|networking event|performance review|business presentation|job interview|coaching session|audit|staff meeting|conference call)',
+        r'(?i)(haircut|massage|spa|therapy|doctor|dentist|checkup|appointment|consultation|treatment|procedure|wellness check|facial|pedicure|manicure|skin care|acupuncture|chiropractic appointment|health screening|medical checkup|optometrist|physiotherapy|dental cleaning|therapist appointment|personal grooming|beauty treatment)',
+        r'(?i)(cleaning|laundry|groceries|shopping|errands|chores|maintenance|repair|installation|setup|moving|organizing|decluttering|dishwashing|vacuuming|dusting|mopping|yard work|gardening|lawn care|car wash|home repairs|home improvement|grocery shopping|decluttering|home organizing|home decor shopping|tidying up|spring cleaning|furniture assembly)',
+        r'(?i)(studying|reading|learning|practice|homework|research|class|lecture|seminar|workshop|tutorial|lesson|exam|test|assignment|project|course|degree|certificate|online course|webinar|conference|self-study|study session|reading group|language class|coding bootcamp|e-learning|training session|workshop|educational event|book club|learning new skill|personal development)',
+        r'(?i)(painting|drawing|sculpting|crafting|diy|knitting|crocheting|sewing|embroidery|pottery|art class|craft fair|art exhibit|crafting workshop|creative writing|photography|videography|film making|digital art|scrapbooking|origami|jewelry making|woodworking|printmaking|design|calligraphy|graphic design|makeup artistry)',
+        r'(?i)(hiking|camping|fishing|picnic|beach day|gardening|stargazing|birdwatching|boating|kayaking|canoeing|rock climbing|nature walk|outdoor adventure|barbecue|nature hike|wildlife watching|forest walk|trail walking|cycling trip|backpacking|outdoor sports|wilderness exploration|campfire|fishing trip|lake day|mountain climbing)',
+        r'(?i)(baby sitting|childcare|family outing|family gathering|family dinner|parenting|playdate|birthday party|school event|school run|parent-teacher meeting|baby shower|family vacation|kids party|birthday celebration|family game night|parenting class|school pick-up|school drop-off)',
+        r'(?i)(church|mass|temple|mosque|prayer|bible study|sabbath|spiritual gathering|meditation group|spiritual retreat|fasting|pilgrimage|holy day|religious service|spiritual cleansing|baptism|bar mitzvah|christening|ritual|satsang|yoga retreat|religious celebration|prayer group|faith meeting)',
+        r'(?i)(volunteer|charity|donation|fundraising|food drive|community event|service project|nonprofit|volunteer work|charity event|outreach program|donation drive|blood donation|helping hand|community service|social cause|volunteering|group project|neighborhood meeting|donation pickup)',
+        r'(?i)(shopping|fashion|clothing|store visit|outlet|shopping spree|fashion show|mall trip|retail therapy|online shopping|wardrobe update|styling|shoe shopping|accessory shopping|jewelry shopping|makeup shopping|designer shopping|gift shopping|thrift store|second-hand shopping|vintage shopping|buying new clothes|fashion consultation)',
+        r'(?i)(coding|programming|hacking|gaming|tech meetup|hackathon|startup|software development|hardware building|AI project|machine learning|data science|tech conference|technology lecture|robotics|tech seminar|3d printing|gadget testing|app development|blockchain|cybersecurity|virtual reality demo|AR workshop|developer meetup)',
+        r'(?i)(conference|workshop|meeting|event|session|presentation|discussion|webinar|seminar|forum|training|retreat|summit|exhibition|webcast|showcase|product launch|grand opening|press release|panel discussion|open house|expo|trade show|announcement|live demo|show and tell|lecture)',
+        r'(?i)(therapy session|counseling|self-care|mental health day|personal retreat|yoga|journaling|meditation|mindfulness|relaxation|breathing exercises|positive thinking|therapy appointment|stress relief|mental health checkup|wellness session|personal development|self-improvement|emotional well-being)',
+        r'(?i)(blogging|vlogging|writing|photography|crafting|diy project|gardening|drawing|painting|knitting|piano practice|musical instrument|songwriting|modeling|filmmaking|creative writing|scrapbooking|woodworking|pottery|sewing|photography session|creative session|hobby project|home improvement project|art project)',
+        r'(?i)(vet appointment|dog walk|cat playtime|pet grooming|pet training|pet sitting|dog park|animal rescue|pet adoption|animal shelter|pet care|pet feeding|dog run|pet therapy|pet check-up|pet playdate|horseback riding|dog obedience training|bird watching)',
+        r'(?i)(interior design|home improvement|furniture shopping|decorating|home renovation|home styling|housewarming|painting|remodeling|flooring installation|appliance shopping|lighting upgrade|space planning|organization|reorganization|design consultation|cleaning out closet|furniture assembly|wallpaper installation)'
             ],
-            'education': [
-                r'(?i)(class|lecture|exam|study|assignment|tutorial|homework)',
-                r'(?i)(seminar|course|project|research|thesis|defense)',
-                r'(?i)(workshop|lab|presentation|workshop|study group)',
-                r'(?i)(degree|graduation|enrollment|academic advising)',
-                r'(?i)(school event|education fair|career fair|college visit)',
-            ],
-            'personal': [
-                r'(?i)(appointment|checkup|visit|reservation|booking)',
-                r'(?i)(workout|practice|training|game|match|race)',
-                r'(?i)(haircut|spa|massage|therapy)',
-                r'(?i)(errand|shopping|grocery|meal prep|pick up)',
-                r'(?i)(dentist|doctor|therapy|counseling)',
-                r'(?i)(vacation|holiday|weekend getaway)',
-            ],
-            'social': [
-                r'(?i)(party|celebration|gathering|dinner|lunch|brunch)',
-                r'(?i)(wedding|birthday|anniversary|reunion|meetup)',
-                r'(?i)(outing|picnic|cocktail hour|happy hour|barbecue)',
-                r'(?i)(concert|festival|show|theater|club event)',
-                r'(?i)(holiday party|new year party|christmas party)',
-                r'(?i)(date night|friends gathering|family reunion)',
-            ],
-            'action_verbs': [
-                r'(?i)(attending|going to|having|hosting|organizing)',
-                r'(?i)(meeting with|working on|studying for|preparing for)',
-                r'(?i)(visiting|interviewing|coaching|consulting)',
-                r'(?i)(presenting|speaking at|delivering|moderating)',
-                r'(?i)(training for|competing in|joining)',
-                r'(?i)(watching|observing|listening to)',
-                r'(?i)(celebrating|participating in|arranging for)',
-            ],
-            'time_markers': [
-                r'(?i)(daily|weekly|monthly|quarterly|annual)',
-                r'(?i)(recurring|regular|periodic)',
-                r'(?i)(every (monday|tuesday|wednesday|thursday|friday|saturday|sunday))',
-                r'(?i)(this week|next week|this month|next month|this year)',
-                r'(?i)(on (monday|tuesday|wednesday|thursday|friday|saturday|sunday))',
-                r'(?i)(bi-weekly|bi-monthly|every other (week|month))',
-                r'(?i)(every (hour|day|week|month))',
-                r'(?i)(from (morning|afternoon|evening) till (morning|afternoon|evening))',
-                r'(?i)(once a year|twice a year|once in a while)',
-            ],
-            'locations': [
-                r'(?i)(office|workspace|home|gym|park|restaurant|bar|cafe)',
-                r'(?i)(conference room|meeting room|auditorium|lobby|venue|hall)',
-                r'(?i)(stadium|court|field|race track|swimming pool|arena)',
-                r'(?i)(beach|mountain|vacation spot|cabin|resort|hotel)',
-                r'(?i)(library|study room|classroom|lecture hall|lab)',
-                r'(?i)(hotel|airbnb|bnb|apartment|motel)',
-                r'(?i)(virtual|online|zoom|webinar|team call|video conference)',
-            ],
-            'event_types': [
-                r'(?i)(conference|summit|symposium|meetup|webinar|web conference)',
-                r'(?i)(party|celebration|gathering|reception|banquet|ceremony)',
-                r'(?i)(class|seminar|course|workshop|training|lecture|discussion)',
-                r'(?i)(presentation|pitch|demo|meeting|conference call)',
-                r'(?i)(interview|recruitment|evaluation|screening|selection)',
-                r'(?i)(concert|movie|show|performance|theater|gig)',
-                r'(?i)(workshop|hackathon|design sprint|ideation session|retreat)',
-            ],
-            'weather_related': [
-                r'(?i)(rain|storm|snow|sunny|windy|cloudy|foggy|hail|blizzard|heatwave)',
-                r'(?i)(drizzle|downpour|thunderstorm|lightning|tornado|cyclone|hurricane)',
-                r'(?i)(hot|cold|warm|freezing|humid|drought|monsoon|breeze)',
-            ],
-            'special_occasions': [
-                r'(?i)(holiday|celebration|festivity|festival|observance|occasion)',
-                r'(?i)(new year|christmas|thanksgiving|eid|diwali|halloween)',
-                r'(?i)(wedding|anniversary|birthday|graduation|baby shower|engagement)',
-                r'(?i)(thanksgiving|valentine\'s day|mother\'s day|father\'s day)',
-                r'(?i)(national day|independence day|labor day|memorial day)',
-            ],
-            'task_related': [
-                r'(?i)(task|to-do|action item|project|goal|deliverable|objective)',
-                r'(?i)(assignment|workload|deadline|plan|target|milestone)',
-                r'(?i)(checklist|priority|assignment|work package|workstream)',
-                r'(?i)(review|update|status check|follow-up|feedback)',
-            ],
+            'modifiers': [
+                r'(?i)(weekly|daily|regular|quick|long|intense|casual)',
+                r'(?i)(group|solo|team|private|public|social|virtual)',
+                r'(?i)(business|personal|family|friend|work|school)',
+            ]
         }
         
-        # Clean and normalize input text
+        # Clean input text
         cleaned_text = ' '.join(re.sub(r'[^\w\s]', ' ', text).split())
         text_lower = cleaned_text.lower()
         
-        # Component storage with priority handling
-        event_components = {
-            'primary_type': [],    # Main event/activity (highest priority)
-            'secondary_type': [],  # Additional type information
-            'subject': [],         # People, organizations
-            'context': [],         # Department, team, location, etc.
-        }
-        
-        # Words to remove (expanded list)
-        noise_words = {
-            'from', 'to', 'at', 'in', 'on', 'the', 'a', 'an', 'this', 'next',
-            'every', 'attending', 'going', 'having', 'hosting', 'organizing',
-            'with', 'for', 'by', 'until', 'through', 'via', 'using', 'during'
-        }
-        
-        # Time-related words to remove
-        time_words = {
+        # Words to ignore
+        ignore_words = {
+            # Time-related
+            'today', 'tomorrow', 'tonight', 'morning', 'afternoon', 'evening',
             'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday',
-            'tomorrow', 'tonight', 'today', 'morning', 'afternoon', 'evening', 'night',
-            'weekly', 'daily', 'monthly', 'yearly', 'biweekly', 'weekend', 'weekday'
+            'next', 'last', 'this', 'every', 'daily', 'weekly', 'monthly',
+            # Prepositions and articles
+            'to', 'at', 'in', 'on', 'the', 'a', 'an', 'for', 'with', 'by',
+            # Action verbs to ignore
+            'going', 'having', 'doing', 'attending', 'planning', 'scheduled'
         }
         
-        def clean_word_list(words):
-            """Remove noise words and time references"""
-            return [w for w in words if w.lower() not in noise_words and w.lower() not in time_words]
+        def find_main_activity(text):
+            """Find the primary activity/event from the text"""
+            matches = []
+            
+            # Look for activity patterns
+            for pattern in patterns['activities']:
+                found = re.search(pattern, text_lower)
+                if found:
+                    activity = found.group().strip()
+                    start_pos = found.start()
+                    matches.append((activity, start_pos))
+            
+            # Sort by position (earlier mentions usually more important)
+            matches.sort(key=lambda x: x[1])
+            
+            if matches:
+                return matches[0][0]
+                
+            # Fallback: take first significant word
+            words = text_lower.split()
+            for word in words:
+                if word not in ignore_words:
+                    return word
+                    
+            return "Event"  # Ultimate fallback
         
-        # First pass: Extract the primary event type/activity
-        all_patterns = []
-        for category in ['business', 'education', 'personal', 'social', 'event_types']:
-            all_patterns.extend(patterns[category])
+        def find_relevant_modifier(text, activity):
+            """Find relevant modifier for the activity"""
+            for pattern in patterns['modifiers']:
+                found = re.search(pattern, text_lower)
+                if found:
+                    modifier = found.group().strip()
+                    if modifier not in ignore_words and modifier not in activity:
+                        return modifier
+            return None
         
-        # Find all potential event types
-        event_matches = []
-        for pattern in all_patterns:
-            matches = re.finditer(pattern, text_lower)
-            for match in matches:
-                event_type = match.group().strip()
-                if event_type and event_type not in noise_words and event_type not in time_words:
-                    event_matches.append((event_type, match.start()))
+        def format_name(parts):
+            """Format the event name properly"""
+            # Capitalize each word
+            parts = [p.capitalize() for p in parts if p]
+            # Remove duplicates while preserving order
+            seen = set()
+            unique_parts = []
+            for part in parts:
+                if part.lower() not in seen:
+                    seen.add(part.lower())
+                    unique_parts.append(part)
+            return ' '.join(unique_parts)
         
-        # Sort by position (earlier mentions often more important)
-        event_matches.sort(key=lambda x: x[1])
+        # Extract main components
+        activity = find_main_activity(text_lower)
+        modifier = find_relevant_modifier(text_lower, activity)
         
-        # Add event types to appropriate categories
-        if event_matches:
-            event_components['primary_type'].append(event_matches[0][0])
-            for event_type, _ in event_matches[1:]:
-                event_components['secondary_type'].append(event_type)
+        # Build name
+        name_parts = []
+        if modifier:
+            name_parts.append(modifier)
+        name_parts.append(activity)
         
-        # Extract named entities if spaCy is available
+        # Get important context if spaCy is available
         if hasattr(self, 'nlp'):
             doc = self.nlp(cleaned_text)
-            
-            # Get named entities
             for ent in doc.ents:
-                if ent.label_ in ['PERSON', 'ORG', 'GPE']:
-                    event_components['subject'].append(ent.text)
-            
-            # Get noun phrases that might be important context
-            for chunk in doc.noun_chunks:
-                if not any(word.is_stop for word in chunk) and \
-                not any(word.text.lower() in time_words for word in chunk):
-                    event_components['context'].append(chunk.text)
-        
-        def format_component(text):
-            """Format component with proper capitalization"""
-            words = clean_word_list(text.split())
-            return ' '.join(w.capitalize() for w in words)
-        
-        # Build the event name with proper prioritization
-        name_parts = []
-        
-        # Primary event type is mandatory
-        if event_components['primary_type']:
-            name_parts.append(format_component(event_components['primary_type'][0]))
-        else:
-            # Fallback: look for capitalized words or first non-time word
-            words = cleaned_text.split()
-            for word in words:
-                if word.lower() not in noise_words and word.lower() not in time_words:
-                    name_parts.append(word.capitalize())
+                if ent.label_ in ['PERSON', 'ORG'] and \
+                ent.text.lower() not in [p.lower() for p in name_parts]:
+                    name_parts.append(ent.text)
                     break
         
-        # Add subject if available
-        if event_components['subject']:
-            subject = format_component(event_components['subject'][0])
-            if subject:
-                name_parts.append(subject)
+        return format_name(name_parts)
+   
+   
+    def extract_event_type():
         
-        # Add context if it adds value
-        if event_components['context']:
-            context = format_component(event_components['context'][0])
-            if context and context not in name_parts:
-                name_parts.append(context)
-        
-        # Construct final name
-        event_name = ' '.join(name_parts)
-        
-        # Final cleanup
-        event_name = re.sub(r'\s+', ' ', event_name).strip()
-        
-        #AHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH REMOVE REPEATED WORDS FROM OUTPUT BECAUSE AI IS DUMB
-        def remove_repeated_words(text):
-            words = text.split()  # Split the string into a list of words
-            seen = set()  # A set to keep track of words we've already seen
-            result = []  # A list to store the words without duplicates
-            
-            for word in words:
-                if word.lower() not in seen:  # Ignore case while checking for duplicates
-                    seen.add(word.lower())  # Add word to the set
-                    result.append(word)  # Append the word to the result list
-            
-            return ' '.join(result)  # Join the words back into a string
-        
-        event_name = remove_repeated_words(event_name)
-        
-        return event_name
+   
         
     def extract_info(self, text: str) -> Dict[str, Any]:
         """Main extraction function with enhanced accuracy"""
@@ -1653,9 +1567,10 @@ class AdvancedScheduleExtractor:
         result['end_time'] = time_info['end_time']
 
         # Extract date using dateparser with custom settings
-        date_info = date_handler.handle_dates(text)
+        date_info = date_handler.parse_date(text)
         result['date'] = date_info
 
+        result['type'] = self._extract_event_type(text)  # A hypothetical method to extract the 'type'
 
         # Determine if virtual
         result['virtual'] = self._check_if_virtual(text)
