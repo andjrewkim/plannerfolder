@@ -1,5 +1,6 @@
 from .forms import UserInputForm
 from .models import CalendarEvent
+
 import json
 import os
 import re
@@ -1521,9 +1522,54 @@ class AdvancedScheduleExtractor:
         return format_name(name_parts)
    
    
-    def extract_event_type():
+    def extract_event_type(self, text):
+        """
+        Simple classifier to determine if something is a calendar event or a task.
+        Calendar events: Have specific times/dates or are scheduled appointments
+        Tasks: Flexible activities, to-dos, or things without specific timing
+        """
+        text = text.lower()
         
-   
+        # 1. Check for specific times
+        time_markers = ['am', 'pm', ':00', ':15', ':30', ':45', 'oclock', "o'clock"]
+        has_time = any(marker in text for marker in time_markers)
+        if has_time:
+            return 'event'
+            
+        # 2. Check for specific dates/days
+        day_markers = [
+            'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday',
+            'tomorrow', 'tonight', 'today'
+        ]
+        has_date = any(marker in text for marker in day_markers)
+        if has_date:
+            return 'event'
+            
+        # 3. Check for scheduling words
+        schedule_words = [
+            'appointment', 'meeting', 'scheduled', 'reservation', 'booked',
+            'starts at', 'begins at', 'ends at'
+        ]
+        is_scheduled = any(word in text for word in schedule_words)
+        if is_scheduled:
+            return 'event'
+            
+        # 4. Check for task/todo indicators
+        task_words = [
+            'need to', 'should', 'todo', 'to-do', 'task', 'sometime',
+            'eventually', 'when', 'if', 'maybe', 'later'
+        ]
+        is_task = any(word in text for word in task_words)
+        if is_task:
+            return 'task'
+            
+        # If no clear indicators, use a simple heuristic:
+        # If it has "at" or "on" without other task words, probably an event
+        if ' at ' in text or ' on ' in text:
+            return 'event'
+            
+        # Default to task - if it's not clearly scheduled, it's probably flexible
+        return 'task'
         
     def extract_info(self, text: str) -> Dict[str, Any]:
         """Main extraction function with enhanced accuracy"""
@@ -1570,7 +1616,8 @@ class AdvancedScheduleExtractor:
         date_info = date_handler.parse_date(text)
         result['date'] = date_info
 
-        result['type'] = self._extract_event_type(text)  # A hypothetical method to extract the 'type'
+        result['type'] = self.extract_event_type(text) #EXTRACTING WHETHER A TASK OR EVENT
+        
 
         # Determine if virtual
         result['virtual'] = self._check_if_virtual(text)
@@ -1619,6 +1666,9 @@ def extract_schedule_info(user_input: str) -> dict:
 
 
 
+from .models import TodoTask
+
+
 def home(request):
     result = None
     if request.method == "POST":
@@ -1629,14 +1679,25 @@ def home(request):
             
             if result and not result.get('error'):
                 CalendarEvent.objects.create(
-                    event=result['event'],
-                    time=result['time'],
-                    date=result['date']
+                    event_name=result.get('event'),  # Event name
+                    date=result.get('date'),         # Event date
+                    start_time=result.get('start_time'),  # Event start time
+                    end_time=result.get('end_time'),  # Event end time
+                    location=result.get('location'),  # Event location
+                    virtual=result.get('virtual', False),  # Event virtual status
+                    urgency=result.get('urgency', 'medium'),  # Event urgency
+                    notes=result.get('notes'),  # Optional notes
+                    event_type=result.get('event_type'),  # Event type (e.g., meeting, appointment)
+                    category=result.get('category'),  # Event category
+                    subcategories=result.get('subcategories', ''),  # Event subcategories (as text)
+                    recurrence_pattern=result.get('recurrence_pattern'),  # Recurrence pattern
+                    color=result.get('color', "#000"),  # Event color
                 )
     else:
         form = UserInputForm()
     
     events = CalendarEvent.objects.all()
+    events = TodoTask.objects.all()
     
     return render(request, 'home.html', {
         'form': form,

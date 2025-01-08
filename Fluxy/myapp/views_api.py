@@ -7,62 +7,59 @@ from .views import extract_schedule_info  # Import the function you've already w
 
 from datetime import datetime
 
-class CalendarEventCreate(APIView):  # Define the class as a subclass of APIView
-    def get(self, request):
-        # Retrieve all events from the database
-        events = CalendarEvent.objects.all()
-
-        # Format the data for FullCalendar
-        data = [
-            {
-                "id": event.id,             # Include the event ID
-                "title": event.event,       # Event title
-                "start": f"{event.date}T{event.time}",  # Combine date and time for FullCalendar
-                "color": event.color, 
-            }
-            for event in events
-        ]
-
-        # Return the data as JSON
-        return Response(data, status=status.HTTP_200_OK)
-
+class CalendarEventCreate(APIView):
     def post(self, request):
-        # Get the raw event text from the request body
-        input_text = request.data.get('input_text')  # Assume the input text is sent with the key 'input_text'
-
+        input_text = request.data.get('input_text')
         if not input_text:
             return Response({"error": "Input text is required."}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
-            # Extract event details from the raw input text using your pre-written function
             extracted_data = extract_schedule_info(input_text)
-
-            # The extracted data should contain 'event', 'date', and 'time'
-            event_data = {
-                'event': extracted_data['event'],  # Extracted event name
-                'date': extracted_data['date'],    # Extracted event date
-                'time': extracted_data['time'],    # Extracted event time
-                'color': request.data.get('color', "#000"),  # Default color if not provided
-            }
-
-            # Use the CalendarEventSerializer to validate and save the event data
-            serializer = CalendarEventSerializer(data=event_data)
-            if serializer.is_valid():  # Check if the data is valid
-                event_instance = serializer.save()  # Save the event to the database
-
-                # Return the event data with the ID included in the response
-                return Response({
-                    "id": event_instance.id,  # Include the event ID
-                    "event": event_instance.event,
-                    "time": event_instance.time,
-                    "date": event_instance.date,
-                    "color": event_instance.color
-                }, status=status.HTTP_201_CREATED)  # Return a successful response
-
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)  # Return errors if the data is invalid
+            
+            if extracted_data['type'] == 'task':
+                todoAPI = extracted_data
+                return Response({"message": "Todo task created"}, status=status.HTTP_201_CREATED)
+                
+            elif extracted_data['type'] == 'event':
+                # Format the datetime properly
+                date = extracted_data['date']
+                start_time = datetime.strptime(extracted_data['start_time'], '%H:%M').time()
+                end_time = datetime.strptime(extracted_data['end_time'], '%H:%M').time()
+                
+                event_data = {
+                    'event_name': extracted_data.get('event_name'),
+                    'date': date,
+                    'start_time': start_time,
+                    'end_time': end_time,
+                    'location': extracted_data.get('location'),
+                    'virtual': extracted_data.get('virtual', False),
+                    'urgency': extracted_data.get('urgency', 'medium'),
+                    'notes': extracted_data.get('notes'),
+                    'event_type': 'event',
+                    'category': extracted_data.get('category'),
+                    'subcategories': ','.join(extracted_data.get('subcategories', [])),
+                    'recurrence_pattern': extracted_data.get('recurrence_pattern'),
+                    'color': request.data.get('color', "#000")
+                }
+                
+                print("Debug - Formatted event data:", event_data)  # Debug print
+                
+                serializer = CalendarEventSerializer(data=event_data)
+                if serializer.is_valid():
+                    event_instance = serializer.save()
+                    return Response(serializer.data, status=status.HTTP_201_CREATED)
+                print("Debug - Serializer errors:", serializer.errors)  # Debug print
+                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            
+            else:
+                return Response({"error": f"Unknown type: {extracted_data['type']}"}, 
+                              status=status.HTTP_400_BAD_REQUEST)
 
         except Exception as e:
-            return Response({"error": f"Error extracting event details: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            import traceback
+            print(f"Error: {str(e)}")
+            print(traceback.format_exc())
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     def delete(self, request, *args, **kwargs):
         event_id = kwargs.get('event_id')  # Get event_id from the URL
@@ -108,12 +105,17 @@ class CalendarEventCreate(APIView):  # Define the class as a subclass of APIView
 
         # Return validation errors
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    
+    def get(self, request):
+        events = CalendarEvent.objects.all()
+        serializer = CalendarEventSerializer(events, many=True)
+        return Response(serializer.data)
 
 
 
 
 from rest_framework import viewsets
-from .models import CalendarEvent
 from .serializers import CalendarEventSerializer
 
 class CalendarEventViewSet(viewsets.ModelViewSet):
