@@ -25,11 +25,16 @@ class CalendarEventSerializer(serializers.ModelSerializer):
 
 
 
+from rest_framework import serializers
+
 class TodoTaskSerializer(serializers.ModelSerializer):
     class Meta:
         model = TodoTask
         fields = ['id', 'event', 'date']
-        
+        extra_kwargs = {
+            'date': {'allow_null': True}  # Explicitly allow null values
+        }
+
     def validate_event(self, value):
         """
         Check that the event is not empty or just whitespace

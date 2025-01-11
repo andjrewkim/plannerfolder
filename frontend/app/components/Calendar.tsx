@@ -6,9 +6,19 @@ import EditModal from './EditModal'; // Import the EditModal
 
 interface EventDetails {
   eventId: string;
-  title: string;
-  time: string;
+  event_name: string;
   date: string;
+  start_time: string;
+  end_time: string;
+  location: string;
+  virtual: boolean;
+  urgency: 'low' | 'medium' | 'high';
+  notes: string;
+  event_type: string;
+  category: string;
+  subcategories: string;
+  recurrence_pattern: string;
+  color: string;
 }
 
 interface CalendarProps {
@@ -59,8 +69,21 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange }) => {
       const data = await response.json();
       setEvents(
         data.map((event: any) => ({
-          ...event,
-          start: formatEventDate(event.start),
+          id: event.id,
+          title: event.event_name,
+          start: `${event.date.split('T')[0]}T${event.start_time}`,
+          end: `${event.date.split('T')[0]}T${event.end_time}`,
+          backgroundColor: event.color,
+          extendedProps: {
+            location: event.location,
+            virtual: event.virtual,
+            urgency: event.urgency,
+            notes: event.notes,
+            event_type: event.event_type,
+            category: event.category,
+            subcategories: event.subcategories,
+            recurrence_pattern: event.recurrence_pattern
+          }
         }))
       );
     } catch (error) {
@@ -97,8 +120,19 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange }) => {
     e.preventDefault();
 
     const formattedEvent = {
-      title: updatedEvent.title,
-      start: `${updatedEvent.date}T${updatedEvent.time}:00`,
+      event_name: updatedEvent.event_name,
+      date: updatedEvent.date,
+      start_time: updatedEvent.start_time,
+      end_time: updatedEvent.end_time,
+      location: updatedEvent.location,
+      virtual: updatedEvent.virtual,
+      urgency: updatedEvent.urgency,
+      notes: updatedEvent.notes,
+      event_type: updatedEvent.event_type,
+      category: updatedEvent.category,
+      subcategories: updatedEvent.subcategories,
+      recurrence_pattern: updatedEvent.recurrence_pattern,
+      color: updatedEvent.color
     };
 
     try {
@@ -149,17 +183,32 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange }) => {
 
   const handleEventClick = (info: any) => {
     const event = info.event;
-    const localDate = new Date(event.start);
+    const startDate = new Date(event.start);
+    const endDate = event.end ? new Date(event.end) : startDate;
 
     setEventDetails({
       eventId: event.id,
-      title: event.title,
-      time: localDate.toLocaleTimeString('en-US', {
+      event_name: event.title,
+      date: startDate.toISOString().split('T')[0],
+      start_time: startDate.toLocaleTimeString('en-US', {
         hour12: false,
         hour: '2-digit',
         minute: '2-digit',
       }),
-      date: localDate.toISOString().split('T')[0],
+      end_time: endDate.toLocaleTimeString('en-US', {
+        hour12: false,
+        hour: '2-digit',
+        minute: '2-digit',
+      }),
+      location: event.extendedProps.location || '',
+      virtual: event.extendedProps.virtual || false,
+      urgency: event.extendedProps.urgency || 'medium',
+      notes: event.extendedProps.notes || '',
+      event_type: event.extendedProps.event_type || '',
+      category: event.extendedProps.category || '',
+      subcategories: event.extendedProps.subcategories || '',
+      recurrence_pattern: event.extendedProps.recurrence_pattern || '',
+      color: event.backgroundColor || '#000'
     });
 
     setModalOpen(true);
@@ -174,6 +223,8 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange }) => {
           initialView="dayGridMonth"
           events={events}
           eventClick={handleEventClick}
+          eventBackgroundColor="var(--event-color)"
+          eventBorderColor="var(--event-border-color)"
         />
       </div>
 

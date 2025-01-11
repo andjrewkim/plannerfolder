@@ -1,8 +1,134 @@
+/* Calendar Container */
 #calendar {
-    width: 90%;  /* Adjust the width */
-    height: 80vh !important;  /* Set the height to 80% of the viewport height */
-    margin-left: 2rem;
-    margin-top: 2rem;
+    
+    width: 90%; /* Adjust the width */
+    height: 80vh !important; /* Set the height to 80% of the viewport height */
+    margin: 2rem auto;
+    background-color: #f9f9f9;
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    overflow: hidden;
+}
 
+/* Calendar Header */
+.fc-header-toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem;
+    background-color: #ffffff;
+    border-bottom: 1px solid #e0e0e0;
+    font-family: 'Inter', sans-serif;
+}
+
+.fc-button {
+    background-color: #007bff;
+    color: white;
+    border-radius: 6px;
+    padding: 0.5rem 1rem;
+    font-size: 14px;
+    transition: background-color 0.3s ease;
+    border: none;
+}
+
+.fc-button:hover {
+    background-color: #0056b3;
+}
+
+.fc-toolbar-title {
+    font-size: 18px;
+    font-weight: 500;
+    color: #333333;
+}
+
+/* Calendar Weekdays */
+.fc-col-header-cell {
+    background-color: #f5f5f5;
+    font-size: 14px;
+    color: #666666;
+    text-transform: uppercase;
+    font-weight: 600;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+/* Calendar Cells */
+.fc-daygrid-day {
+    font-size: 13px;
+    color: #444;
+    transition: background-color 0.2s;
+}
+
+.fc-daygrid-day:hover {
+    background-color: #e6f7ff;
+}
+
+.fc-day-today {
+    background-color: #e0f7fa !important;
+    border-radius: 6px;
+}
+
+/* Events */
+.fc-event {
+    background-color: #1e88e5;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    padding: 0.25rem 0.5rem;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    transition: transform 0.2s;
+}
+
+.fc-event:hover {
+    transform: scale(1.05);
+}
+
+/* Scrollbar Styling */
+.fc-scroller {
+    scrollbar-width: thin;
+    scrollbar-color: #d1d1d1 #f9f9f9;
+}
+
+.fc-scroller::-webkit-scrollbar {
+    width: 8px;
+}
+
+.fc-scroller::-webkit-scrollbar-thumb {
+    background-color: #d1d1d1;
+    border-radius: 4px;
+}
+
+.fc-scroller::-webkit-scrollbar-track {
+    background: #f9f9f9;
+}
+
+/* Custom Tooltip (Optional) */
+.fc-event:hover:after {
+    content: attr(data-tooltip);
+    position: absolute;
+    background: #333;
+    color: #fff;
+    padding: 5px 10px;
+    font-size: 12px;
+    border-radius: 4px;
+    top: -30px;
+    left: 50%;
+    transform: translateX(-50%);
+    white-space: nowrap;
+    z-index: 10;
+}
+
+/* Responsiveness */
+@media (max-width: 768px) {
+    .fc-header-toolbar {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .fc-toolbar-title {
+        margin-bottom: 0.5rem;
+    }
 }
 

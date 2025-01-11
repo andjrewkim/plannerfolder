@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_URL = 'http://127.0.0.1:8000/api/events/';  // Django API endpoint
+const API_URL = 'http://127.0.0.1:8000/api/schedule/';  // Django API endpoint
 
 // Create Event - Sends the raw input text to the backend for processing
 export const createEvent = async (data: { input_text: string }) => {

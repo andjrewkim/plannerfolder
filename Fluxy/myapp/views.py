@@ -1678,29 +1678,49 @@ def home(request):
             result = extract_schedule_info(user_input)
             
             if result and not result.get('error'):
-                CalendarEvent.objects.create(
-                    event_name=result.get('event'),  # Event name
-                    date=result.get('date'),         # Event date
-                    start_time=result.get('start_time'),  # Event start time
-                    end_time=result.get('end_time'),  # Event end time
-                    location=result.get('location'),  # Event location
-                    virtual=result.get('virtual', False),  # Event virtual status
-                    urgency=result.get('urgency', 'medium'),  # Event urgency
-                    notes=result.get('notes'),  # Optional notes
-                    event_type=result.get('event_type'),  # Event type (e.g., meeting, appointment)
-                    category=result.get('category'),  # Event category
-                    subcategories=result.get('subcategories', ''),  # Event subcategories (as text)
-                    recurrence_pattern=result.get('recurrence_pattern'),  # Recurrence pattern
-                    color=result.get('color', "#000"),  # Event color
-                )
+                if result.get('type') == 'task':
+                    # Create TodoTask
+                    TodoTask.objects.create(
+                        event=result.get('event_name'),
+                        date=result.get('date'),
+                    )
+                elif result.get('type') == 'event':
+                    # Create CalendarEvent
+                    CalendarEvent.objects.create(
+                        event_name=result.get('event_name'),
+                        date=result.get('date'),
+                        start_time=result.get('start_time'),
+                        end_time=result.get('end_time'),
+                        location=result.get('location'),
+                        virtual=result.get('virtual', False),
+                        urgency=result.get('urgency', 'medium'),
+                        notes=result.get('notes'),
+                        event_type='event',
+                        category=result.get('category'),
+                        subcategories=result.get('subcategories', ''),
+                        recurrence_pattern=result.get('recurrence_pattern'),
+                        color=result.get('color', "#000"),
+                    )
     else:
         form = UserInputForm()
     
+    # Get both tasks and events
     events = CalendarEvent.objects.all()
-    events = TodoTask.objects.all()
+    tasks = TodoTask.objects.all()
     
     return render(request, 'home.html', {
         'form': form,
         'result': result,
         'events': events,
     })
+
+
+
+# views.py
+from django.http import HttpResponse
+from django.middleware.csrf import get_token
+
+def get_csrf_token(request):
+    response = HttpResponse()
+    response['X-CSRFToken'] = get_token(request)
+    return response

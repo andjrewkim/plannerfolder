@@ -22,7 +22,7 @@ ALLOWED_HOSTS = ['flux-qcj2.onrender.com', '127.0.0.1', 'localhost']
 # settings.py
 CSRF_COOKIE_NAME = "csrftoken"  # This will be the name of the CSRF token in the cookie
 CSRF_COOKIE_SECURE = False  # Only for development, set to True in production with HTTPS
-CSRF_TRUSTED_ORIGINS = ['http://localhost:8000']  # Add your local or production domain
+CSRF_TRUSTED_ORIGINS = ['http://localhost:3000']  # Add your local or production domain
 
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
@@ -43,6 +43,10 @@ CORS_ALLOW_METHODS = [
     'DELETE',
     'OPTIONS',
 ]
+
+CORS_ALLOW_CREDENTIALS = True
+CSRF_COOKIE_SAMESITE = 'Lax'  # or 'None' if cross-site
+CSRF_COOKIE_HTTPONLY = False  # Allow JS access to the cookie
 
 
 # Application definition

@@ -1,93 +1,238 @@
 /* Modal background overlay */
 .modal-overlay {
-    position: fixed;
-    inset: 0;
-    background-color: rgba(0, 0, 0, 0.5);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 9999;
-  }
-  
-  /* Modal container */
-  .modal-container {
-    background-color: #ffffff;
-    padding: 1.5rem;
-    border-radius: 0.5rem;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-    max-width: 400px;
-    width: 90%;
-  }
-  
-  /* Modal header */
-  .modal-header {
-    font-size: 1.25rem;
-    font-weight: bold;
-    margin-bottom: 1rem;
-    text-align: center;
-  }
-  
-  /* Input fields */
-  .modal-input {
-    width: 100%;
-    border: 1px solid #ccc;
-    border-radius: 0.25rem;
-    padding: 0.5rem;
-    font-size: 1rem;
-    margin-top: 0.25rem;
-  }
-  
-  .modal-input:focus {
-    outline: none;
-    border-color: #007bff;
-    box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
-  }
-  
-  /* Buttons */
-  .modal-buttons {
-    display: flex;
-    justify-content: space-between;
-    margin-top: 1.5rem;
-  }
-  
-  .modal-button {
-    flex: 1;
-    margin: 0 0.25rem;
-    padding: 0.5rem 1rem;
-    font-size: 1rem;
-    color: #fff;
-    border: none;
-    border-radius: 0.25rem;
-    cursor: pointer;
-    transition: background-color 0.2s ease;
-  }
-  
-  .modal-button:hover {
-    opacity: 0.9;
-  }
-  
-  /* Button colors */
-  .modal-button-save {
-    background-color: #007bff;
-  }
-  
-  .modal-button-save:hover {
-    background-color: #0056b3;
-  }
-  
-  .modal-button-delete {
-    background-color: #dc3545;
-  }
-  
-  .modal-button-delete:hover {
-    background-color: #b02a37;
-  }
-  
-  .modal-button-close {
-    background-color: #6c757d;
-  }
-  
-  .modal-button-close:hover {
-    background-color: #495057;
-  }
-  
+  position: fixed;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.75);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  backdrop-filter: blur(4px);
+}
+
+/* Modal container */
+.modal-container {
+  background-color: #ffffff;
+  padding: 2rem;
+  border-radius: 1rem;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+  width: 90%;
+  max-width: 800px;
+  max-height: 90vh;
+  overflow-y: auto;
+  display: grid;
+  gap: 1.5rem; /* Spacing between grid items */
+}
+
+/* Modal header */
+.modal-header {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #1a1a1a;
+  margin-bottom: 1rem;
+  padding-bottom: 1rem;
+  border-bottom: 2px solid #f0f0f0;
+}
+
+/* Form grid layout */
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr)); /* Ensures equal spacing */
+  gap: 2.5rem; /* Increased gap to avoid overlap */
+}
+
+.form-grid-full {
+  grid-column: 1 / -1; /* Span full width */
+}
+
+/* Time inputs container */
+.time-inputs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2.5rem; /* Proper gap between inputs */
+}
+
+/* Labels */
+.form-label {
+  display: block;
+  font-weight: 500;
+  margin-bottom: 0.5rem;
+  color: #374151;
+}
+
+/* Input fields */
+.modal-input {
+  width: 100%;
+  border: 2px solid #e5e7eb;
+  border-radius: 0.5rem;
+  padding: 0.75rem 1rem;
+  font-size: 1rem;
+  transition: all 0.2s ease;
+  background-color: #f9fafb;
+}
+
+.modal-input:focus {
+  outline: none;
+  border-color: #2563eb;
+  background-color: #ffffff;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+/* Select dropdown styling */
+.modal-select {
+  width: 100%;
+  border: 2px solid #e5e7eb;
+  border-radius: 0.5rem;
+  padding: 0.75rem 1rem;
+  font-size: 1rem;
+  background-color: #f9fafb;
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%23666666'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 1rem center;
+  background-size: 1.5em;
+  padding-right: 2.5rem;
+}
+
+/* Enhanced checkbox styling */
+.checkbox-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem; /* Proper spacing between checkbox and label */
+  padding: 0.75rem;
+  border: 2px solid #e5e7eb;
+  border-radius: 0.5rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  background-color: #f9fafb;
+}
+
+.checkbox-wrapper:hover {
+  background-color: #f3f4f6;
+}
+
+.modal-checkbox {
+  appearance: none;
+  width: 1.25rem;
+  height: 1.25rem;
+  border: 2px solid #e5e7eb;
+  border-radius: 0.25rem;
+  cursor: pointer;
+  position: relative;
+  transition: all 0.2s ease;
+}
+
+.modal-checkbox:checked {
+  background-color: #2563eb;
+  border-color: #2563eb;
+}
+
+.modal-checkbox:checked::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 0.75rem;
+  height: 0.75rem;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='white'%3E%3Cpath d='M20 6L9 17l-5-5'/%3E%3C/svg%3E");
+  background-size: contain;
+  background-repeat: no-repeat;
+}
+
+/* Color picker styling */
+.color-picker-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.modal-color-picker {
+  width: 3rem;
+  height: 3rem;
+  padding: 0;
+  border: none;
+  border-radius: 0.5rem;
+  cursor: pointer;
+}
+
+/* Textarea styling */
+.modal-textarea {
+  width: 100%;
+  min-height: 120px;
+  resize: vertical;
+  border: 2px solid #e5e7eb;
+  border-radius: 0.5rem;
+  padding: 0.75rem 1rem;
+  font-size: 1rem;
+  background-color: #f9fafb;
+}
+
+/* Buttons container */
+.modal-buttons {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem; /* Proper gap between buttons */
+  margin-top: 2rem;
+  padding-top: 1.5rem;
+  border-top: 2px solid #f0f0f0;
+}
+
+/* Button styling */
+.modal-button {
+  padding: 0.75rem 1.5rem;
+  font-size: 1rem;
+  font-weight: 500;
+  border: none;
+  border-radius: 0.5rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-align: center;
+}
+
+.modal-button-save {
+  background-color: #2563eb;
+  color: white;
+}
+
+.modal-button-save:hover {
+  background-color: #1d4ed8;
+}
+
+.modal-button-delete {
+  background-color: #dc2626;
+  color: white;
+}
+
+.modal-button-delete:hover {
+  background-color: #b91c1c;
+}
+
+.modal-button-close {
+  background-color: #9ca3af;
+  color: white;
+}
+
+.modal-button-close:hover {
+  background-color: #6b7280;
+}
+
+/* Scrollbar styling */
+.modal-container::-webkit-scrollbar {
+  width: 8px;
+}
+
+.modal-container::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+.modal-container::-webkit-scrollbar-thumb {
+  background: #888;
+  border-radius: 4px;
+}
+
+.modal-container::-webkit-scrollbar-thumb:hover {
+  background: #666;
+}
