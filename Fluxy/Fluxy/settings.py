@@ -26,8 +26,9 @@ CSRF_TRUSTED_ORIGINS = ['http://localhost:3000']  # Add your local or production
 
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
-    "http://localhost:8000",  # Example: Frontend running locally
     "http://127.0.0.1:8000",
+    "http://127.0.0.1:3000",
+
     "https://flux-qcj2.onrender.com",
 ]
 CORS_ALLOW_CREDENTIALS = True

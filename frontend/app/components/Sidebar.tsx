@@ -30,94 +30,101 @@ const Sidebar: React.FC = () => {
   const [longTermTasks, setLongTermTasks] = useState<TodoTask[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [deletingTasks, setDeletingTasks] = useState<number[]>([]);
-  const [csrfToken, setCsrfToken] = useState<string>('');
 
-  // Fetch CSRF token and set up cookie
-  useEffect(() => {
-    const fetchCsrfToken = async () => {
-      try {
-        // First, ensure credentials are included to set the CSRF cookie
-        await fetch('http://127.0.0.1:8000/api/get-csrf-token/', {
-          credentials: 'include',
-        });
+  const getCSRFToken = () => {
+    const token = document.cookie
+      .split('; ')
+      .find((row) => row.startsWith('csrftoken='))
+      ?.split('=')[1];
+    return token || '';
+  };
+const fetchTodayEvents = async () => {
+  try {
+    console.log('Attempting to fetch events...');
+    const response = await fetch('http://127.0.0.1:8000/api/events/', {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': getCSRFToken(),
+      },
+      credentials: 'include',
+    });
 
-        // Get the CSRF token from the cookie
-        const csrfCookie = document.cookie
-          .split(';')
-          .find(cookie => cookie.trim().startsWith('csrftoken='));
-        
-        if (csrfCookie) {
-          const token = csrfCookie.split('=')[1];
-          setCsrfToken(token);
-        }
-      } catch (error) {
-        console.error('Error fetching CSRF token:', error);
+    console.log('Response status:', response.status);
+    console.log('Response headers:', response.headers);
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const data = await response.json();
+    console.log('Received data:', data);
+    
+    // Filter events for today
+    const today = new Date();
+    console.log('Today:', today);
+    const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    const todayEnd = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1);
+
+    const filteredEvents = data.filter((event: APIEvent) => {
+      const eventDate = new Date(event.date);
+      console.log('Event date:', eventDate, 'Is today?:', eventDate >= todayStart && eventDate < todayEnd);
+      return eventDate >= todayStart && eventDate < todayEnd;
+    });
+
+    console.log('Filtered events:', filteredEvents);
+    setTodayEvents(filteredEvents);
+    setError(null);
+  } catch (error) {
+    console.error('Detailed error:', error);
+    setError('Failed to load events');
+  }
+};
+
+  const fetchTasks = async () => {
+    try {
+      const response = await fetch('http://127.0.0.1:8000/api/tasks', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRFToken': getCSRFToken(),
+        },
+        credentials: 'include',
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
-    };
 
-    fetchCsrfToken();
-  }, []);
-
-  // Fetch today's events with credentials
-  useEffect(() => {
-    const fetchTodayEvents = async () => {
-      try {
-        const response = await fetch('http://127.0.0.1:8000/api/events/', {
-          credentials: 'include',
-        });
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
+      const data = await response.json();
+      
+      // Separate tasks into regular and long-term based on date
+      const regular: TodoTask[] = [];
+      const longTerm: TodoTask[] = [];
+      
+      data.forEach((task: TodoTask) => {
+        if (task.date) {
+          longTerm.push(task);
+        } else {
+          regular.push(task);
         }
-        const data = await response.json();
-        
-        const today = new Date();
-        const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-        const todayEnd = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1);
+      });
 
-        const filteredEvents = data.filter((event: APIEvent) => {
-          const eventDate = new Date(event.date);
-          return eventDate >= todayStart && eventDate < todayEnd;
-        });
+      setTasks(regular);
+      setLongTermTasks(longTerm);
+      setError(null);
+    } catch (error) {
+      console.error('Error fetching tasks:', error);
+      setError('Failed to load tasks');
+    }
+  };
 
-        setTodayEvents(filteredEvents);
-        setError(null);
-      } catch (error) {
-        console.error('Error fetching events:', error);
-        setError('Failed to load events');
-      }
-    };
-
+  useEffect(() => {
     fetchTodayEvents();
-  }, []);
-
-  // Fetch tasks with credentials
-  useEffect(() => {
-    const fetchTasks = async () => {
-      try {
-        const response = await fetch('http://127.0.0.1:8000/api/tasks', {
-          credentials: 'include',
-        });
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        const data = await response.json();
-        setTasks(data);
-        setError(null);
-      } catch (error) {
-        console.error('Error fetching tasks:', error);
-        setError('Failed to load tasks');
-      }
-    };
-
     fetchTasks();
   }, []);
 
   const handleTaskComplete = async (taskId: number) => {
-    if (!csrfToken) {
-      console.error('CSRF token not available');
-      return;
-    }
-
     setDeletingTasks(prev => [...prev, taskId]);
 
     try {
@@ -125,15 +132,15 @@ const Sidebar: React.FC = () => {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
-          'X-CSRFToken': csrfToken,
+          'X-CSRFToken': getCSRFToken(),
         },
         credentials: 'include',
       });
 
       if (response.ok) {
-        setTasks(tasks.filter(task => task.id !== taskId));
+        // Refresh both task lists after deletion
+        fetchTasks();
       } else {
-        console.error('Failed to delete task');
         throw new Error(`HTTP error! status: ${response.status}`);
       }
     } catch (error) {
