@@ -50,15 +50,13 @@ const fetchTodayEvents = async () => {
       credentials: 'include',
     });
 
-    console.log('Response status:', response.status);
-    console.log('Response headers:', response.headers);
 
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
 
     const data = await response.json();
-    console.log('Received data:', data);
+
     
     // Filter events for today
     const today = new Date();
@@ -83,7 +81,7 @@ const fetchTodayEvents = async () => {
 
   const fetchTasks = async () => {
     try {
-      const response = await fetch('http://127.0.0.1:8000/api/tasks', {
+      const response = await fetch('http://127.0.0.1:8000/api/tasks/', {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
