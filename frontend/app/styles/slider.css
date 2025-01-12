@@ -1,0 +1,22 @@
+/* In your CSS file (container.css or similar) */
+.slider {
+    display: flex;
+    justify-content: space-evenly;
+    margin: 20px;
+  }
+  
+  .slider button {
+    padding: 10px;
+    font-size: 16px;
+    cursor: pointer;
+    background-color: #3498db;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    transition: background-color 0.3s ease;
+  }
+  
+  .slider button:hover {
+    background-color: #2980b9;
+  }
+  

@@ -1,68 +1,150 @@
-/* Container for the event form */
-form {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start; /* Align everything to the left */
-    justify-content: flex-start;
-    width: auto;
-    margin: 10px; /* Add some space around the form */
-    padding: 0;
-    box-sizing: border-box;
+.event-form-container {
+    width: 70%;
+    max-width: 800px;
+    margin: -1.5rem 0.75rem auto; /* Align to the left */
+    padding: 1.25rem;
+    position: relative; /* Optional, for more control over positioning */
+}
+
+  
+  .event-form {
+    position: relative;
+    background: linear-gradient(135deg, #ffffff 0%, #f8f9ff 100%);
+    border-radius: 12px;
+    box-shadow: 
+      0 4px 6px -1px rgba(0, 0, 0, 0.1),
+      0 2px 4px -1px rgba(0, 0, 0, 0.06),
+      0 0 0 1px rgba(0, 0, 0, 0.05);
     overflow: hidden;
-
-}
-
-/* Textarea styling (small, black outline) */
-textarea {
-    width: 200px; /* Small width */
-    height: 30px; /* Small height */
-    padding: 5px;
-    margin-bottom: 10px;
-    border: 1px solid #000; /* Black outline */
-    font-size: 14px;
-    color: #333;
-    background-color: transparent; /* No background color */
-    resize: none; /* Disable resizing */
-    overflow: hidden; /* Prevent scrolling */
-    box-sizing: border-box;
-}
-
-/* Textarea placeholder */
-textarea::placeholder {
-    color: #aaa;
-}
-
-/* Button styling (small and simple) */
-button {
-    padding: 5px 0px; /* Small padding */
-    background-color: transparent; /* No background */
-    color: #000; /* Black text */
-    border: 1px solid #000; /* Black outline */
-    border-radius: 4px;
-    font-size: 14px;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+  }
+  
+  .event-form:hover {
+    transform: translateY(-2px);
+    box-shadow: 
+      0 10px 15px -3px rgba(0, 0, 0, 0.1),
+      0 4px 6px -2px rgba(0, 0, 0, 0.05),
+      0 0 0 1px rgba(0, 0, 0, 0.05);
+  }
+  
+  .form-content {
+    position: relative;
+    padding: 1rem;
+    z-index: 1;
+  }
+  
+  .form-background {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(120deg, #f0f7ff 0%, #f5f3ff 100%);
+    opacity: 0.7;
+    z-index: 0;
+  }
+  
+  .event-textarea {
+    width: 93%;
+    min-height: 20px;
+    padding: 1rem;
+    background: rgba(255, 255, 255, 0.9);
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    resize: vertical;
+    outline: none;
+    font-size: 1rem;
+    line-height: 1.5;
+    color: #374151;
+    transition: all 0.2s ease;
+  }
+  
+  .event-textarea:focus {
+    border-color: #3b82f6;
+    box-shadow: 
+      0 0 0 3px rgba(59, 130, 246, 0.1),
+      0 1px 2px 0 rgba(0, 0, 0, 0.05);
+    background: rgba(255, 255, 255, 1);
+  }
+  
+  .event-textarea::placeholder {
+    color: #9ca3af;
+  }
+  
+  .submit-button {
+    margin-top: 1rem;
+    padding: 0.75rem 1.5rem;
+    background: linear-gradient(135deg, #3b82f6 0%, #6366f1 100%);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-weight: 500;
     cursor: pointer;
-    transition: background-color 0.3s ease;
-    width: 100px; /* Fixed small width */
-    margin-top: 10px; /* Space above button */
-}
-
-/* Button hover effect */
-button:hover {
-    background-color: #f0f0f0; /* Light background on hover */
-}
-
-/* Error message styling */
-.error {
-    color: #ff4d4d;
-    margin-top: 10px;
-    font-size: 14px;
-    text-align: left;
-}
-
-/* Success message styling */
-.success {
-    color: #4CAF50;
-    margin-top: 10px;
-    font-size: 14px;
-    text-align: left;
-}
+    transition: all 0.2s ease;
+    position: relative;
+    overflow: hidden;
+  }
+  
+  .submit-button::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      rgba(255, 255, 255, 0.2) 50%,
+      transparent 100%
+    );
+    transition: left 0.5s ease;
+  }
+  
+  .submit-button:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.25);
+  }
+  
+  .submit-button:hover::before {
+    left: 100%;
+  }
+  
+  .submit-button:active {
+    transform: translateY(1px);
+  }
+  
+  .submit-button:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+    transform: none;
+  }
+  
+  .loading-spinner {
+    display: inline-block;
+    width: 1.25rem;
+    height: 1.25rem;
+    margin-left: 0.5rem;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-radius: 50%;
+    border-top-color: white;
+    animation: spin 0.8s linear infinite;
+  }
+  
+  @keyframes spin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+  
+  /* Error state styles */
+  .error-shake {
+    animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both;
+  }
+  
+  @keyframes shake {
+    10%, 90% { transform: translate3d(-1px, 0, 0); }
+    20%, 80% { transform: translate3d(2px, 0, 0); }
+    30%, 50%, 70% { transform: translate3d(-4px, 0, 0); }
+    40%, 60% { transform: translate3d(4px, 0, 0); }
+  }

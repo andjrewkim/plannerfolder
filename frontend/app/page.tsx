@@ -1,19 +1,20 @@
+
 'use client';
 import React, { useState, useEffect } from 'react';
 import Calendar from './components/Calendar';
 import Sidebar from './components/Sidebar';
 import EditModal from './components/EditModal';
-import ScheduleList from './components/ScheduleList';
 import EventForm from './components/EventForm';
+import Slider from './components/FullCalendarSlider';
 import './styles/container.css';
 
 const Page = () => {
   const [modalOpen, setModalOpen] = useState(false);
-  const [result, setResult] = useState<any>(null);  // Store the result from EventForm
-  const [error, setError] = useState<string | null>(null);  // Store error message from EventForm
-  const [triggerReload, setTriggerReload] = useState(false); // Trigger for reload
+  const [result, setResult] = useState<any>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [triggerReload, setTriggerReload] = useState(false);
+  const [view, setView] = useState<string>('dayGridMonth'); // Add state to track the calendar view
 
-  // Toggle reload state when result changes
   useEffect(() => {
     if (result) {
       setTriggerReload((prev) => !prev);
@@ -24,24 +25,25 @@ const Page = () => {
     setTriggerReload((prev) => !prev);
   };
 
+  const handleViewChange = (newView: string) => {
+    setView(newView);  // Update the view when the slider changes
+  };
+
   return (
     <>
       <div className="container">
-        <Sidebar key={triggerReload} /> {/* Reloads Sidebar on trigger */}
+        <Sidebar key={triggerReload} />
+        <Slider onViewChange={handleViewChange} /> {/* Pass the handleViewChange function */}
         <div className="main-content">
-          {/* Add form and extracted information */}
           <form method="post" className="calendar-form">
             <input type="hidden" name="csrfmiddlewaretoken" value="Django-CSRF-Token" />
           </form>
-          
-          {/* Pass setResult and setError to EventForm as props */}
+
           <EventForm setResult={setResult} setError={setError} />
-          
-          {/* Display error message if any */}
+
           {error && <p style={{ color: 'red' }}>{error}</p>}
-                    
-          <ScheduleList result={result} />
-          <Calendar key={triggerReload} onEventChange={handleTriggerReload} /> {/* Reloads Calendar and triggers reload */}
+
+          <Calendar key={triggerReload} onEventChange={handleTriggerReload} view={view} /> {/* Pass the view state */}
         </div>
         <EditModal isOpen={modalOpen} onClose={() => setModalOpen(false)} />
       </div>

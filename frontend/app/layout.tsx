@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Geist, Geist_Mono, Poppins } from "next/font/google";
+
 import Link from 'next/link'; // For navigation
 import Image from 'next/image'; // For optimized images
 import './globals.css';
@@ -13,6 +14,11 @@ const geistSans = Geist({
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
+});
+
+const poppins = Poppins({
+  subsets: ['latin'],
+  weight: ['300', '700'], // Specify font weights
 });
 
 export const metadata: Metadata = {
@@ -33,16 +39,10 @@ export default function RootLayout({
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         {/* Header */}
         <header>
-          <nav className="navbar">
+          <nav className={`${poppins.className} navbar`}>
             <div className="logo">
-              {/* Use Image component for optimized image handling */}
-              <Image
-                src="/app/images/logo.png"
-                alt="My Calendar Logo"
-                width={100}  // Adjust the width as needed
-                height={100} // Adjust the height as needed
-                className="logo-icon"
-              />
+              {/* Instead of an image, add the text here */}
+              <span className="logo-text">Flux Calendar</span>
             </div>
             <div className="menu">
               <Link href="/" className="home-button">
