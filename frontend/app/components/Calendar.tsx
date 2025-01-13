@@ -36,34 +36,20 @@ interface CalendarProps {
   onEventChange?: () => void;
 }
 
-// Add this interface to match your EventModal component
-interface EventModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  selectedEvent: EventDetails;
-  onSubmit: (e: React.FormEvent) => Promise<void>;
-  onDelete: (eventId: string) => Promise<void>;
-}
-
 const Calendar: React.FC<CalendarProps> = ({ onEventChange }) => {
   const [currentEvents, setCurrentEvents] = useState<EventApi[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<EventDetails | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [result, setResult] = useState<any>(null);
   const calendarRef = useRef(null);
-
-  const debounce = (func: Function, wait: number) => {
-    let timeout: NodeJS.Timeout;
-    return (...args: any[]) => {
-      clearTimeout(timeout);
-      timeout = setTimeout(() => func(...args), wait);
-    };
-  };
+  const shouldFetch = useRef(true);
 
   const fetchEvents = useCallback(async () => {
-    if (isLoading) return;
+    if (!shouldFetch.current) return;
+    shouldFetch.current = false;
     
-    setIsLoading(true);
     try {
       const response = await fetch('http://127.0.0.1:8000/api/events/');
       if (!response.ok) throw new Error('Failed to fetch events');
@@ -91,14 +77,125 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange }) => {
       setCurrentEvents(formattedEvents);
     } catch (error) {
       console.error('Error fetching events:', error);
-    } finally {
-      setIsLoading(false);
+      setError('Failed to fetch events');
     }
-  }, [isLoading]);
+  }, []);
 
   useEffect(() => {
     fetchEvents();
   }, [fetchEvents]);
+
+  const refreshEvents = () => {
+    shouldFetch.current = true;
+    fetchEvents();
+  };
+
+  // ... rest of your utility functions (formatToISOString, getCSRFToken) ...
+
+  const handleEventSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedEvent) return;
+
+    setIsLoading(true);
+    const formattedEvent = {
+      event_name: selectedEvent.event_name,
+      date: selectedEvent.date,
+      start_time: selectedEvent.start_time,
+      end_time: selectedEvent.end_time,
+      location: selectedEvent.location,
+      virtual: selectedEvent.virtual,
+      urgency: selectedEvent.urgency,
+      notes: selectedEvent.notes,
+      event_type: selectedEvent.event_type,
+      category: selectedEvent.category,
+      subcategories: selectedEvent.subcategories,
+      recurrence_pattern: selectedEvent.recurrence_pattern,
+      color: selectedEvent.color
+    };
+
+    try {
+      const url = selectedEvent.eventId 
+        ? `http://127.0.0.1:8000/api/events/${selectedEvent.eventId}/`
+        : 'http://127.0.0.1:8000/api/events/';
+        
+      const response = await fetch(url, {
+        method: selectedEvent.eventId ? 'PUT' : 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRFToken': getCSRFToken(),
+        },
+        credentials: 'include',
+        body: JSON.stringify(formattedEvent),
+      });
+
+      if (response.ok) {
+        setIsModalOpen(false);
+        refreshEvents();
+        if (onEventChange) onEventChange();
+        setError(null);
+      } else {
+        throw new Error('Failed to save event');
+      }
+    } catch (error) {
+      console.error('Error:', error);
+      setError('Failed to save event');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleEventDrop = useCallback((dropInfo: EventDropArg) => {
+    const event = dropInfo.event;
+    const startDate = new Date(event.start!);
+    const endDate = event.end ? new Date(event.end) : startDate;
+
+    const updatedEvent = {
+      event_name: event.title,
+      date: startDate.toISOString().split('T')[0],
+      start_time: startDate.toLocaleTimeString('en-US', {
+        hour12: false,
+        hour: '2-digit',
+        minute: '2-digit'
+      }),
+      end_time: endDate.toLocaleTimeString('en-US', {
+        hour12: false,
+        hour: '2-digit',
+        minute: '2-digit'
+      }),
+      location: event.extendedProps.location || '',
+      virtual: event.extendedProps.virtual || false,
+      urgency: event.extendedProps.urgency || 'medium',
+      notes: event.extendedProps.notes || '',
+      event_type: event.extendedProps.event_type || '',
+      category: event.extendedProps.category || '',
+      subcategories: event.extendedProps.subcategories || '',
+      recurrence_pattern: event.extendedProps.recurrence_pattern || '',
+      color: event.backgroundColor || '#3788d8'
+    };
+
+    fetch(`http://127.0.0.1:8000/api/events/${event.id}/`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': getCSRFToken(),
+      },
+      credentials: 'include',
+      body: JSON.stringify(updatedEvent),
+    })
+    .then(response => {
+      if (!response.ok) {
+        dropInfo.revert();
+        throw new Error('Failed to update event');
+      }
+      refreshEvents();
+      if (onEventChange) onEventChange();
+    })
+    .catch(error => {
+      console.error('Error:', error);
+      dropInfo.revert();
+      setError('Failed to update event position');
+    });
+  }, [onEventChange]);
 
   const formatToISOString = (date: string, time: string) => {
     const [hours, minutes] = time.split(':');
@@ -143,138 +240,6 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange }) => {
     setIsModalOpen(true);
   }, []);
 
-  const handleEventSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!selectedEvent) return;
-
-    setIsLoading(true);
-    const formattedEvent = {
-      event_name: selectedEvent.event_name,
-      date: selectedEvent.date,
-      start_time: selectedEvent.start_time,
-      end_time: selectedEvent.end_time,
-      location: selectedEvent.location,
-      virtual: selectedEvent.virtual,
-      urgency: selectedEvent.urgency,
-      notes: selectedEvent.notes,
-      event_type: selectedEvent.event_type,
-      category: selectedEvent.category,
-      subcategories: selectedEvent.subcategories,
-      recurrence_pattern: selectedEvent.recurrence_pattern,
-      color: selectedEvent.color
-    };
-
-    try {
-      const url = selectedEvent.eventId 
-        ? `http://127.0.0.1:8000/api/events/${selectedEvent.eventId}/`
-        : 'http://127.0.0.1:8000/api/events/';
-        
-      const response = await fetch(url, {
-        method: selectedEvent.eventId ? 'PUT' : 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-CSRFToken': getCSRFToken(),
-        },
-        credentials: 'include',
-        body: JSON.stringify(formattedEvent),
-      });
-
-      if (response.ok) {
-        setIsModalOpen(false);
-        await fetchEvents();
-        if (onEventChange) onEventChange();
-      } else {
-        throw new Error('Failed to save event');
-      }
-    } catch (error) {
-      console.error('Error:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleEventDrop = useCallback(debounce(async (dropInfo: EventDropArg) => {
-    const event = dropInfo.event;
-    const startDate = new Date(event.start!);
-    const endDate = event.end ? new Date(event.end) : startDate;
-
-    const updatedEvent = {
-      event_name: event.title,
-      date: startDate.toISOString().split('T')[0],
-      start_time: startDate.toLocaleTimeString('en-US', {
-        hour12: false,
-        hour: '2-digit',
-        minute: '2-digit'
-      }),
-      end_time: endDate.toLocaleTimeString('en-US', {
-        hour12: false,
-        hour: '2-digit',
-        minute: '2-digit'
-      }),
-      location: event.extendedProps.location || '',
-      virtual: event.extendedProps.virtual || false,
-      urgency: event.extendedProps.urgency || 'medium',
-      notes: event.extendedProps.notes || '',
-      event_type: event.extendedProps.event_type || '',
-      category: event.extendedProps.category || '',
-      subcategories: event.extendedProps.subcategories || '',
-      recurrence_pattern: event.extendedProps.recurrence_pattern || '',
-      color: event.backgroundColor || '#3788d8'
-    };
-
-    try {
-      setIsLoading(true);
-      const response = await fetch(`http://127.0.0.1:8000/api/events/${event.id}/`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-CSRFToken': getCSRFToken(),
-        },
-        credentials: 'include',
-        body: JSON.stringify(updatedEvent),
-      });
-
-      if (!response.ok) {
-        dropInfo.revert();
-        throw new Error('Failed to update event');
-      }
-      
-      await fetchEvents();
-      if (onEventChange) onEventChange();
-    } catch (error) {
-      console.error('Error:', error);
-      dropInfo.revert();
-    } finally {
-      setIsLoading(false);
-    }
-  }, 500), [fetchEvents, onEventChange]);
-
-  const handleEventDelete = async (eventId: string) => {
-    try {
-      setIsLoading(true);
-      const response = await fetch(`http://127.0.0.1:8000/api/events/${eventId}/`, {
-        method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-CSRFToken': getCSRFToken(),
-        },
-        credentials: 'include',
-      });
-
-      if (response.ok) {
-        setIsModalOpen(false);
-        await fetchEvents();
-        if (onEventChange) onEventChange();
-      } else {
-        throw new Error('Failed to delete event');
-      }
-    } catch (error) {
-      console.error('Error:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   return (
     <div className="bahahhaha">
       <div className="adadadadad">
@@ -293,7 +258,7 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange }) => {
           dayMaxEvents={true}
           events={currentEvents}
           select={handleDateSelect}
-          eventClick={useCallback((clickInfo: EventClickArg) => {
+          eventClick={(clickInfo: EventClickArg) => {
             const event = clickInfo.event;
             const startDate = new Date(event.start!);
             const endDate = event.end ? new Date(event.end) : startDate;
@@ -323,7 +288,7 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange }) => {
               color: event.backgroundColor || '#3788d8'
             });
             setIsModalOpen(true);
-          }, [])}
+          }}
           eventDrop={handleEventDrop}
           height="85vh"
           allDaySlot={false}
@@ -337,8 +302,36 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange }) => {
           isOpen={isModalOpen}
           onClose={() => setIsModalOpen(false)}
           selectedEvent={selectedEvent}
+          setResult={setResult}
+          setError={setError}
           onSubmit={handleEventSubmit}
-          onDelete={handleEventDelete}
+          onDelete={async (eventId: string) => {
+            try {
+              setIsLoading(true);
+              const response = await fetch(`http://127.0.0.1:8000/api/events/${eventId}/`, {
+                method: 'DELETE',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'X-CSRFToken': getCSRFToken(),
+                },
+                credentials: 'include',
+              });
+
+              if (response.ok) {
+                setIsModalOpen(false);
+                refreshEvents();
+                if (onEventChange) onEventChange();
+                setError(null);
+              } else {
+                throw new Error('Failed to delete event');
+              }
+            } catch (error) {
+              console.error('Error:', error);
+              setError('Failed to delete event');
+            } finally {
+              setIsLoading(false);
+            }
+          }}
         />
       )}
     </div>

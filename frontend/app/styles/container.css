@@ -1,52 +1,44 @@
 /* Base sidebar layout */
 .app-sidebar {
-  width: 320px; /* Fixed width */
-  height: 100vh; /* Full viewport height */
-  overflow-y: auto; /* Scrollable content */
-  background: #f8fafc; /* Background color */
-  border-right: 1px solid rgba(0, 0, 0, 0.1); /* Right border */
-  padding: 1rem;
-  position: fixed; /* Make the sidebar fixed */
-  top: 60px; /* Align to top of the viewport */
-  left: 0; /* Align to the left of the viewport */
-  z-index: 10; /* Ensure it stays above other content */
+  --sidebar-width: 320px;
+  --border-color: #cbd5e1;
+  --bubble-spacing: 12px;
+  
+  width: var(--sidebar-width);
+  height: 100vh;
+  background: #f8fafc;
+  border-right: 1px solid var(--border-color);
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Content container */
+.app-content {
+  margin-left: var(--sidebar-width);
 }
 
 
-/* Scrollbar styling */
-.app-sidebar::-webkit-scrollbar {
-  width: 4px;
-}
 
-.app-sidebar::-webkit-scrollbar-thumb {
-  background: rgba(0, 0, 0, 0.1);
-  border-radius: 4px;
-}
 
-.app-sidebar::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-/* Section styling */
-.sidebar-section {
-  background: white;
-  border-radius: 8px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  padding: 1rem;
-  margin-bottom: 1rem;
-}
 
 .section-title {
   font-size: 0.875rem;
   font-weight: 600;
   color: #1e293b;
-  margin-bottom: 1rem;
-  padding-bottom: 0.5rem;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+  padding: 1rem;
+  background: white;
+  border-bottom: 1px solid var(--border-color);
+  z-index: 2;
 }
 
 .section-content {
-  min-height: 50px;
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--bubble-spacing);
 }
 
 /* Event list styling */
@@ -60,11 +52,20 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 0.75rem;
-  margin: 0.5rem 0;
-  background: #f8fafc;
-  border-radius: 6px;
-  border-left: 3px solid var(--event-color, #cbd5e1);
+  padding: 0.75rem 1rem;
+  background: white;
+  border-radius: 12px;
+  margin: 8px 0;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  border-left: 3px solid var(--event-color, var(--border-color));
+  transform-origin: center;
+  animation: bubbleIn 0.3s ease-out;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.event-item:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
 }
 
 .event-name {
@@ -75,6 +76,9 @@
 .event-time {
   font-size: 0.75rem;
   color: #64748b;
+  background: #f1f5f9;
+  padding: 4px 8px;
+  border-radius: 6px;
 }
 
 /* Task list styling */
@@ -85,36 +89,54 @@
 }
 
 .task-item {
-  margin: 0.5rem 0;
-  transition: transform 0.2s ease, opacity 0.2s ease;
-}
-
-.task-item.deleting {
-  transform: translateX(-100%);
-  opacity: 0;
+  margin: 8px 0;
+  animation: bubbleIn 0.3s ease-out;
 }
 
 .task-label {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
-  padding: 0.75rem;
-  background: #f8fafc;
-  border-radius: 6px;
+  gap: 1rem;
+  padding: 0.75rem 1rem;
+  background: white;
+  border-radius: 12px;
   cursor: pointer;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.task-label:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
 }
 
 .task-checkbox {
-  width: 16px;
-  height: 16px;
-  border: 2px solid #64748b;
-  border-radius: 4px;
+  width: 18px;
+  height: 18px;
+  border: 2px solid var(--border-color);
+  border-radius: 6px;
   cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  position: relative;
+  transition: background-color 0.2s ease, border-color 0.2s ease;
 }
 
 .task-checkbox:checked {
   background: #64748b;
   border-color: #64748b;
+}
+
+.task-checkbox:checked::after {
+  content: '';
+  position: absolute;
+  left: 5px;
+  top: 2px;
+  width: 4px;
+  height: 8px;
+  border: solid white;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
 }
 
 .task-text {
@@ -126,9 +148,9 @@
 .task-date {
   font-size: 0.75rem;
   color: #64748b;
-  padding: 0.25rem 0.5rem;
+  padding: 4px 8px;
   background: #f1f5f9;
-  border-radius: 12px;
+  border-radius: 6px;
 }
 
 /* Empty states and error messages */
@@ -138,14 +160,73 @@
   font-size: 0.875rem;
   padding: 1rem;
   background: #f8fafc;
-  border-radius: 6px;
-  font-style: italic;
+  border-radius: 12px;
+  margin: 8px 0;
+  animation: bubbleIn 0.3s ease-out;
 }
 
 .error-message {
   color: #ef4444;
-  padding: 0.75rem;
+  padding: 1rem;
   background: #fef2f2;
-  border-radius: 6px;
+  border-radius: 12px;
   font-size: 0.875rem;
+  margin: 8px 0;
+  animation: bubbleIn 0.3s ease-out;
+}
+
+/* Animations */
+@keyframes bubbleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95) translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+/* Deletion animation */
+.task-item.deleting {
+  animation: bubbleOut 0.3s ease-in forwards;
+}
+
+@keyframes bubbleOut {
+  from {
+    opacity: 1;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(0.95) translateY(-10px);
+  }
+}
+
+
+.resize-handle:hover {
+  background: var(--border-color);
+}
+
+
+
+
+
+
+/* Ensure sections have enough space to resize */
+.sidebar-section {
+  overflow: auto;
+  position: relative;
+  min-height: 200px; /* Make sure there's space */
+  flex-grow: 1; /* Allow sections to grow if needed */
+}
+
+.resize-handle {
+  cursor: ns-resize; /* Change cursor on hover to indicate resizable */
+  width: 100%;
+  height: 10px;
+  position: relative;
+  bottom: 0;
+  left: 0;
+  background: transparent; /* Make sure the resize handle is visible */
 }

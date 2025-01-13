@@ -92,14 +92,16 @@ body {
   }
 }
 
-.h-screen {
+.h-screen {  
+  margin-top: -6.5rem;
   width: 100%;
   margin-left: 319px;
-  height: 100vh; /* Take up the full viewport height */
 
 }
 
 .calendar-container {
+    margin-top: -2rem;
+
   width: calc(100% - 320px);
 
   height: 100%;            /* Take the full height of the screen */
