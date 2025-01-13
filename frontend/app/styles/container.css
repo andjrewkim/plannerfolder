@@ -1,141 +1,84 @@
-/* Advanced Sidebar Styling */
-.sidebar {
-  background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
-  border-right: 1px solid rgba(0, 0, 0, 0.08);
-  overflow-y: auto;
+/* Base sidebar layout */
+.app-sidebar {
+  flex-shrink: 0; /* Prevents the sidebar from shrinking */
+  width: 320px; /* Fixed width */
+  height: 100vh; /* Full viewport height */
+  overflow-y: auto; /* Scrollable content */
+  background: #f8fafc; /* Background color */
+  border-right: 1px solid rgba(0, 0, 0, 0.1); /* Right border */
   padding: 1rem;
-  height: 100vh;
-  position: fixed;
-  width: 320px;
-  box-shadow: 
-    inset -1px 0 0 rgba(255, 255, 255, 0.15),
-    1px 0 2px rgba(0, 0, 0, 0.05);
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: fixed; /* Make the sidebar fixed */
+  top: 0; /* Align to top of the viewport */
+  left: 0; /* Align to the left of the viewport */
+  z-index: 10; /* Ensure it stays above other content */
 }
 
-.sidebar:hover {
-  box-shadow: 
-    inset -1px 0 0 rgba(255, 255, 255, 0.15),
-    1px 0 8px rgba(0, 0, 0, 0.08);
+
+/* Scrollbar styling */
+.app-sidebar::-webkit-scrollbar {
+  width: 4px;
 }
 
-/* Scrollbar Styling */
-.sidebar::-webkit-scrollbar {
-  width: 6px;
+.app-sidebar::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.1);
+  border-radius: 4px;
 }
 
-.sidebar::-webkit-scrollbar-track {
-  background: rgba(0, 0, 0, 0.02);
+.app-sidebar::-webkit-scrollbar-track {
+  background: transparent;
 }
 
-.sidebar::-webkit-scrollbar-thumb {
-  background: rgba(0, 0, 0, 0.08);
-  border-radius: 3px;
-  transition: background 0.3s ease;
+/* Section styling */
+.sidebar-section {
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  padding: 1rem;
+  margin-bottom: 1rem;
 }
 
-.sidebar::-webkit-scrollbar-thumb:hover {
-  background: rgba(0, 0, 0, 0.12);
-}
-
-/* Widget Base Styling */
-.widget {
-  margin: 0 0 1.5rem;
-  padding: 1.25rem;
-  background: rgba(255, 255, 255, 0.8);
-  backdrop-filter: blur(12px);
-  border: 1px solid rgba(0, 0, 0, 0.06);
-  border-radius: 12px;
-  box-shadow: 
-    0 4px 6px -1px rgba(0, 0, 0, 0.05),
-    0 2px 4px -2px rgba(0, 0, 0, 0.03);
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  position: relative;
-  overflow: hidden;
-}
-
-.widget::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 1px;
-  background: linear-gradient(90deg, 
-    rgba(255, 255, 255, 0) 0%,
-    rgba(255, 255, 255, 0.8) 50%,
-    rgba(255, 255, 255, 0) 100%);
-}
-
-.widget:hover {
-  transform: translateY(-1px);
-  box-shadow: 
-    0 8px 12px -4px rgba(0, 0, 0, 0.06),
-    0 4px 6px -2px rgba(0, 0, 0, 0.04);
-}
-
-/* Widget Headers */
-.widget h3 {
-  margin: 0 0 1rem;
-  font-size: 1rem;
+.section-title {
+  font-size: 0.875rem;
   font-weight: 600;
   color: #1e293b;
-  letter-spacing: 0.01em;
-  position: relative;
-  padding-bottom: 0.75rem;
+  margin-bottom: 1rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
 }
 
-.widget h3::after {
-  content: '';
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  width: 2rem;
-  height: 2px;
-  background: #334155;
-  transition: width 0.3s ease;
+.section-content {
+  min-height: 50px;
 }
 
-.widget:hover h3::after {
-  width: 3rem;
-}
-
-/* Today's Schedule Styling */
-#today-events {
+/* Event list styling */
+.event-list {
   list-style: none;
   padding: 0;
   margin: 0;
 }
 
-#today-events li {
+.event-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
   padding: 0.75rem;
   margin: 0.5rem 0;
-  background: rgba(255, 255, 255, 0.5);
-  border-radius: 8px;
+  background: #f8fafc;
+  border-radius: 6px;
+  border-left: 3px solid var(--event-color, #cbd5e1);
+}
+
+.event-name {
   font-size: 0.875rem;
-  transition: all 0.2s ease;
-  border: 1px solid rgba(0, 0, 0, 0.04);
-  position: relative;
-  overflow: hidden;
+  color: var(--event-color, #1e293b);
 }
 
-#today-events li::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: currentColor;
-  opacity: 0.03;
-  transition: opacity 0.2s ease;
+.event-time {
+  font-size: 0.75rem;
+  color: #64748b;
 }
 
-#today-events li:hover::before {
-  opacity: 0.06;
-}
-
-/* Tasks Styling */
+/* Task list styling */
 .task-list {
   list-style: none;
   padding: 0;
@@ -143,9 +86,8 @@
 }
 
 .task-item {
-  position: relative;
   margin: 0.5rem 0;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: transform 0.2s ease, opacity 0.2s ease;
 }
 
 .task-item.deleting {
@@ -153,141 +95,58 @@
   opacity: 0;
 }
 
-.checkbox-container {
+.task-label {
   display: flex;
   align-items: center;
+  gap: 0.75rem;
   padding: 0.75rem;
-  background: rgba(255, 255, 255, 0.5);
-  border: 1px solid rgba(0, 0, 0, 0.04);
-  border-radius: 8px;
-  transition: all 0.2s ease;
-}
-
-.checkbox-container:hover {
-  background: rgba(255, 255, 255, 0.8);
-  transform: translateX(4px);
+  background: #f8fafc;
+  border-radius: 6px;
+  cursor: pointer;
 }
 
 .task-checkbox {
-  appearance: none;
-  width: 18px;
-  height: 18px;
+  width: 16px;
+  height: 16px;
   border: 2px solid #64748b;
   border-radius: 4px;
-  margin-right: 12px;
   cursor: pointer;
-  position: relative;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .task-checkbox:checked {
-  background-color: #334155;
-  border-color: #334155;
+  background: #64748b;
+  border-color: #64748b;
 }
 
-.task-checkbox:checked::after {
-  content: '';
-  position: absolute;
-  left: 5px;
-  top: 2px;
-  width: 6px;
-  height: 10px;
-  border: solid white;
-  border-width: 0 2px 2px 0;
-  transform: rotate(45deg);
-}
-
-.task-label {
+.task-text {
   flex: 1;
   font-size: 0.875rem;
-  color: #334155;
-  cursor: pointer;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+  color: #1e293b;
 }
 
 .task-date {
   font-size: 0.75rem;
   color: #64748b;
-  background: rgba(0, 0, 0, 0.03);
   padding: 0.25rem 0.5rem;
+  background: #f1f5f9;
   border-radius: 12px;
-  margin-left: 0.5rem;
 }
 
-/* Loading and Error States */
-.text-red-500 {
-  color: #ef4444;
-  padding: 0.75rem;
-  background: rgba(239, 68, 68, 0.05);
-  border-radius: 8px;
-  font-size: 0.875rem;
-}
-
-.no-tasks {
+/* Empty states and error messages */
+.empty-state {
   text-align: center;
   color: #64748b;
-  padding: 1rem;
-  font-style: italic;
   font-size: 0.875rem;
-  background: rgba(0, 0, 0, 0.02);
-  border-radius: 8px;
+  padding: 1rem;
+  background: #f8fafc;
+  border-radius: 6px;
+  font-style: italic;
 }
 
-/* Advanced Animations */
-@keyframes slideIn {
-  from {
-    transform: translateX(-20px);
-    opacity: 0;
-  }
-  to {
-    transform: translateX(0);
-    opacity: 1;
-  }
-}
-
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-}
-
-.widget {
-  animation: slideIn 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.task-item {
-  animation: fadeIn 0.3s ease forwards;
-}
-
-/* Task Completion Animation */
-.task-checkbox:checked + .task-label {
-  text-decoration: line-through;
-  color: #94a3b8;
-  transition: all 0.2s ease;
-}
-
-/* Responsive Design */
-@media (max-width: 768px) {
-  .sidebar {
-    width: 100%;
-    position: relative;
-    height: auto;
-    max-height: 50vh;
-  }
-  
-  .widget {
-    margin: 1rem 0;
-  }
-}
-
-.main-content {
-  margin-left: 320px;  /* Match sidebar width */
-  padding: 20px;
-  overflow-y: auto;
-  height: 100vh;
+.error-message {
+  color: #ef4444;
+  padding: 0.75rem;
+  background: #fef2f2;
+  border-radius: 6px;
+  font-size: 0.875rem;
 }

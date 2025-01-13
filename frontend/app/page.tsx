@@ -5,8 +5,8 @@ import Calendar from './components/Calendar';
 import Sidebar from './components/Sidebar';
 import EditModal from './components/EditModal';
 import EventForm from './components/EventForm';
-import Slider from './components/FullCalendarSlider';
-import './styles/container.css';
+import './globals.css';
+
 
 const Page = () => {
   const [modalOpen, setModalOpen] = useState(false);
@@ -28,27 +28,34 @@ const Page = () => {
   const handleViewChange = (newView: string) => {
     setView(newView);  // Update the view when the slider changes
   };
+return (
+  <div className="h-screen overflow-hidden">
+    {/* Sidebar with fixed width */}
+    <Sidebar key={triggerReload} className="sidebar" /> {/* Sidebar takes 16rem width */}
 
-  return (
-    <>
-      <div className="container">
-        <Sidebar key={triggerReload} />
-        <Slider onViewChange={handleViewChange} /> {/* Pass the handleViewChange function */}
-        <div className="main-content">
-          <form method="post" className="calendar-form">
-            <input type="hidden" name="csrfmiddlewaretoken" value="Django-CSRF-Token" />
-          </form>
+    {/* Main content area */}
+    <div className="ewfsf">
+      <form method="post" className="calendar-form">
+        <input type="hidden" name="csrfmiddlewaretoken" value="Django-CSRF-Token" />
+      </form>
 
-          <EventForm setResult={setResult} setError={setError} />
+      <EventForm setResult={setResult} setError={setError} />
+      {error && <p style={{ color: 'red' }}>{error}</p>}
 
-          {error && <p style={{ color: 'red' }}>{error}</p>}
-
-          <Calendar key={triggerReload} onEventChange={handleTriggerReload} view={view} /> {/* Pass the view state */}
-        </div>
-        <EditModal isOpen={modalOpen} onClose={() => setModalOpen(false)} />
+      {/* Calendar component */}
+      <div className="calendar-container">
+        <Calendar 
+          key={triggerReload} 
+          onEventChange={handleTriggerReload} 
+          view={view} 
+        />
       </div>
-    </>
-  );
-};
+    </div>
+  </div>
+);
+
+  
+}
+
 
 export default Page;

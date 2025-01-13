@@ -1,7 +1,8 @@
 .event-form-container {
     width: 70%;
     max-width: 800px;
-    margin: -1.5rem 0.75rem auto; /* Align to the left */
+    margin: 1.8rem 0.75rem auto; /* Align to the left */
+    margin-left: 20rem;
     padding: 1.25rem;
     position: relative; /* Optional, for more control over positioning */
 }

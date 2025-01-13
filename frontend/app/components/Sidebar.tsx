@@ -157,96 +157,94 @@ const fetchTodayEvents = async () => {
   };
 
   return (
-    <div className="sidebar">
-      <div className="widget">
-        <h3>Today's Schedule</h3>
-        <ul id="today-events">
+    <aside className="app-sidebar">
+      <section className="sidebar-section">
+        <h3 className="section-title">Today's Schedule</h3>
+        <div className="section-content">
           {error ? (
-            <li className="text-red-500">{error}</li>
+            <div className="error-message">{error}</div>
           ) : todayEvents.length > 0 ? (
-            todayEvents.map(event => (
-              <li
-                key={event.id}
-                style={{
-                  color: event.color,
-                  borderLeft: `4px solid ${event.color}`,
-                  paddingLeft: '8px',
-                }}
-              >
-                {event.event_name} at {formatEventTime(event.date, event.start_time)}
-              </li>
-            ))
+            <ul className="event-list">
+              {todayEvents.map(event => (
+                <li
+                  key={event.id}
+                  className="event-item"
+                  style={{
+                    '--event-color': event.color
+                  } as React.CSSProperties}
+                >
+                  <span className="event-name">{event.event_name}</span>
+                  <span className="event-time">
+                    {formatEventTime(event.date, event.start_time)}
+                  </span>
+                </li>
+              ))}
+            </ul>
           ) : (
-            <li>No events for today</li>
+            <div className="empty-state">No events for today</div>
           )}
-        </ul>
-      </div>
+        </div>
+      </section>
 
-      <div className="widget tasks-widget">
-        <h3>Tasks</h3>
-        <ul className="task-list">
-          {tasks.map((task) => (
-            <li 
-              key={task.id} 
-              className={`task-item ${deletingTasks.includes(task.id) ? 'deleting' : ''}`}
-            >
-              <div className="checkbox-container">
-                <input
-                  type="checkbox"
-                  id={`task-${task.id}`}
-                  onChange={() => handleTaskComplete(task.id)}
-                  className="task-checkbox"
-                />
-                <label 
-                  htmlFor={`task-${task.id}`}
-                  className="task-label"
+      <section className="sidebar-section">
+        <h3 className="section-title">Tasks</h3>
+        <div className="section-content">
+          {tasks.length > 0 ? (
+            <ul className="task-list">
+              {tasks.map((task) => (
+                <li 
+                  key={task.id} 
+                  className={`task-item ${deletingTasks.includes(task.id) ? 'deleting' : ''}`}
                 >
-                  {task.event}
-                </label>
-              </div>
-            </li>
-          ))}
-          {tasks.length === 0 && (
-            <li className="no-tasks">No tasks</li>
+                  <label className="task-label">
+                    <input
+                      type="checkbox"
+                      onChange={() => handleTaskComplete(task.id)}
+                      className="task-checkbox"
+                    />
+                    <span className="task-text">{task.event}</span>
+                  </label>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <div className="empty-state">No tasks</div>
           )}
-        </ul>
-      </div>
+        </div>
+      </section>
 
-      <div className="widget tasks-widget">
-        <h3>Long-term Tasks</h3>
-        <ul className="task-list">
-          {longTermTasks.map((task) => (
-            <li 
-              key={task.id} 
-              className={`task-item ${deletingTasks.includes(task.id) ? 'deleting' : ''}`}
-            >
-              <div className="checkbox-container">
-                <input
-                  type="checkbox"
-                  id={`long-task-${task.id}`}
-                  onChange={() => handleTaskComplete(task.id)}
-                  className="task-checkbox"
-                />
-                <label 
-                  htmlFor={`long-task-${task.id}`}
-                  className="task-label"
+      <section className="sidebar-section">
+        <h3 className="section-title">Long-term Tasks</h3>
+        <div className="section-content">
+          {longTermTasks.length > 0 ? (
+            <ul className="task-list">
+              {longTermTasks.map((task) => (
+                <li 
+                  key={task.id} 
+                  className={`task-item ${deletingTasks.includes(task.id) ? 'deleting' : ''}`}
                 >
-                  <div>{task.event}</div>
-                  {task.date && (
-                    <div className="task-date">
-                      Due: {new Date(task.date).toLocaleDateString()}
-                    </div>
-                  )}
-                </label>
-              </div>
-            </li>
-          ))}
-          {longTermTasks.length === 0 && (
-            <li className="no-tasks">No long-term tasks</li>
+                  <label className="task-label">
+                    <input
+                      type="checkbox"
+                      onChange={() => handleTaskComplete(task.id)}
+                      className="task-checkbox"
+                    />
+                    <span className="task-text">{task.event}</span>
+                    {task.date && (
+                      <span className="task-date">
+                        Due: {new Date(task.date).toLocaleDateString()}
+                      </span>
+                    )}
+                  </label>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <div className="empty-state">No long-term tasks</div>
           )}
-        </ul>
-      </div>
-    </div>
+        </div>
+      </section>
+    </aside>
   );
 };
 

@@ -1,14 +1,13 @@
-/* Calendar Container */
-#calendar {
-    width: 96%; /* Adjust the width */
-    height: 100vh !important; /* Set the height to 80% of the viewport height */
-    margin: 1.5rem auto;
-    margin-left: 2rem; /* Add more indentation on the left */
-    background-color: #f9f9f9;
-    border-radius: 12px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+.fc {
+    width: 100%;     /* Adjust width based on your needs */
+    height: 85vh;    /* Fixed height */
+    display: flex;
+    margin: auto;    /* Auto margins for centering */
     overflow: hidden;
-}
+    box-sizing: border-box;
+    
+  }
+
 
 
 /* Calendar Header */
