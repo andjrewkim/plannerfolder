@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState } from 'react';
 import '../styles/container.css';
 
 interface APIEvent {
@@ -21,17 +21,40 @@ const Sidebar: React.FC = () => {
   const [longTermTasks, setLongTermTasks] = useState<TodoTask[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [deletingTasks, setDeletingTasks] = useState<number[]>([]);
-
-  const scheduleRef = useRef<HTMLDivElement>(null);
-  const tasksRef = useRef<HTMLDivElement>(null);
-  const longTermRef = useRef<HTMLDivElement>(null);
   
-  // Track initial position for precise resizing
-  const resizeInfo = useRef({
-    startY: 0,
-    startHeight: 0,
-    element: null as HTMLDivElement | null
+  // Add state for each section's height
+  const [heights, setHeights] = useState({
+    schedule: 300,
+    tasks: 300,
+    longTerm: 300
   });
+  const [isDragging, setIsDragging] = useState<string | null>(null);
+
+  const startResize = (section: string) => (e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsDragging(section);
+    
+    const startY = e.clientY;
+    const startHeight = heights[section as keyof typeof heights];
+    
+    const handleMouseMove = (moveEvent: MouseEvent) => {
+      const delta = moveEvent.clientY - startY;
+      const newHeight = Math.max(100, startHeight + delta);
+      setHeights(prev => ({
+        ...prev,
+        [section]: newHeight
+      }));
+    };
+    
+    const handleMouseUp = () => {
+      setIsDragging(null);
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+    
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+  };
 
   const getCSRFToken = () => {
     return document.cookie
@@ -40,42 +63,7 @@ const Sidebar: React.FC = () => {
       ?.split('=')[1] || '';
   };
 
-  const handleMouseDown = (ref: React.RefObject<HTMLDivElement>) => (e: React.MouseEvent) => {
-    e.preventDefault();
-    
-    if (!ref.current) return;
-    const element = ref.current;
-    
-    // Store initial position and height
-    resizeInfo.current = {
-      startY: e.clientY,
-      startHeight: element.offsetHeight,
-      element: element
-    };
-    
-    const handleMouseMove = (moveEvent: MouseEvent) => {
-      if (!resizeInfo.current.element) return;
-      
-      const deltaY = moveEvent.clientY - resizeInfo.current.startY;
-      const newHeight = Math.max(100, resizeInfo.current.startHeight + deltaY);
-      resizeInfo.current.element.style.height = `${newHeight}px`;
-    };
-  
-    const handleMouseUp = () => {
-      resizeInfo.current = {
-        startY: 0,
-        startHeight: 0,
-        element: null
-      };
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
-    };
-  
-    document.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('mouseup', handleMouseUp);
-  };
-
-  // Keep all your existing functions unchanged
+  // Keep your existing fetch functions
   const fetchTodayEvents = async () => {
     try {
       const response = await fetch('http://127.0.0.1:8000/api/events/', {
@@ -181,13 +169,11 @@ const Sidebar: React.FC = () => {
     <div className="app-layout">
       <aside className="app-sidebar">
         <section 
-          ref={scheduleRef}
           className="sidebar-section" 
           style={{ 
             marginTop: '60px', 
-            height: '300px',
+            height: heights.schedule,
             minHeight: '100px',
-            resize: 'vertical',
             overflow: 'auto',
             position: 'relative'
           }}
@@ -219,12 +205,12 @@ const Sidebar: React.FC = () => {
           </div>
           <div 
             className="resize-handle" 
-            onMouseDown={handleMouseDown(scheduleRef)}
+            onMouseDown={startResize('schedule')}
             style={{
               cursor: 'ns-resize',
               height: '10px',
               width: '100%',
-              background: 'transparent',
+              background: isDragging === 'schedule' ? '#e0e0e0' : 'transparent',
               position: 'absolute',
               bottom: 0,
               left: 0
@@ -233,15 +219,12 @@ const Sidebar: React.FC = () => {
         </section>
 
         <section 
-          ref={tasksRef}
           className="sidebar-section"
           style={{ 
-            height: '300px',
+            height: heights.tasks,
             minHeight: '100px',
-            resize: 'vertical',
             overflow: 'auto',
-            position: 'relative',
-            marginTop: '8px'
+            position: 'relative'
           }}
         >
           <h3 className="section-title">Tasks</h3>
@@ -270,12 +253,12 @@ const Sidebar: React.FC = () => {
           </div>
           <div 
             className="resize-handle" 
-            onMouseDown={handleMouseDown(tasksRef)}
+            onMouseDown={startResize('tasks')}
             style={{
               cursor: 'ns-resize',
               height: '10px',
               width: '100%',
-              background: 'transparent',
+              background: isDragging === 'tasks' ? '#e0e0e0' : 'transparent',
               position: 'absolute',
               bottom: 0,
               left: 0
@@ -284,15 +267,12 @@ const Sidebar: React.FC = () => {
         </section>
 
         <section 
-          ref={longTermRef}
           className="sidebar-section"
           style={{ 
-            height: '300px',
+            height: heights.longTerm,
             minHeight: '100px',
-            resize: 'vertical',
             overflow: 'auto',
-            position: 'relative',
-            marginTop: '8px'
+            position: 'relative'
           }}
         >
           <h3 className="section-title">Long-term Tasks</h3>
@@ -326,12 +306,12 @@ const Sidebar: React.FC = () => {
           </div>
           <div 
             className="resize-handle" 
-            onMouseDown={handleMouseDown(longTermRef)}
+            onMouseDown={startResize('longTerm')}
             style={{
               cursor: 'ns-resize',
               height: '10px',
               width: '100%',
-              background: 'transparent',
+              background: isDragging === 'longTerm' ? '#e0e0e0' : 'transparent',
               position: 'absolute',
               bottom: 0,
               left: 0

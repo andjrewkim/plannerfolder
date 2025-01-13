@@ -34,24 +34,27 @@ return (
     <Sidebar key={triggerReload} className="sidebar" /> {/* Sidebar takes 16rem width */}
 
     {/* Main content area */}
-    <div className="ewfsf">
-      <form method="post" className="calendar-form">
-        <input type="hidden" name="csrfmiddlewaretoken" value="Django-CSRF-Token" />
-      </form>
-
+  <div className="ewfsf">
+    <form method="post" className="calendar-form">
+      <input type="hidden" name="csrfmiddlewaretoken" value="Django-CSRF-Token" />
+    </form>
+    <div className="form-content">
       <EventForm setResult={setResult} setError={setError} />
       {error && <p style={{ color: 'red' }}>{error}</p>}
-
-      {/* Calendar component */}
-      <div className="calendar-container">
-        <Calendar 
-          key={triggerReload} 
-          onEventChange={handleTriggerReload} 
-          view={view} 
-        />
-      </div>
     </div>
   </div>
+
+  {/* Calendar component in its own container */}
+  <div className="calendar-container">
+    <Calendar 
+      key={triggerReload} 
+      onEventChange={handleTriggerReload} 
+      view={view} 
+          />
+        </div>
+      </div>
+
+
 );
 
   
