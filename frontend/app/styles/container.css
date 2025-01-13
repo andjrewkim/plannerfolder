@@ -1,6 +1,5 @@
 /* Base sidebar layout */
 .app-sidebar {
-  flex-shrink: 0; /* Prevents the sidebar from shrinking */
   width: 320px; /* Fixed width */
   height: 100vh; /* Full viewport height */
   overflow-y: auto; /* Scrollable content */
@@ -8,7 +7,7 @@
   border-right: 1px solid rgba(0, 0, 0, 0.1); /* Right border */
   padding: 1rem;
   position: fixed; /* Make the sidebar fixed */
-  top: 0; /* Align to top of the viewport */
+  top: 60px; /* Align to top of the viewport */
   left: 0; /* Align to the left of the viewport */
   z-index: 10; /* Ensure it stays above other content */
 }

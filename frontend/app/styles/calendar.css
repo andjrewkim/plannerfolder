@@ -1,134 +1,136 @@
 .fc {
-    width: 100%;     /* Adjust width based on your needs */
-    height: 85vh;    /* Fixed height */
+    width: 100%;
+    height: 85vh;
     display: flex;
-    margin: auto;    /* Auto margins for centering */
+    margin: auto;
     overflow: hidden;
     box-sizing: border-box;
-    
-  }
-
-
+    background: linear-gradient(145deg, #ffffff, #f8f9ff);
+    border-radius: 12px;
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.05);
+}
 
 /* Calendar Header */
 .fc-header-toolbar {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 1rem;
-    background-color: #ffffff;
-    border-bottom: 1px solid #e0e0e0;
+    padding: 1.5rem;
+    background: linear-gradient(to right, #f8f9ff, #f0f2ff);
+    border-bottom: 1px solid rgba(180, 190, 255, 0.2);
     font-family: 'Inter', sans-serif;
 }
 
 .fc-button {
-    background-color: #007bff;
+    background: linear-gradient(135deg, #6366f1, #4f46e5);
     color: white;
-    border-radius: 6px;
-    padding: 0.5rem 1rem;
+    border-radius: 8px;
+    padding: 0.6rem 1.2rem;
     font-size: 14px;
-    transition: background-color 0.3s ease;
+    font-weight: 500;
+    transition: all 0.3s ease;
     border: none;
+    box-shadow: 0 2px 10px rgba(99, 102, 241, 0.2);
 }
 
 .fc-button:hover {
-    background-color: #0056b3;
+    background: linear-gradient(135deg, #4f46e5, #4338ca);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);
 }
 
 .fc-toolbar-title {
-    font-size: 18px;
-    font-weight: 500;
-    color: #333333;
+    font-size: 20px;
+    font-weight: 600;
+    color: #1e1b4b;
+    letter-spacing: -0.02em;
 }
 
 /* Calendar Weekdays */
 .fc-col-header-cell {
-    background-color: #f5f5f5;
-    font-size: 14px;
-    color: #666666;
+    background: linear-gradient(to right, #f8faff, #f5f7ff);
+    font-size: 13px;
+    color: #4b5563;
     text-transform: uppercase;
     font-weight: 600;
-    border-bottom: 1px solid #e0e0e0;
+    letter-spacing: 0.05em;
+    padding: 12px 0;
 }
 
 /* Calendar Cells */
 .fc-daygrid-day {
-    font-size: 13px;
-    color: #444;
-    transition: background-color 0.2s;
+    font-size: 14px;
+    color: #374151;
+    transition: all 0.2s ease;
+    border: 1px solid rgba(180, 190, 255, 0.1);
 }
 
 .fc-daygrid-day:hover {
-    background-color: #e6f7ff;
+    background: linear-gradient(145deg, #f5f7ff, #eff3ff);
 }
 
 .fc-day-today {
-    background-color: #e0f7fa !important;
-    border-radius: 6px;
+    background: linear-gradient(145deg, #eef2ff, #e0e7ff) !important;
+    position: relative;
+}
+
+.fc-day-today::after {
+    content: '';
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #4f46e5;
 }
 
 /* Events */
 .fc-event {
-    background-color: #1e88e5;
+    background: linear-gradient(135deg, #818cf8, #6366f1);
     color: white;
     border: none;
-    border-radius: 4px;
-    padding: 0.25rem 0.5rem;
+    border-radius: 6px;
+    padding: 0.3rem 0.6rem;
     font-size: 12px;
     font-weight: 500;
     cursor: pointer;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-    transition: transform 0.2s;
+    box-shadow: 0 2px 6px rgba(99, 102, 241, 0.2);
+    transition: all 0.2s ease;
 }
 
 .fc-event:hover {
-    transform: scale(1.05);
+    transform: translateY(-1px) scale(1.02);
+    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
 }
 
 /* Scrollbar Styling */
 .fc-scroller {
     scrollbar-width: thin;
-    scrollbar-color: #d1d1d1 #f9f9f9;
+    scrollbar-color: #c7d2fe #f8faff;
 }
 
 .fc-scroller::-webkit-scrollbar {
-    width: 8px;
+    width: 6px;
 }
 
 .fc-scroller::-webkit-scrollbar-thumb {
-    background-color: #d1d1d1;
-    border-radius: 4px;
+    background: linear-gradient(to bottom, #818cf8, #6366f1);
+    border-radius: 3px;
 }
 
 .fc-scroller::-webkit-scrollbar-track {
-    background: #f9f9f9;
+    background: #f8faff;
 }
 
-/* Custom Tooltip (Optional) */
-.fc-event:hover:after {
-    content: attr(data-tooltip);
-    position: absolute;
-    background: #333;
-    color: #fff;
-    padding: 5px 10px;
-    font-size: 12px;
-    border-radius: 4px;
-    top: -30px;
-    left: 50%;
-    transform: translateX(-50%);
-    white-space: nowrap;
-    z-index: 10;
-}
-
-/* Responsiveness */
 @media (max-width: 768px) {
     .fc-header-toolbar {
         flex-direction: column;
         align-items: flex-start;
+        gap: 1rem;
     }
 
     .fc-toolbar-title {
         margin-bottom: 0.5rem;
     }
 }
-
