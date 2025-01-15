@@ -1,52 +1,123 @@
-// app/settings/page.tsx
-'use client';
+"use client"
+import React, { useState, useEffect } from 'react';
+import { Calendar, Clock, Bell, Globe, User, Sliders, Palette, Mail } from 'lucide-react';
+import DisplaySettings from '@/app/settings/settingspages/DisplaySettings';
+import GeneralPreferences from './settingspages/GeneralPreferences';
+import NotificationSettings from './settingspages/NotificationSettings';
+import TimeSettings from './settingspages/TimeSettings';
 
-import React, { useState } from 'react'; 
-import '../styles/settings.css'; // Import the global CSS file
 
+// Define a type for all possible section names
+type SectionName = 'preferences' | 'display' | 'timezone' | 'notifications' | 'profile' | 'sharing' | 'email';
 
-const SettingsPage = () => {
-  const [isChecked, setIsChecked] = useState(false);
+// Define the section titles with the correct type
+const sectionTitles: Record<SectionName, string> = {
+  preferences: 'General Preferences',
+  display: 'Display Settings',
+  timezone: 'Time & Date',
+  notifications: 'Notifications',
+  profile: 'Profile',
+  sharing: 'Calendar Sharing',
+  email: 'Email Settings'
+};
 
-  const handleToggleChange = () => {
-    setIsChecked(!isChecked);
+export default function CalendarSettings() {
+  // Use the correct type for activeSection
+  const [activeSection, setActiveSection] = useState<SectionName>('preferences');
+  
+  useEffect(() => {
+    const hash = (window.location.hash.slice(1) || 'preferences') as SectionName;
+    setActiveSection(hash);
+
+    const handleHashChange = () => {
+      const newHash = (window.location.hash.slice(1) || 'preferences') as SectionName;
+      setActiveSection(newHash);
+    };
+
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, []);
+  
+  const renderContent = () => {
+    switch(activeSection) {
+      case 'preferences':
+        return <GeneralPreferences />;
+      case 'display':
+        return <DisplaySettings />;
+      case 'timezone':
+        return <TimeSettings />;
+      case 'notifications':
+        return <NotificationSettings />;
+      default:
+        return <div>Section under construction</div>;
+    }
   };
 
   return (
-    <div className="settings-container">
-      <h1>Settings</h1>
-
-      <div className="settings-section">
-        <h2>Account Settings</h2>
-        <p>Manage your account settings, change your username, email, or password.</p>
-        <a href="/account-settings" className="btn">Edit Account</a>
-      </div>
-
-      <div className="settings-section">
-        <h2>Appearance</h2>
-        <p>Customize your theme and preferences.</p>
-
-        <div className="general-toggle">
-          <h3>Enable Feature</h3>
-          <label htmlFor="toggle-feature">
-            <input 
-              type="checkbox" 
-              id="toggle-feature" 
-              name="toggle_feature" 
-              checked={isChecked} 
-              onChange={handleToggleChange} 
-            />
-          </label>
+    <div className="app-container">
+      <header className="header">
+        <div className="header-content">
+          <Calendar className="app-logo" size={32} />
+          <h1>Calendar Settings</h1>
         </div>
-      </div>
+      </header>
 
-      <div className="settings-section">
-        <h2>Premium Features</h2>
-        <p>Upgrade to premium for additional features and customization options.</p>
-        <a href="/premium" className="btn premium">Upgrade to Premium</a>
+      <div className="main-container">
+        <nav className="sidebar">
+          <div className="nav-group">
+            <h2 className="nav-header">App Settings</h2>
+            <a href="#preferences" 
+               className={`nav-item ${activeSection === 'preferences' ? 'active' : ''}`}>
+              <Sliders size={16} />
+              General Preferences
+            </a>
+            <a href="#display" 
+               className={`nav-item ${activeSection === 'display' ? 'active' : ''}`}>
+              <Palette size={16} />
+              Display Settings
+            </a>
+            <a href="#timezone" 
+               className={`nav-item ${activeSection === 'timezone' ? 'active' : ''}`}>
+              <Clock size={16} />
+              Time & Date
+            </a>
+            <a href="#notifications" 
+               className={`nav-item ${activeSection === 'notifications' ? 'active' : ''}`}>
+              <Bell size={16} />
+              Notifications
+            </a>
+          </div>
+
+          <div className="nav-group">
+            <h2 className="nav-header">Account</h2>
+            <a href="#profile" 
+               className={`nav-item ${activeSection === 'profile' ? 'active' : ''}`}>
+              <User size={16} />
+              Profile
+            </a>
+            <a href="#sharing" 
+               className={`nav-item ${activeSection === 'sharing' ? 'active' : ''}`}>
+              <Globe size={16} />
+              Calendar Sharing
+            </a>
+            <a href="#email" 
+               className={`nav-item ${activeSection === 'email' ? 'active' : ''}`}>
+              <Mail size={16} />
+              Email Settings
+            </a>
+          </div>
+        </nav>
+
+        <main className="content">
+          <div className="content-header">
+            <h2 className="content-title">{sectionTitles[activeSection]}</h2>
+            <p className="content-description">
+              Customize your calendar experience
+            </p>
+          </div>
+          {renderContent()}
+        </main>
       </div>
     </div>
   );
-};
-
-export default SettingsPage;
+}
