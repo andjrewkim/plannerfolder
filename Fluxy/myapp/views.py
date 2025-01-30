@@ -51,6 +51,8 @@ class DateHandler:
             'today': 0,
             'tomorrow': 1,
             'yesterday': -1,
+            'in a couple days': 2,
+            'day after tomorrow': 2,
             'next week': 7,
             'last week': -7
         }
@@ -502,6 +504,9 @@ class ScheduleSpellChecker:
             "fri": "Friday",
             "sat": "Saturday",
             "sun": "Sunday",
+            #date correction
+
+            "janruary": "January",
             
             # Common schedule words
             "meetin": "meeting",
