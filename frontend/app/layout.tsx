@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { Geist, Geist_Mono, Poppins } from "next/font/google";
 import Link from 'next/link';
 import Image from 'next/image';
+import { usePathname } from 'next/navigation';
 import './globals.css';
 import './styles/navbar.css';
 
@@ -27,15 +28,25 @@ interface RootLayoutProps {
 }
 
 const RootLayout: React.FC<RootLayoutProps> = ({ children }) => {
-  const [visible, setVisible] = useState(false); // Initially, the navbar is invisible
+  const [visible, setVisible] = useState(false);
+  const pathname = usePathname();
   
+  // Define paths where navbar should always be visible
+  const alwaysVisiblePaths = ['/settings'];
+  const shouldAlwaysShow = alwaysVisiblePaths.includes(pathname);
+
   useEffect(() => {
+    // If we're on a path where navbar should always be visible, 
+    // set visible to true and don't add mouse move listener
+    if (shouldAlwaysShow) {
+      setVisible(true);
+      return;
+    }
+
     const handleMouseMove = (e: MouseEvent) => {
-      // If the mouse is near the top (within 50px), show the navbar
       if (e.clientY <= 50) {
         setVisible(true);
       } else {
-        // If the mouse is not near the top, hide the navbar
         setVisible(false);
       }
     };
@@ -45,12 +56,11 @@ const RootLayout: React.FC<RootLayoutProps> = ({ children }) => {
     return () => {
       window.removeEventListener('mousemove', handleMouseMove);
     };
-  }, []);
+  }, [pathname, shouldAlwaysShow]);
 
   return (
     <html lang="en">
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
-        {/* Fixed navbar at top */}
         <nav
           className={`${poppins.className} navbar`}
           style={{
@@ -62,9 +72,9 @@ const RootLayout: React.FC<RootLayoutProps> = ({ children }) => {
             boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
             height: '60px',
             zIndex: 1000,
-            opacity: visible ? 1 : 0, // Adjust opacity to fade in/out
-            transform: visible ? 'translateY(0)' : 'translateY(-100%)', // Slide in from the top or slide out
-            transition: 'transform 0.4s ease-in-out, opacity 0.4s ease-in-out', // Smooth sliding transition
+            opacity: visible ? 1 : 0,
+            transform: visible ? 'translateY(0)' : 'translateY(-100%)',
+            transition: 'transform 0.4s ease-in-out, opacity 0.4s ease-in-out',
           }}
         >
           <div className="logo">
@@ -101,11 +111,10 @@ const RootLayout: React.FC<RootLayoutProps> = ({ children }) => {
           </div>
         </nav>
 
-        {/* Content that moves */}
         <div 
           style={{ 
             minHeight: '100vh',
-            paddingTop: visible ? '90px' : '30px', // Content shifts when the navbar is visible
+            paddingTop: visible ? '90px' : '30px',
             transition: 'padding-top 0.4s ease-in-out',
           }}
         >
