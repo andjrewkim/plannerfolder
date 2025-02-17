@@ -13,7 +13,7 @@ class ScheduleInputDispatcher(APIView):
             request_data = QueryDict(request.data).dict()
         else:
             request_data = request.data.copy()
-            
+        
         input_text = request_data.get('input_text')
         if not input_text:
             return Response(
@@ -33,7 +33,6 @@ class ScheduleInputDispatcher(APIView):
                     'date': extracted_data.get('date'),
                 }
                 
-                # Create task using serializer
                 serializer = TodoTaskSerializer(data=task_data)
                 if serializer.is_valid():
                     task = serializer.save()
@@ -45,14 +44,12 @@ class ScheduleInputDispatcher(APIView):
                 return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
             elif extracted_data.get('type') == 'event':
-                # Create a new request for the calendar event view
                 calendar_view = CalendarEventCreate.as_view()
                 
-                # Merge extracted data with request data
+                # Just pass the extracted data directly - no need to modify recurrence_pattern
                 new_data = request_data.copy()
                 new_data.update(extracted_data)
                 
-                # Create a new request object with the merged data
                 request._request.POST = QueryDict('').copy()
                 request._request.POST.update(new_data)
                 

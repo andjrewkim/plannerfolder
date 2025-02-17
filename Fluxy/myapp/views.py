@@ -228,87 +228,92 @@ if __name__ == "__main__":
         
 import re
 from typing import Dict, Optional, List, Any
+from datetime import datetime, timedelta
+from typing import Dict, Optional
+import re
 
 class TimeParser:
     def __init__(self):
-        """Initialize time parser with essential patterns for time parsing"""
-        # Core time patterns
+        """Initialize time parser with comprehensive patterns"""
+        # Core time patterns (ordered by specificity)
         self.time_patterns = [
-            # 24-hour format
-            r'(?P<hour>2[0-3]|[01]?[0-9]):(?P<minute>[0-5][0-9])',  # 13:30, 23:59
-            r'(?P<hour>2[0-3]|[01][0-9])(?P<minute>[0-5][0-9])',    # 1330, 2359
+            # Enhanced 24-hour format with optional seconds
+            r'(?P<hour>2[0-3]|[01]\d)(?::?(?P<minute>[0-5]\d))(?:[:](?P<second>[0-5]\d))?\b',
             
-            # AM/PM formats
-            r'(?P<hour>\d{1,2})[:.](?P<minute>\d{2})\s*(?P<meridian>am|pm|AM|PM|a\.m\.|p\.m\.)',
-            r'(?P<hour>\d{1,2})\s*(?P<meridian>am|pm|AM|PM|a\.m\.|p\.m\.)',
+            # Word-based hours with meridian
+            r'(?P<hour>one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)\s+'
+            r'(?P<meridian>am|pm|a\.m\.|p\.m\.|noon|midnight)\b',
             
-            # Time range format
-            r'(?P<hour>\d{1,2})\s*-\s*(?P<end_hour>\d{1,2})\s*(?P<meridian>am|pm|AM|PM|a\.m\.|p\.m\.)',
+            # Enhanced AM/PM formats with flexible spacing
+            r'(?P<hour>\d{1,2})(?:[:. ]?(?P<minute>\d{2}))?\s*'
+            r'(?P<meridian>am|pm|a\.m\.|p\.m\.|noon|midnight)\b',
+            
+            # Cross-meridian range handling
+            r'(?P<start_hour>\d{1,2})(?::(?P<start_minute>\d{2}))?'
+            r'(?:\s*(?P<start_meridian>am|pm|a\.m\.|p\.m\.))?\s*-\s*'
+            r'(?P<end_hour>\d{1,2})(?::(?P<end_minute>\d{2}))?'
+            r'(?:\s*(?P<end_meridian>am|pm|a\.m\.|p\.m\.))?',
+            
+            # Explicit range indicators
+            r'(?P<start_time>(\d{1,2}(?::\d{2})?)\s*(?:am|pm|a\.m\.|p\.m\.)?)\s+'
+            r'(?:to|until|through|thru|-|–|—)\s+'
+            r'(?P<end_time>(\d{1,2}(?::\d{2})?)\s*(?:am|pm|a\.m\.|p\.m\.)?)',
         ]
 
-        # Special time expressions
-        self.special_times = {
-            'noon': '12:00',
-            'midnight': '00:00',
-            'morning': '09:00',
-            'afternoon': '14:00',
-            'evening': '19:00',
-            'night': '20:00',
-        }
-        
-        
-        self.number_words = {
-            'one': 1, 'two': 2, 'three': 3, 'four': 4, 'five': 5,
-            'six': 6, 'seven': 7, 'eight': 8, 'nine': 9, 'ten': 10,
-            'eleven': 11, 'twelve': 12
-        }
-        
-        self.duration_patterns = [
-            # Numeric hours
-            r'(?:for\s+)?(?P<hours>\d+)\s*(?:hour|hours|hr|hrs|h)s?(?:\s+(?:and\s+)?(?P<minutes>\d+)\s*(?:minute|minutes|min|mins|m)s?)?',
-            # Word number hours
-            r'(?:for\s+)?(?P<hours>one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)\s*(?:hour|hours|hr|hrs|h)s?(?:\s+(?:and\s+)?(?P<minutes>\d+)\s*(?:minute|minutes|min|mins|m)s?)?',
-            # Minutes only
-            r'(?:for\s+)?(?P<minutes>\d+)\s*(?:minute|minutes|min|mins|m)s?',
-            # Special durations
-            r'(?:an|a)\s+hour',
-            r'half\s+(?:an\s+)?hour',
-            r'quarter\s+(?:of\s+)?(?:an\s+)?hour',
-        ]
-
-
+        # Enhanced date patterns
         self.date_patterns = [
-            r'\b(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\s+\d{1,2}\b',
-            r'\b\d{1,2}\s+(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\b',
+            r'\b(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\s+\d{1,2}\b',
+            r'\b\d{1,2}\s+(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\b',
+            r'\b\d{1,2}[/-]\d{1,2}(?:[/-]\d{2,4})?\b',  # MM/DD/YY or DD-MM-YYYY
+            r'\b\d{4}-\d{1,2}-\d{1,2}\b',  # ISO format
         ]
 
-
+        # Enhanced special times
         self.special_times = {
-            'noon': '12:00',
-            'midnight': '00:00',
-            'morning': '09:00',
-            'afternoon': '14:00',
-            'evening': '19:00',
-            'night': '20:00',
-            'midday': '12:00',
-            'lunchtime': '12:00',
+            'noon': '12:00', 'midnight': '00:00', 'morning': '09:00',
+            'afternoon': '14:00', 'evening': '19:00', 'night': '22:00',
+            'dawn': '06:00', 'dusk': '18:00', 'midday': '12:00',
+            'lunchtime': '12:00', 'sunrise': '06:00', 'sunset': '18:00'
         }
 
-        # Special duration values (in minutes)
-        self.special_durations = {
-            'an hour': 60,
-            'a hour': 60,
-            'half hour': 30,
-            'half an hour': 30,
-            'quarter hour': 15,
-            'quarter of an hour': 15,
+        # Enhanced number words mapping
+        self.number_words = {
+            'one': 1, 'two': 2, 'three': 3, 'four': 4, 'five': 5, 
+            'six': 6, 'seven': 7, 'eight': 8, 'nine': 9, 'ten': 10,
+            'eleven': 11, 'twelve': 12, 'thirteen': 13, 'fourteen': 14,
+            'fifteen': 15, 'sixteen': 16, 'seventeen': 17, 'eighteen': 18,
+            'nineteen': 19, 'twenty': 20, 'thirty': 30, 'forty': 40,
+            'fifty': 50
         }
-        
-        self.compiled_time_patterns = [re.compile(pattern, re.IGNORECASE) for pattern in self.time_patterns]
-        self.compiled_duration_patterns = [re.compile(pattern, re.IGNORECASE) for pattern in self.duration_patterns]
-        self.compiled_date_patterns = [re.compile(pattern, re.IGNORECASE) for pattern in self.date_patterns]
+
+        # Enhanced duration patterns
+        self.duration_patterns = [
+            # Standard patterns
+            r'(?:\bfor\s+)?(?P<hours>\d+\.?\d*)\s*(?:h|hr|hour|hours)s?'
+            r'(?:\s+(?:and\s+)?(?P<minutes>\d+)\s*(?:m|min|minute|minutes)s?)?\b',
+            
+            # Word-based durations
+            r'(?:\bfor\s+)?(?P<hours>one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)'
+            r'(?:\s+and\s+(?:a\s+)?(?P<fraction>half|quarter))?\s*(?:hour|hours)s?\b',
+            
+            # Fractional durations
+            r'\b(?:a\s+)?half(?:\s+an?\s+hour)?\b',
+            r'\b(?:a\s+)?quarter(?:\s+of\s+an?\s+hour)?\b',
+        ]
+
+        # Enhanced special durations
+        self.special_durations = {
+            'an hour': 60, 'a hour': 60, 'half hour': 30, 'half an hour': 30,
+            'quarter hour': 15, 'quarter of an hour': 15, 'an hour and a half': 90,
+            'a half hour': 30, 'quarter hour': 15
+        }
+
+        # Compile all patterns
+        self.compiled_time_patterns = [re.compile(p, re.IGNORECASE) for p in self.time_patterns]
+        self.compiled_duration_patterns = [re.compile(p, re.IGNORECASE) for p in self.duration_patterns]
+        self.compiled_date_patterns = [re.compile(p, re.IGNORECASE) for p in self.date_patterns]
         self.special_times_pattern = re.compile(
-            r'\b(' + '|'.join(self.special_times.keys()) + r')\b', 
+            r'\b(' + '|'.join(self.special_times.keys()) + r')\b',
             re.IGNORECASE
         )
 
@@ -322,17 +327,20 @@ class TimeParser:
         Returns:
             Dictionary with 'start_time' and 'end_time' keys (values may be None)
         """
+        if not isinstance(text, str):
+            return {'start_time': None, 'end_time': None}
+
         result = {
             'start_time': None,
             'end_time': None
         }
 
-        # First check for special times
+        # Check for special times first
         special_match = self.special_times_pattern.search(text)
         if special_match:
             result['start_time'] = self.special_times[special_match.group().lower()]
 
-        # Then check for time patterns
+        # Process time patterns
         for pattern in self.compiled_time_patterns:
             matches = pattern.finditer(text)
             for match in matches:
@@ -342,12 +350,15 @@ class TimeParser:
 
                 groups = match.groupdict()
                 
-                # Handle time range format (e.g., "2-4pm")
-                if 'end_hour' in groups:
+                # Handle explicit time ranges
+                if all(key in groups for key in ['start_hour', 'end_hour']):
                     range_result = self._handle_range(
-                        groups['hour'],
-                        groups['end_hour'],
-                        groups.get('meridian', '')
+                        groups.get('start_hour', ''),
+                        groups.get('end_hour', ''),
+                        groups.get('start_meridian', ''),
+                        groups.get('end_meridian', ''),
+                        groups.get('start_minute', '0'),
+                        groups.get('end_minute', '0')
                     )
                     if range_result:
                         return range_result
@@ -360,39 +371,61 @@ class TimeParser:
                     elif not result['end_time']:
                         result['end_time'] = time
 
-        # Check for duration if we have a start time but no end time
+        # Process duration if we have start time but no end time
         if result['start_time'] and not result['end_time']:
             duration_minutes = self._extract_duration(text)
             if duration_minutes:
-                # Convert start_time to datetime for calculation
-                start_dt = datetime.strptime(result['start_time'], '%H:%M')
-                end_dt = start_dt + timedelta(minutes=duration_minutes)
-                result['end_time'] = end_dt.strftime('%H:%M')
+                try:
+                    start_dt = datetime.strptime(result['start_time'], '%H:%M')
+                    end_dt = start_dt + timedelta(minutes=duration_minutes)
+                    result['end_time'] = end_dt.strftime('%H:%M')
+                except ValueError:
+                    pass
 
         return result
 
     def _is_part_of_date(self, text: str, start_pos: int, end_pos: int) -> bool:
         """Check if the matched text is part of a date"""
-        for pattern in self.compiled_date_patterns:
-            for match in pattern.finditer(text):
-                if start_pos >= match.start() and end_pos <= match.end():
-                    return True
-        return False
+        try:
+            for pattern in self.compiled_date_patterns:
+                for match in pattern.finditer(text):
+                    if start_pos >= match.start() and end_pos <= match.end():
+                        return True
+            return False
+        except (TypeError, AttributeError):
+            return False
 
     def _parse_time_match(self, match: re.Match) -> Optional[str]:
         """Parse a time match and return in 24-hour format"""
         try:
             groups = match.groupdict()
-            hour_str = groups['hour']
+            if not groups or 'hour' not in groups:
+                return None
+                
+            hour_str = groups.get('hour')
+            if not hour_str:
+                return None
             
             # Convert word numbers to digits
             if isinstance(hour_str, str) and hour_str.lower() in self.number_words:
                 hour = self.number_words[hour_str.lower()]
             else:
-                hour = int(hour_str)
+                try:
+                    hour = int(hour_str)
+                except (ValueError, TypeError):
+                    return None
                 
-            minute = int(groups.get('minute', '0'))
-            meridian = groups.get('meridian', '').lower().replace('.', '')
+            # Safely convert minute with default
+            try:
+                minute = int(groups.get('minute', '0') or '0')
+            except (ValueError, TypeError):
+                minute = 0
+                
+            meridian = (groups.get('meridian') or '').lower().replace('.', '')
+
+            # Handle special cases
+            if meridian in ['noon', 'midnight']:
+                return '12:00' if meridian == 'noon' else '00:00'
 
             # Convert to 24-hour format
             if meridian:
@@ -407,74 +440,131 @@ class TimeParser:
 
             return f"{hour:02d}:{minute:02d}"
 
-        except (ValueError, AttributeError):
+        except (ValueError, AttributeError, TypeError):
             return None
 
     def _extract_duration(self, text: str) -> Optional[int]:
         """Extract duration from text and return total minutes"""
-        # Check special durations first
-        for special, minutes in self.special_durations.items():
-            if special in text.lower():
-                return minutes
-
-        # Check duration patterns
-        for pattern in self.compiled_duration_patterns:
-            match = pattern.search(text)
-            if match:
-                groups = match.groupdict()
-                total_minutes = 0
-                
-                # Handle hours
-                if groups.get('hours'):
-                    hours_str = groups['hours']
-                    if hours_str.isdigit():
-                        hours = int(hours_str)
-                    else:
-                        hours = self.number_words.get(hours_str.lower(), 0)
-                    total_minutes += hours * 60
-                
-                # Handle minutes
-                if groups.get('minutes'):
-                    minutes = int(groups['minutes'])
-                    total_minutes += minutes
-                
-                return total_minutes
-
-        return None
-
-    def _handle_range(self, start_hour_str: str, end_hour_str: str, meridian: str) -> Optional[Dict[str, str]]:
-        """Handle time ranges like 2-4pm"""
         try:
+            # Check special durations first
+            for special, minutes in self.special_durations.items():
+                if special in text.lower():
+                    return minutes
+
+            # Process duration patterns
+            for pattern in self.compiled_duration_patterns:
+                match = pattern.search(text)
+                if match:
+                    groups = match.groupdict()
+                    total_minutes = 0
+                    
+                    # Handle hours
+                    if groups.get('hours'):
+                        hours_str = groups['hours']
+                        if hours_str.isdigit():
+                            hours = float(hours_str)
+                        else:
+                            hours = self.number_words.get(hours_str.lower(), 0)
+                        total_minutes += int(hours * 60)
+                    
+                    # Handle minutes
+                    if groups.get('minutes'):
+                        try:
+                            minutes = int(groups['minutes'])
+                            total_minutes += minutes
+                        except (ValueError, TypeError):
+                            pass
+                    
+                    # Handle fractions
+                    if groups.get('fraction'):
+                        fraction = groups['fraction'].lower()
+                        if fraction == 'half':
+                            total_minutes += 30
+                        elif fraction == 'quarter':
+                            total_minutes += 15
+                    
+                    return total_minutes
+
+            return None
+        except (ValueError, AttributeError, TypeError):
+            return None
+
+    def _handle_range(self, start_hour_str: str, end_hour_str: str, 
+                     start_meridian: str, end_meridian: str,
+                     start_minute_str: str = '0', end_minute_str: str = '0') -> Optional[Dict[str, str]]:
+        """Handle time ranges with enhanced meridian handling and None checks"""
+        try:
+            # Early validation of inputs
+            if not all(isinstance(x, str) for x in [start_hour_str, end_hour_str]):
+                return None
+                
             # Convert word numbers if necessary
             if start_hour_str.lower() in self.number_words:
                 start_hour = self.number_words[start_hour_str.lower()]
             else:
-                start_hour = int(start_hour_str)
+                try:
+                    start_hour = int(start_hour_str)
+                except (ValueError, TypeError):
+                    return None
                 
             if end_hour_str.lower() in self.number_words:
                 end_hour = self.number_words[end_hour_str.lower()]
             else:
-                end_hour = int(end_hour_str)
+                try:
+                    end_hour = int(end_hour_str)
+                except (ValueError, TypeError):
+                    return None
             
-            meridian = meridian.lower().replace('.', '')
+            # Safely convert minutes with defaults
+            try:
+                start_minute = int(start_minute_str or '0')
+                end_minute = int(end_minute_str or '0')
+            except (ValueError, TypeError):
+                start_minute = 0
+                end_minute = 0
             
-            # Convert to 24-hour format
-            if meridian.startswith('p'):
+            # Process meridians with None handling
+            start_meridian = (start_meridian or '').lower().replace('.', '')
+            end_meridian = (end_meridian or '').lower().replace('.', '')
+            
+            # Convert start time to 24-hour format
+            if start_meridian.startswith('p'):
                 if start_hour != 12:
                     start_hour += 12
-                if end_hour != 12:
-                    end_hour += 12
-            elif meridian.startswith('a'):
+            elif start_meridian.startswith('a'):
                 if start_hour == 12:
                     start_hour = 0
+                    
+            # Convert end time to 24-hour format
+            if end_meridian.startswith('p'):
+                if end_hour != 12:
+                    end_hour += 12
+            elif end_meridian.startswith('a'):
                 if end_hour == 12:
                     end_hour = 0
-                    
+            
+            # Handle cross-meridian ranges (e.g., 11pm-1am)
+            if not end_meridian and start_meridian:
+                if start_hour > end_hour:
+                    if start_meridian.startswith('p'):
+                        end_hour += 12
+                else:
+                    if start_meridian.startswith('p'):
+                        end_hour += 12
+                    elif start_meridian.startswith('a'):
+                        end_hour = end_hour % 12
+            
+            # Final validation
+            if not (0 <= start_hour <= 23 and 0 <= end_hour <= 23 and
+                   0 <= start_minute <= 59 and 0 <= end_minute <= 59):
+                return None
+            
             return {
-                'start_time': f"{start_hour:02d}:00",
-                'end_time': f"{end_hour:02d}:00"
+                'start_time': f"{start_hour:02d}:{start_minute:02d}",
+                'end_time': f"{end_hour:02d}:{end_minute:02d}"
             }
-        except (ValueError, AttributeError):
+            
+        except (ValueError, AttributeError, TypeError):
             return None
         
         
@@ -784,26 +874,101 @@ class AdvancedScheduleExtractor:
             'meeting_ids': [r'\d{9,11}', r'\d{3}[-\s]\d{3}[-\s]\d{3}']
         }
 
-        # Recurrence patterns with variations
+
+
+
+
+        #REGEX RECURRENCE PATTERNS_________________________________________________________________________________________________
+
         self.recurrence_patterns = {
             'daily': {
                 'exact': ['every day', 'daily'],
-                'variations': ['each day', 'per day', 'once a day']
+                'variations': [
+                    'each day', 'per day', 'once a day', 'a day', 
+                    'everyday', 'all days', 'on a daily basis'
+                ]
             },
             'weekly': {
                 'exact': ['every week', 'weekly'],
-                'variations': ['each week', 'per week', 'once a week'],
-                'days': ['every monday', 'every tuesday', 'every wednesday', 'every thursday', 'every friday', 'every saturday', 'every sunday']
+                'variations': [
+                    'each week', 'per week', 'once a week', 'a week',
+                    'on a weekly basis'
+                ],
+                'days': {
+                    'monday': ['monday', 'mon', 'mondays'],
+                    'tuesday': ['tuesday', 'tue', 'tues', 'tuesdays'],
+                    'wednesday': ['wednesday', 'wed', 'wednesdays'],
+                    'thursday': ['thursday', 'thu', 'thur', 'thurs', 'thursdays'],
+                    'friday': ['friday', 'fri', 'fridays'],
+                    'saturday': ['saturday', 'sat', 'saturdays'],
+                    'sunday': ['sunday', 'sun', 'sundays']
+                },
+                'day_patterns': [
+                    r'every\s+([a-zA-Z]+day)',
+                    r'each\s+([a-zA-Z]+day)',
+                    r'on\s+([a-zA-Z]+days?)',
+                    r'every\s+(mon|tue|wed|thu|fri|sat|sun)',
+                ]
             },
             'monthly': {
                 'exact': ['every month', 'monthly'],
-                'variations': ['each month', 'per month', 'once a month'],
-                'specific': [r'(\d+)(st|nd|rd|th) of every month']
+                'variations': [
+                    'each month', 'per month', 'once a month', 'a month',
+                    'on a monthly basis'
+                ],
+                'specific_date': [
+                    r'(\d+)(?:st|nd|rd|th)?\s+(?:of\s+)?(?:every|each)\s+month',
+                    r'on\s+(?:the\s+)?(\d+)(?:st|nd|rd|th)',
+                    r'month(?:ly)?\s+on\s+(?:the\s+)?(\d+)(?:st|nd|rd|th)',
+                ],
+                'relative_date': [
+                    r'(?:on\s+)?(?:the\s+)?(first|second|third|fourth|fifth|last)\s+(?:[a-zA-Z]+day)\s+(?:of\s+)?(?:every|each|the)\s+month',
+                    r'(?:on\s+)?(?:the\s+)?(first|second|third|fourth|fifth|last)\s+week(?:end)?\s+(?:of\s+)?(?:every|each|the)\s+month'
+                ]
+            },
+            'yearly': {
+                'exact': ['every year', 'yearly', 'annually'],
+                'variations': [
+                    'each year', 'per year', 'once a year', 'a year',
+                    'on a yearly basis', 'once every year'
+                ],
+                'specific_date': [
+                    r'(?:every|each)\s+([a-zA-Z]+)\s+(\d+)(?:st|nd|rd|th)?',
+                    r'(?:on\s+)?([a-zA-Z]+)\s+(\d+)(?:st|nd|rd|th)?\s+(?:every|each)\s+year'
+                ]
             },
             'custom': {
-                'every_other': ['every other', 'alternate'],
-                'specific': [r'every (\d+) (day|week|month)s?']
+                'intervals': [
+                    r'every\s+(\d+)\s+(day|week|month|year)s?',
+                    r'each\s+(\d+)\s+(day|week|month|year)s?',
+                    r'once\s+every\s+(\d+)\s+(day|week|month|year)s?',
+                    r'(\d+)\s+(day|week|month|year)s?\s+interval'
+                ],
+                'relative': [
+                    r'every\s+other\s+(day|week|month|year)',
+                    r'alternate\s+(day|week|month|year)s?',
+                    r'every\s+second\s+(day|week|month|year)'
+                ]
             }
+        }
+        
+        #REGEX RECURRENCE PATTERNS_________________________________________________________________________________________________
+
+        
+        
+
+        
+        self.relative_numbers = {
+            'first': 1, 'second': 2, 'third': 3, 'fourth': 4, 'fifth': 5,
+            'last': -1
+        }
+        
+        self.month_names = {
+            'january': 1, 'february': 2, 'march': 3, 'april': 4,
+            'may': 5, 'june': 6, 'july': 7, 'august': 8,
+            'september': 9, 'october': 10, 'november': 11, 'december': 12,
+            'jan': 1, 'feb': 2, 'mar': 3, 'apr': 4, 'jun': 6,
+            'jul': 7, 'aug': 8, 'sep': 9, 'oct': 10, 'nov': 11, 'dec': 12
         }
 
         self.compile_patterns()
@@ -1010,53 +1175,117 @@ class AdvancedScheduleExtractor:
         return max(urgency_scores.items(), key=lambda x: x[1])[0]
 
 
-    def _extract_recurrence(self, text):
-        """Extract recurrence pattern from the text"""
-        text_lower = text.lower()
+    def _match_pattern_list(self, text: str, patterns: list) -> Optional[re.Match]:
+        """Try to match any pattern from a list against the text."""
+        for pattern in patterns:
+            match = re.search(pattern, text, re.IGNORECASE)
+            if match:
+                return match
+        return None
+
+    def _find_weekday(self, text: str) -> Optional[str]:
+        """Find weekday mentioned in the text."""
+        for day, variations in self.recurrence_patterns['weekly']['days'].items():
+            for variation in variations:
+                if variation in text.lower():
+                    return day
+        return None
+
+    def _extract_recurrence(self, text: str) -> Optional[Dict[str, Any]]:
+        """Extract recurrence pattern from the text."""
+        text = text.lower().strip()
         
         # Check daily patterns
         for pattern in self.recurrence_patterns['daily']['exact'] + self.recurrence_patterns['daily']['variations']:
-            if pattern in text_lower:
+            if pattern in text:
                 return {'type': 'daily', 'interval': 1}
-        
-        # Check weekly patterns
+
+        # Check weekly patterns with specific days
+        weekday = self._find_weekday(text)
+        if weekday:
+            match = self._match_pattern_list(text, self.recurrence_patterns['weekly']['day_patterns'])
+            if match:
+                return {'type': 'weekly', 'interval': 1, 'day': weekday}
+
+        # Check weekly patterns without specific days
         for pattern in self.recurrence_patterns['weekly']['exact'] + self.recurrence_patterns['weekly']['variations']:
-            if pattern in text_lower:
+            if pattern in text:
                 return {'type': 'weekly', 'interval': 1}
-        
-        # Check specific weekdays
-        for day_pattern in self.recurrence_patterns['weekly']['days']:
-            if day_pattern in text_lower:
-                return {'type': 'weekly', 'day': day_pattern.split()[-1], 'interval': 1}
-        
-        # Check monthly patterns
+
+        # Check monthly patterns with specific dates
+        match = self._match_pattern_list(text, self.recurrence_patterns['monthly']['specific_date'])
+        if match:
+            day = int(match.group(1))
+            if 1 <= day <= 31:
+                return {'type': 'monthly', 'interval': 1, 'day': day}
+
+        # Check monthly patterns with relative dates
+        match = self._match_pattern_list(text, self.recurrence_patterns['monthly']['relative_date'])
+        if match:
+            position = self.relative_numbers.get(match.group(1))
+            if position:
+                return {'type': 'monthly', 'interval': 1, 'relative_position': position}
+
+        # Check basic monthly patterns
         for pattern in self.recurrence_patterns['monthly']['exact'] + self.recurrence_patterns['monthly']['variations']:
-            if pattern in text_lower:
+            if pattern in text:
                 return {'type': 'monthly', 'interval': 1}
-        
-        # Check for specific monthly dates
-        for pattern in self.recurrence_patterns['monthly']['specific']:
-            match = re.search(pattern, text_lower)
-            if match:
-                return {'type': 'monthly', 'day': int(match.group(1)), 'interval': 1}
-        
-        # Check custom patterns
-        for pattern in self.recurrence_patterns['custom']['every_other']:
-            if pattern in text_lower:
-                # Try to determine what type of interval (day/week/month)
-                for unit in ['day', 'week', 'month']:
-                    if unit in text_lower:
-                        return {'type': unit + 'ly', 'interval': 2}
-        
-        # Check specific intervals
-        for pattern in self.recurrence_patterns['custom']['specific']:
-            match = re.search(pattern, text_lower)
-            if match:
-                interval = int(match.group(1))
-                unit = match.group(2)
-                return {'type': unit + 'ly', 'interval': interval}
-        
+
+        # Check yearly patterns with specific dates
+        match = self._match_pattern_list(text, self.recurrence_patterns['yearly']['specific_date'])
+        if match:
+            month = self.month_names.get(match.group(1).lower())
+            day = int(match.group(2))
+            if month and 1 <= day <= 31:
+                return {'type': 'yearly', 'interval': 1, 'month': month, 'day': day}
+
+        # Check basic yearly patterns
+        for pattern in self.recurrence_patterns['yearly']['exact'] + self.recurrence_patterns['yearly']['variations']:
+            if pattern in text:
+                return {'type': 'yearly', 'interval': 1}
+
+        # Check custom intervals
+        match = self._match_pattern_list(text, self.recurrence_patterns['custom']['intervals'])
+        if match:
+            interval = int(match.group(1))
+            unit = match.group(2)
+            return {'type': f'{unit}ly', 'interval': interval}
+
+        # Check relative intervals
+        match = self._match_pattern_list(text, self.recurrence_patterns['custom']['relative'])
+        if match:
+            unit = match.group(1)
+            return {'type': f'{unit}ly', 'interval': 2}
+
         return None
+
+    def parse(self, text: str) -> Dict[str, Any]:
+        """
+        Parse text and return recurrence pattern.
+        Returns None if no pattern is found.
+        """
+        result = self._extract_recurrence(text)
+        if result:
+            result['original_text'] = text
+            return result
+        return {'type': 'unknown', 'original_text': text}
+
+    def validate_pattern(self, pattern: Dict[str, Any]) -> bool:
+        """Validate the extracted pattern."""
+        if not pattern or pattern['type'] == 'unknown':
+            return False
+            
+        if 'interval' in pattern and pattern['interval'] < 1:
+            return False
+            
+        if 'day' in pattern and pattern['type'] == 'monthly':
+            if not (1 <= pattern['day'] <= 31):
+                return False
+                
+        if 'month' in pattern and not (1 <= pattern['month'] <= 12):
+            return False
+            
+        return True
 
     def _standardize_time_format(self, time):
         """Standardize time format to HH:MM in 24-hour format"""
