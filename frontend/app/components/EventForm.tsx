@@ -85,7 +85,7 @@ const EventForm: React.FC<EventFormProps> = ({ setResult, setError }) => {
           <textarea
             value={inputText}
             onChange={(e) => setInputText(e.target.value)}
-            placeholder="Enter event details naturally..."
+            placeholder="Enter event details..."
             className="event-textarea"
             disabled={isSubmitting}
           />
