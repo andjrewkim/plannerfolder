@@ -1,5 +1,3 @@
-"use client";
-
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   DateSelectArg,
@@ -32,6 +30,15 @@ interface EventDetails {
   color: string;
 }
 
+interface DayHoverInfo {
+  date: Date;
+  events: EventApi[];
+  position: {
+    x: number;
+    y: number;
+  };
+}
+
 interface CalendarProps {
   onEventChange?: () => void;
 }
@@ -43,8 +50,17 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<any>(null);
+  const [hoveredDay, setHoveredDay] = useState<DayHoverInfo | null>(null);
+  const [hoverTimer, setHoverTimer] = useState<NodeJS.Timeout | null>(null);
   const calendarRef = useRef(null);
   const shouldFetch = useRef(true);
+  const currentEventsRef = useRef(currentEvents); // Add this line
+  const hoverTimerRef = useRef(null);
+
+  // Update the ref whenever currentEvents changes
+  useEffect(() => {
+    currentEventsRef.current = currentEvents;
+  }, [currentEvents]);
 
   const fetchEvents = useCallback(async () => {
     if (!shouldFetch.current) return;
@@ -90,7 +106,12 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange }) => {
     fetchEvents();
   };
 
-  // ... rest of your utility functions (formatToISOString, getCSRFToken) ...
+  const formatToISOString = (date: string, time: string) => {
+    const [hours, minutes] = time.split(':');
+    const dateObj = new Date(date);
+    dateObj.setHours(parseInt(hours, 10), parseInt(minutes, 10), 0);
+    return dateObj.toISOString();
+  };
 
   const handleEventSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -173,7 +194,7 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange }) => {
       color: event.backgroundColor || '#3788d8'
     };
 
-    fetch(`http://127.0.0.1:8000/api/events/${event.id}/`, {
+        fetch(`http://127.0.0.1:8000/api/events/${event.id}/`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
@@ -196,20 +217,6 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange }) => {
       setError('Failed to update event position');
     });
   }, [onEventChange]);
-
-  const formatToISOString = (date: string, time: string) => {
-    const [hours, minutes] = time.split(':');
-    const dateObj = new Date(date);
-    dateObj.setHours(parseInt(hours, 10), parseInt(minutes, 10), 0);
-    return dateObj.toISOString();
-  };
-
-  const getCSRFToken = () => {
-    return document.cookie
-      .split('; ')
-      .find((row) => row.startsWith('csrftoken='))
-      ?.split('=')[1] || '';
-  };
 
   const handleDateSelect = useCallback((selectInfo: DateSelectArg) => {
     const startDate = selectInfo.start;
@@ -239,6 +246,147 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange }) => {
     });
     setIsModalOpen(true);
   }, []);
+  
+
+  const getCSRFToken = () => {
+    return document.cookie
+      .split('; ')
+      .find((row) => row.startsWith('csrftoken='))
+      ?.split('=')[1] || '';
+  };
+
+
+
+
+
+
+  const handleDayCellDidMount = useCallback((info) => {
+    const cell = info.el;
+
+    const handleMouseEnter = () => {
+      if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
+
+      hoverTimerRef.current = setTimeout(() => {
+        const date = info.date;
+        const dayEvents = currentEventsRef.current.filter(event => {
+          const eventDate = new Date(event.start);
+          return eventDate.toDateString() === date.toDateString();
+        });
+
+        if (dayEvents.length > 0) {
+          const rect = cell.getBoundingClientRect();
+          const viewportWidth = window.innerWidth;
+          const viewportHeight = window.innerHeight;
+          const popupWidth = 320;
+          const popupHeight = Math.min(300, dayEvents.length * 80 + 60);
+
+          let x = rect.right + 10;
+          if (rect.right + popupWidth + 10 > viewportWidth) {
+            x = rect.left - popupWidth - 10;
+          }
+
+          let y = rect.top;
+          if (y + popupHeight > viewportHeight) {
+            y = Math.max(0, viewportHeight - popupHeight);
+          }
+
+          setHoveredDay({
+            date,
+            events: dayEvents,
+            position: {
+              x: x + window.scrollX,
+              y: y + window.scrollY
+            }
+          });
+        }
+      }, 300); // Delay before showing the popup
+    };
+
+    const handleMouseLeave = () => {
+      if (hoverTimerRef.current) {
+        clearTimeout(hoverTimerRef.current);
+        hoverTimerRef.current = null;
+      }
+
+      setTimeout(() => {
+        const popupElement = document.querySelector('.popup-details');
+        const isHoveringPopup = popupElement?.matches(':hover');
+        if (!isHoveringPopup) {
+          setHoveredDay(null);
+        }
+      }, 100); // Delay before hiding the popup
+    };
+
+    cell.addEventListener('mouseenter', handleMouseEnter);
+    cell.addEventListener('mouseleave', handleMouseLeave);
+
+    return () => {
+      cell.removeEventListener('mouseenter', handleMouseEnter);
+      cell.removeEventListener('mouseleave', handleMouseLeave);
+      if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
+    };
+  }, []);
+
+  const DayDetailPopup = ({ info }) => {
+    return (
+      <div
+        className="popup-details fixed z-50 bg-white shadow-lg rounded-lg p-4 border border-gray-200"
+        style={{
+          left: `${info.position.x}px`,
+          top: `${info.position.y}px`,
+          width: '320px',
+          maxHeight: '300px',
+          overflowY: 'auto'
+        }}
+        onMouseEnter={() => {
+          if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
+        }}
+        onMouseLeave={() => {
+          if (!document.querySelector('.fc-daygrid-day')?.matches(':hover')) {
+            setHoveredDay(null);
+          }
+        }}
+      >
+        <h3 className="text-lg font-semibold mb-3">
+          {info.date.toLocaleDateString('en-US', {
+            weekday: 'long',
+            month: 'long',
+            day: 'numeric'
+          })}
+        </h3>
+        <div className="space-y-2">
+          {info.events.map((event) => (
+            <div
+              key={event.id}
+              className="p-2 rounded"
+              style={{
+                borderLeft: `4px solid ${event.backgroundColor}`,
+                backgroundColor: `${event.backgroundColor}15`
+              }}
+            >
+              <div className="font-medium">{event.title}</div>
+              <div className="text-sm text-gray-600">
+                {new Date(event.start).toLocaleTimeString('en-US', {
+                  hour: 'numeric',
+                  minute: '2-digit'
+                })}
+                {event.end && ` - ${new Date(event.end).toLocaleTimeString('en-US', {
+                  hour: 'numeric',
+                  minute: '2-digit'
+                })}`}
+              </div>
+              {event.extendedProps.location && (
+                <div className="text-sm text-gray-600 mt-1">
+                  📍 {event.extendedProps.location}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
 
   return (
     <div className="bahahhaha">
@@ -256,11 +404,13 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange }) => {
           selectable={!isLoading}
           selectMirror={true}
           dayMaxEvents={true}
+          dayMaxEventRows={false}
+          displayEventEnd={false}
           events={currentEvents}
           select={handleDateSelect}
-          eventClick={(clickInfo: EventClickArg) => {
+          eventClick={(clickInfo) => {
             const event = clickInfo.event;
-            const startDate = new Date(event.start!);
+            const startDate = new Date(event.start);
             const endDate = event.end ? new Date(event.end) : startDate;
 
             setSelectedEvent({
@@ -294,8 +444,11 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange }) => {
           allDaySlot={false}
           slotMinTime="00:00:00"
           slotMaxTime="24:00:00"
+          dayCellDidMount={handleDayCellDidMount}
         />
       </div>
+
+      {hoveredDay && <DayDetailPopup info={hoveredDay} />}
 
       {selectedEvent && (
         <EventModal 
@@ -305,7 +458,7 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange }) => {
           setResult={setResult}
           setError={setError}
           onSubmit={handleEventSubmit}
-          onDelete={async (eventId: string) => {
+          onDelete={async (eventId) => {
             try {
               setIsLoading(true);
               const response = await fetch(`http://127.0.0.1:8000/api/events/${eventId}/`, {
