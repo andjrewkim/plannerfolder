@@ -1,25 +1,13 @@
 import React from 'react';
 import { Moon } from 'lucide-react';
 import { Switch } from '@/radix/switch';
-import "../../styles/settings.css"
+import "../../styles/settings.css";
+import { themes, useTheme } from '../../services/themeContext';
+import { ThemeProvider } from '../../services/themeProviderWrapper'; // Import the wrapper
 
-const themes = [
-  { id: 'classic', name: 'Classic', colors: ['#f8fafc', '#64748b'] },
-  { id: 'emerald', name: 'Emerald', colors: ['#059669', '#065f46'] },
-  { id: 'ocean', name: 'Ocean', colors: ['#0ea5e9', '#0369a1'] },
-  { id: 'sunset', name: 'Sunset', colors: ['#f97316', '#c2410c'] },
-  { id: 'forest', name: 'Forest', colors: ['#166534', '#14532d'] },
-  { id: 'royal', name: 'Royal', colors: ['#7c3aed', '#5b21b6'] },
-  { id: 'monochrome', name: 'Monochrome', colors: ['#171717', '#404040'] },
-  { id: 'pastel', name: 'Pastel', colors: ['#fcd34d', '#fbbf24'] },
-  { id: 'neon', name: 'Neon', colors: ['#22d3ee', '#06b6d4'] },
-  { id: 'autumn', name: 'Autumn', colors: ['#b45309', '#92400e'] },
-  { id: 'winter', name: 'Winter', colors: ['#94a3b8', '#475569'] },
-  { id: 'spring', name: 'Spring', colors: ['#818cf8', '#6366f1'] },
-  { id: 'summer', name: 'Summer', colors: ['#fb923c', '#ea580c'] },
-];
+function DisplaySettingsContent() {
+  const { currentTheme, setTheme, isDarkMode, toggleDarkMode } = useTheme();
 
-export default function DisplaySettings() {
   return (
     <div className="settings-section">
       <div className="form-group">
@@ -31,7 +19,7 @@ export default function DisplaySettings() {
             </label>
             <p className="form-helper">Switch between light and dark theme</p>
           </div>
-          <Switch />
+          <Switch checked={isDarkMode} onCheckedChange={toggleDarkMode} />
         </div>
       </div>
 
@@ -41,9 +29,11 @@ export default function DisplaySettings() {
           {themes.map((theme) => (
             <button
               key={theme.id}
-              className="theme-swatch"
+              className={`theme-swatch ${currentTheme.id === theme.id ? 'ring-2 ring-primary' : ''}`}
+              onClick={() => setTheme(theme.id)}
+              aria-label={`Select ${theme.name} theme`}
             >
-              <div className="theme-preview">
+              <div className="theme-preview rounded overflow-hidden">
                 <div
                   className="w-full h-1/2"
                   style={{ backgroundColor: theme.colors[0] }}
@@ -90,5 +80,14 @@ export default function DisplaySettings() {
         </div>
       </div>
     </div>
+  );
+}
+
+// Wrap the component with the ThemeProvider
+export default function DisplaySettings() {
+  return (
+    <ThemeProvider>
+      <DisplaySettingsContent />
+    </ThemeProvider>
   );
 }
