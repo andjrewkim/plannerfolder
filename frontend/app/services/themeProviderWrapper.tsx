@@ -1,16 +1,23 @@
 'use client';
-import React from 'react';
-import { ThemeProvider as ThemeContextProvider, useTheme } from '../services/themeContext';
+import React, { createContext, useContext } from 'react';
+import { ThemeProvider as ThemeContextProvider } from '../services/themeContext';
 
-// Create a wrapper component that checks if we already have a ThemeProvider
+// Create a context to track if a ThemeProvider is already present
+const ThemeProviderContext = createContext(false);
+
 export const ThemeProvider: React.FC<{children: React.ReactNode}> = ({ children }) => {
-  // Try to use the existing theme context
-  try {
-    useTheme();
-    // If it succeeds, we're already inside a ThemeProvider
+  // Check if we're already inside a ThemeProvider
+  const hasThemeProvider = useContext(ThemeProviderContext);
+  
+  if (hasThemeProvider) {
+    // If we already have a ThemeProvider up the tree, just render children
     return <>{children}</>;
-  } catch (e) {
-    // If it fails, we need to create a new ThemeProvider
-    return <ThemeContextProvider>{children}</ThemeContextProvider>;
+  } else {
+    // If not, create a new ThemeProvider and mark that we have one
+    return (
+      <ThemeProviderContext.Provider value={true}>
+        <ThemeContextProvider>{children}</ThemeContextProvider>
+      </ThemeProviderContext.Provider>
+    );
   }
 };

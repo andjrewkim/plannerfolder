@@ -338,6 +338,7 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange }) => {
           maxHeight: '300px',
           overflowY: 'auto'
         }}
+        
         onMouseEnter={() => {
           if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
         }}
@@ -352,13 +353,14 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange }) => {
             weekday: 'long',
             month: 'long',
             day: 'numeric'
+
           })}
         </h3>
-        <div className="space-y-2">
-          {info.events.map((event) => (
+        <div className="overflow-hidden">
+          {info.events.map((event, index) => (
             <div
               key={event.id}
-              className="p-2 rounded"
+              className={`p-2 rounded ${index > 0 ? 'mt-2' : ''}`}
               style={{
                 borderLeft: `4px solid ${event.backgroundColor}`,
                 backgroundColor: `${event.backgroundColor}15`
