@@ -3,11 +3,11 @@
     justify-content: space-between;
     align-items: center;
     padding: 0 2rem;
-    background: linear-gradient(10deg, 
-        #e9e7ff 0%,  /* Richer starting blue */
-        #5f6cff 100% /* Bold finishing color */
+    background: linear-gradient(10deg,
+        hsl(var(--card)) 0%,
+        hsl(var(--primary)) 100%
     );
-    background-size: 200% 200%;  /* To ensure there’s a large area to animate the gradient */
+    background-size: 200% 200%;
     position: fixed;
     top: 0;
     left: 0;
@@ -16,12 +16,9 @@
     box-sizing: border-box;
     z-index: 1000;
     box-shadow: 
-        0 4px 20px -4px rgba(66, 153, 225, 0.15),
-        0 0 16px -2px rgba(66, 153, 225, 0.1);
+        0 4px 20px -4px hsl(var(--primary) / 0.15),
+        0 0 16px -2px hsl(var(--primary) / 0.1);
 }
-
-
-
 
 body {
     padding-top: 68px;
@@ -96,12 +93,11 @@ body {
     transform: translateY(-50%);
     height: 28px;
     width: 1px;
-    background: linear-gradient(180deg, 
-        rgba(66, 153, 225, 0) 0%,
-        rgba(66, 153, 225, 0.2) 50%,
-        rgba(66, 153, 225, 0) 100%);
+    background: linear-gradient(180deg,
+        hsl(var(--primary) / 0) 0%,
+        hsl(var(--primary) / 0.2) 50%,
+        hsl(var(--primary) / 0) 100%);
 }
-
 /* Subtle gradient animation */
 @keyframes gradientShift {
     0%, 100% {
@@ -141,12 +137,12 @@ body {
 
 /* Scroll behavior */
 .navbar.scrolled {
-    background: linear-gradient(135deg, 
-        rgba(232, 239, 253, 0.95) 0%, 
-        rgba(225, 234, 252, 0.95) 25%,
-        rgba(216, 229, 252, 0.95) 50%,
-        rgba(207, 224, 251, 0.95) 75%,
-        rgba(199, 219, 250, 0.95) 100%
+    background: linear-gradient(135deg,
+        hsl(var(--card) / 0.95) 0%,
+        hsl(var(--card) / 0.95) 25%,
+        hsl(var(--card) / 0.95) 50%,
+        hsl(var(--card) / 0.95) 75%,
+        hsl(var(--card) / 0.95) 100%
     );
     height: 60px;
     transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);

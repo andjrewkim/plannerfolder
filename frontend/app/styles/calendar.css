@@ -1,241 +1,280 @@
 .fc {
-    width: 100%;
-    height: 85vh;
-    display: flex;
-    margin: 0rem;
-    margin-top: ;
-    overflow: hidden;
-    box-sizing: border-box;
-    background: linear-gradient(145deg, #ffffff, #f8f9ff);
-    border-radius: 12px;
-    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.05);
+  width: 100%;
+  height: 85vh;
+  display: flex;
+  margin: 0rem;
+  overflow: hidden;
+  box-sizing: border-box;
+  background: linear-gradient(145deg, hsl(var(--card)), hsl(var(--card) / 0.9));
+  border-radius: 12px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.05);
 }
 
 /* Calendar Header */
 .fc-header-toolbar {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 1.5rem;
-    background: linear-gradient(to right, #f8f9ff, #f0f2ff);
-    border-bottom: 1px solid rgba(180, 190, 255, 0.2);
-    font-family: 'Inter', sans-serif;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.5rem;
+  background: linear-gradient(to right, hsl(var(--card)), hsl(var(--card) / 0.95));
+  border-bottom: 1px solid hsl(var(--border) / 0.2);
+  font-family: 'Inter', sans-serif;
 }
 
 .fc-button {
-    background: linear-gradient(135deg, #6366f1, #4f46e5);
-    color: white;
-    border-radius: 8px;
-    padding: 0.6rem 1.2rem;
-    font-size: 14px;
-    font-weight: 500;
-    transition: all 0.3s ease;
-    border: none;
-    box-shadow: 0 2px 10px rgba(99, 102, 241, 0.2);
+  background: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary) / 0.9));
+  color: hsl(var(--primary-foreground));
+  border-radius: 8px;
+  padding: 0.6rem 1.2rem;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.3s ease;
+  border: none;
+  box-shadow: 0 2px 10px hsl(var(--primary) / 0.2);
 }
 
 .fc-button:hover {
-    background: linear-gradient(135deg, #4f46e5, #4338ca);
-    transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);
+  background: linear-gradient(135deg, hsl(var(--primary) / 0.9), hsl(var(--primary)));
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px hsl(var(--primary) / 0.3);
 }
 
 .fc-toolbar-title {
-    font-size: 20px;
-    font-weight: 600;
-    color: #1e1b4b;
-    letter-spacing: -0.02em;
+  font-size: 20px;
+  font-weight: 600;
+  color: hsl(var(--foreground));
+  letter-spacing: -0.02em;
 }
 
 /* Calendar Weekdays */
 .fc-col-header-cell {
-    background: linear-gradient(to right, #f8faff, #f5f7ff);
-    font-size: 13px;
-    color: #4b5563;
-    text-transform: uppercase;
-    font-weight: 600;
-    letter-spacing: 0.05em;
-    padding: 12px 0;
+  background: linear-gradient(to right, hsl(var(--card)), hsl(var(--card) / 0.95));
+  font-size: 13px;
+  color: hsl(var(--muted-foreground));
+  text-transform: uppercase;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  padding: 12px 0;
 }
 
 /* Calendar Cells */
 .fc-daygrid-day {
-    font-size: 14px;
-    color: #374151;
-    transition: all 0.2s ease;
-    border: 1px solid rgba(180, 190, 255, 0.1);
+  font-size: 14px;
+  color: hsl(var(--foreground));
+  transition: all 0.2s ease;
+  border: 1px solid hsl(var(--border) / 0.1);
 }
 
 .fc-daygrid-day:hover {
-    background: linear-gradient(145deg, #f5f7ff, #eff3ff);
+  background: linear-gradient(145deg, hsl(var(--accent) / 0.05), hsl(var(--accent) / 0.1));
 }
 
 .fc-day-today {
-    background: linear-gradient(145deg, #eef2ff, #e0e7ff) !important;
-    position: relative;
+  background: linear-gradient(145deg, hsl(var(--accent) / 0.1), hsl(var(--accent) / 0.2)) !important;
+  position: relative;
 }
 
 .fc-day-today::after {
-    content: '';
-    position: absolute;
-    top: 5px;
-    right: 5px;
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    background: #4f46e5;
+  content: '';
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: hsl(var(--primary));
 }
 
 /* Events */
 .fc-event {
-    background: #fff;           /* Simple white background (adjust as needed) */
-    color: #333;               /* Dark text for contrast */
-    border: none;              /* Remove border for a cleaner look */
-    border-radius: 4px;        /* Slight rounding for smoother edges */
-    padding: 2px 6px;          /* Smaller padding to reduce box size */
-    font-size: 11px;           /* Slightly smaller text */
-    font-weight: 500;
-    cursor: pointer;
-    box-shadow: none;          /* Remove shadow for minimal outline */
-    transition: all 0.2s ease; /* Keep a subtle hover/interaction transition */
+  background: hsl(var(--card));
+  color: hsl(var(--card-foreground));
+  border: none;
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  box-shadow: none;
+  transition: all 0.2s ease;
 }
 
-
 .fc-event:hover {
-    transform: translateY(-1px) scale(1.02);
-    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+  transform: translateY(-1px) scale(1.02);
+  box-shadow: 0 4px 12px hsl(var(--primary) / 0.3);
 }
 
 /* Scrollbar Styling */
 .fc-scroller {
-    scrollbar-width: thin;
-    scrollbar-color: #c7d2fe #f8faff;
+  scrollbar-width: thin;
+  scrollbar-color: hsl(var(--muted)) hsl(var(--card));
 }
 
 .fc-scroller::-webkit-scrollbar {
-    width: 6px;
+  width: 6px;
 }
 
 .fc-scroller::-webkit-scrollbar-thumb {
-    background: linear-gradient(to bottom, #818cf8, #6366f1);
-    border-radius: 3px;
+  background: linear-gradient(to bottom, hsl(var(--primary) / 0.7), hsl(var(--primary)));
+  border-radius: 3px;
 }
 
 .fc-scroller::-webkit-scrollbar-track {
-    background: #f8faff;
+  background: hsl(var(--card));
 }
 
 @media (max-width: 768px) {
-    .fc-header-toolbar {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 1rem;
-    }
+  .fc-header-toolbar {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 1rem;
+  }
 
-    .fc-toolbar-title {
-        margin-bottom: 0.5rem;
-    }
+  .fc-toolbar-title {
+      margin-bottom: 0.5rem;
+  }
 }
-
 
 /*_________POPUP STYLING________*/
 
 .popup-details {
-    /* Base styling */
-    position: fixed;
-    width: 320px; 
-    background: rgba(255, 255, 255, 0.98);
-    backdrop-filter: blur(10px);
-    border-radius: 12px;
-    padding: 1.25rem;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
-    border: 1px solid rgba(229, 231, 235, 0.8);
-    opacity: 0;
-    transform-origin: left center;
-    pointer-events: none;
-
-    
-    /* Smooth animation */
-    animation: popup-appear 0.2s ease forwards;
-    pointer-events: auto;
-  }
+  /* Base styling */
+  position: fixed;
+  width: 320px; 
+  background: hsl(var(--card) / 0.98);
+  backdrop-filter: blur(10px);
+  border-radius: 12px;
+  padding: 1.25rem;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  border: 1px solid hsl(var(--border) / 0.8);
+  opacity: 0;
+  transform-origin: left center;
+  pointer-events: none;
   
-  @keyframes popup-appear {
-    0% {
+  /* Smooth animation */
+  animation: popup-appear 0.2s ease forwards;
+  pointer-events: auto;
+}
+
+@keyframes popup-appear {
+  0% {
       opacity: 0;
       transform: scale(0.95) translateX(-10px);
-    }
-    100% {
+  }
+  100% {
       opacity: 1;
       transform: scale(1) translateX(0);
-    }
   }
-  
-  /* Event item animations */
-  .popup-details .space-y-2 > div {
-    opacity: 0;
-    transform: translateX(-10px);
-    animation: slide-in 0.2s ease forwards;
-    border: 2px solid red;
+}
 
-  }
-  
-  /* Stagger the event items */
-  .popup-details .space-y-2 > div:nth-child(1) { animation-delay: 0.1s; }
-  .popup-details .space-y-2 > div:nth-child(2) { animation-delay: 0.15s; }
-  .popup-details .space-y-2 > div:nth-child(3) { animation-delay: 0.2s; }
-  .popup-details .space-y-2 > div:nth-child(4) { animation-delay: 0.25s; }
-  .popup-details .space-y-2 > div:nth-child(5) { animation-delay: 0.3s; }
-  
-  @keyframes slide-in {
-    to {
+/* Event item animations */
+.popup-details .space-y-2 > div {
+  opacity: 0;
+  transform: translateX(-10px);
+  animation: slide-in 0.2s ease forwards;
+}
+
+/* Stagger the event items */
+.popup-details .space-y-2 > div:nth-child(1) { animation-delay: 0.1s; }
+.popup-details .space-y-2 > div:nth-child(2) { animation-delay: 0.15s; }
+.popup-details .space-y-2 > div:nth-child(3) { animation-delay: 0.2s; }
+.popup-details .space-y-2 > div:nth-child(4) { animation-delay: 0.25s; }
+.popup-details .space-y-2 > div:nth-child(5) { animation-delay: 0.3s; }
+
+@keyframes slide-in {
+  to {
       opacity: 1;
       transform: translateX(0);
-    }
   }
-  
-  /* Event item styling */
-  .popup-details .space-y-2 > div {
-    padding: 0.75rem;
-    margin: 0.5rem 0;
-    border-radius: 8px;
-    transition: all 0.2s ease;
-  }
-  
-  .popup-details .space-y-2 > div:hover {
-    transform: translateX(5px);
-  }
-  
-  /* Header styling */
-  .popup-details h3 {
-    opacity: 0;
-    animation: fade-in 0.2s ease forwards;
-    animation-delay: 0.05s;
-  }
-  
-  @keyframes fade-in {
-    to {
+}
+
+/* Event item styling */
+.popup-details .space-y-2 > div {
+  padding: 0.75rem;
+  margin: 0.5rem 0;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+}
+
+.popup-details .space-y-2 > div:hover {
+  transform: translateX(5px);
+}
+
+/* Header styling */
+.popup-details h3 {
+  opacity: 0;
+  animation: fade-in 0.2s ease forwards;
+  animation-delay: 0.05s;
+}
+
+@keyframes fade-in {
+  to {
       opacity: 1;
-    }
   }
-  
-  /* Scrollbar styling */
-  .popup-details .space-y-2 {
-    max-height: 300px;
-    overflow-y: auto;
-    scrollbar-width: thin;
-    scrollbar-color: rgba(203, 213, 225, 0.4) transparent;
-  }
-  
-  .popup-details .space-y-2::-webkit-scrollbar {
-    width: 6px;
-  }
-  
-  .popup-details .space-y-2::-webkit-scrollbar-track {
-    background: transparent;
-  }
-  
-  .popup-details .space-y-2::-webkit-scrollbar-thumb {
-    background-color: rgba(203, 213, 225, 0.4);
-    border-radius: 20px;
-  }
+}
+
+/* Scrollbar styling */
+.popup-details .space-y-2 {
+  max-height: 300px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: hsl(var(--muted) / 0.4) transparent;
+}
+
+.popup-details .space-y-2::-webkit-scrollbar {
+  width: 6px;
+}
+
+.popup-details .space-y-2::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.popup-details .space-y-2::-webkit-scrollbar-thumb {
+  background-color: hsl(var(--muted) / 0.4);
+  border-radius: 20px;
+}
+
+/* Required positioning classes from your globals.css */
+.h-screen {  
+  margin-top: -6.5rem;
+  width: 100%;
+  margin-left: 319px;
+}
+
+.calendar-container {
+  margin-top: -2rem;
+  width: calc(100% - 320px);
+  height: 100%;
+  overflow: hidden;
+  border: 0px solid red; 
+}
+
+.ewfsf {
+  width: 90%
+}
+
+/* Category colors for events */
+.category-1 {
+  background-color: hsl(var(--chart-1) / 0.15);
+  border-left: 4px solid hsl(var(--chart-1));
+}
+
+.category-2 {
+  background-color: hsl(var(--chart-2) / 0.15);
+  border-left: 4px solid hsl(var(--chart-2));
+}
+
+.category-3 {
+  background-color: hsl(var(--chart-3) / 0.15);
+  border-left: 4px solid hsl(var(--chart-3));
+}
+
+.category-4 {
+  background-color: hsl(var(--chart-4) / 0.15);
+  border-left: 4px solid hsl(var(--chart-4));
+}
+
+.category-5 {
+  background-color: hsl(var(--chart-5) / 0.15);
+  border-left: 4px solid hsl(var(--chart-5));
+}

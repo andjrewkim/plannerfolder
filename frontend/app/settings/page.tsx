@@ -55,13 +55,8 @@ export default function CalendarSettings() {
 
   return (
     <div className="app-container">
-      <header className="header">
-        <div className="header-content">
-          <Calendar className="app-logo" size={32} />
-          <h1>Calendar Settings</h1>
-        </div>
-      </header>
-
+      {/* Header removed */}
+      
       <div className="main-container">
         <nav className="sidebar">
           <div className="nav-group">
@@ -87,7 +82,7 @@ export default function CalendarSettings() {
               Notifications
             </a>
           </div>
-
+  
           <div className="nav-group">
             <h2 className="nav-header">Account</h2>
             <a href="#profile" 
@@ -107,7 +102,7 @@ export default function CalendarSettings() {
             </a>
           </div>
         </nav>
-
+  
         <main className="content">
           <div className="content-header">
             <h2 className="content-title">{sectionTitles[activeSection]}</h2>
@@ -120,4 +115,3 @@ export default function CalendarSettings() {
       </div>
     </div>
   );
-}

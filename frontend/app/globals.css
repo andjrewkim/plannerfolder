@@ -168,13 +168,6 @@ body {
   margin-left: 319px;
 }
 
-.calendar-container {
-  margin-top: -2rem;
-  width: calc(100% - 320px);
-  height: 100%;
-  overflow: hidden;
-  border: 0px solid red; 
-}
 
 .ewfsf {
   width: 90%
