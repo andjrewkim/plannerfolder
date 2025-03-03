@@ -886,6 +886,12 @@ class AdvancedScheduleExtractor:
                 'variations': [
                     'each day', 'per day', 'once a day', 'a day', 
                     'everyday', 'all days', 'on a daily basis'
+                ],
+                'intervals': [
+                    r'every\s+(\d+)\s+days?',
+                    r'each\s+(\d+)\s+days?',
+                    r'once\s+every\s+(\d+)\s+days?',
+                    r'(\d+)\s+days?\s+interval'
                 ]
             },
             'weekly': {
@@ -893,6 +899,12 @@ class AdvancedScheduleExtractor:
                 'variations': [
                     'each week', 'per week', 'once a week', 'a week',
                     'on a weekly basis'
+                ],
+                'intervals': [
+                    r'every\s+(\d+)\s+weeks?',
+                    r'each\s+(\d+)\s+weeks?',
+                    r'once\s+every\s+(\d+)\s+weeks?',
+                    r'(\d+)\s+weeks?\s+interval'
                 ],
                 'days': {
                     'monday': ['monday', 'mon', 'mondays'],
@@ -916,6 +928,12 @@ class AdvancedScheduleExtractor:
                     'each month', 'per month', 'once a month', 'a month',
                     'on a monthly basis'
                 ],
+                'intervals': [
+                    r'every\s+(\d+)\s+months?',
+                    r'each\s+(\d+)\s+months?',
+                    r'once\s+every\s+(\d+)\s+months?',
+                    r'(\d+)\s+months?\s+interval'
+                ],
                 'specific_date': [
                     r'(\d+)(?:st|nd|rd|th)?\s+(?:of\s+)?(?:every|each)\s+month',
                     r'on\s+(?:the\s+)?(\d+)(?:st|nd|rd|th)',
@@ -932,18 +950,18 @@ class AdvancedScheduleExtractor:
                     'each year', 'per year', 'once a year', 'a year',
                     'on a yearly basis', 'once every year'
                 ],
+                'intervals': [
+                    r'every\s+(\d+)\s+years?',
+                    r'each\s+(\d+)\s+years?',
+                    r'once\s+every\s+(\d+)\s+years?',
+                    r'(\d+)\s+years?\s+interval'
+                ],
                 'specific_date': [
                     r'(?:every|each)\s+([a-zA-Z]+)\s+(\d+)(?:st|nd|rd|th)?',
                     r'(?:on\s+)?([a-zA-Z]+)\s+(\d+)(?:st|nd|rd|th)?\s+(?:every|each)\s+year'
                 ]
             },
             'custom': {
-                'intervals': [
-                    r'every\s+(\d+)\s+(day|week|month|year)s?',
-                    r'each\s+(\d+)\s+(day|week|month|year)s?',
-                    r'once\s+every\s+(\d+)\s+(day|week|month|year)s?',
-                    r'(\d+)\s+(day|week|month|year)s?\s+interval'
-                ],
                 'relative': [
                     r'every\s+other\s+(day|week|month|year)',
                     r'alternate\s+(day|week|month|year)s?',
@@ -1195,22 +1213,44 @@ class AdvancedScheduleExtractor:
         """Extract recurrence pattern from the text."""
         text = text.lower().strip()
         
+        # Check daily patterns with intervals
+        match = self._match_pattern_list(text, self.recurrence_patterns['daily']['intervals'])
+        if match:
+            interval = int(match.group(1))
+            return {'type': 'daily', 'interval': interval, 'day': 1}
+        
         # Check daily patterns
         for pattern in self.recurrence_patterns['daily']['exact'] + self.recurrence_patterns['daily']['variations']:
             if pattern in text:
-                return {'type': 'daily', 'interval': 1}
+                return {'type': 'daily', 'interval': 1, 'day': 1}
 
         # Check weekly patterns with specific days
         weekday = self._find_weekday(text)
         if weekday:
             match = self._match_pattern_list(text, self.recurrence_patterns['weekly']['day_patterns'])
             if match:
+                # Use the default day from weekday
                 return {'type': 'weekly', 'interval': 1, 'day': weekday}
+
+        # Check weekly patterns with intervals
+        match = self._match_pattern_list(text, self.recurrence_patterns['weekly']['intervals'])
+        if match:
+            interval = int(match.group(1))
+            # Default to Monday (1) if no specific day mentioned
+            return {'type': 'weekly', 'interval': interval, 'day': 'monday'}
 
         # Check weekly patterns without specific days
         for pattern in self.recurrence_patterns['weekly']['exact'] + self.recurrence_patterns['weekly']['variations']:
             if pattern in text:
-                return {'type': 'weekly', 'interval': 1}
+                # Default to Monday (1) if no specific day mentioned
+                return {'type': 'weekly', 'interval': 1, 'day': 'monday'}
+
+        # Check monthly patterns with intervals
+        match = self._match_pattern_list(text, self.recurrence_patterns['monthly']['intervals'])
+        if match:
+            interval = int(match.group(1))
+            # Default to 1st day of month
+            return {'type': 'monthly', 'interval': interval, 'day': 1}
 
         # Check monthly patterns with specific dates
         match = self._match_pattern_list(text, self.recurrence_patterns['monthly']['specific_date'])
@@ -1224,12 +1264,21 @@ class AdvancedScheduleExtractor:
         if match:
             position = self.relative_numbers.get(match.group(1))
             if position:
-                return {'type': 'monthly', 'interval': 1, 'relative_position': position}
+                # Still need a default day (1st)
+                return {'type': 'monthly', 'interval': 1, 'day': 1, 'relative_position': position}
 
         # Check basic monthly patterns
         for pattern in self.recurrence_patterns['monthly']['exact'] + self.recurrence_patterns['monthly']['variations']:
             if pattern in text:
-                return {'type': 'monthly', 'interval': 1}
+                # Default to 1st day of month
+                return {'type': 'monthly', 'interval': 1, 'day': 1}
+
+        # Check yearly patterns with intervals
+        match = self._match_pattern_list(text, self.recurrence_patterns['yearly']['intervals'])
+        if match:
+            interval = int(match.group(1))
+            # Default to January 1st
+            return {'type': 'yearly', 'interval': interval, 'month': 1, 'day': 1}
 
         # Check yearly patterns with specific dates
         match = self._match_pattern_list(text, self.recurrence_patterns['yearly']['specific_date'])
@@ -1242,20 +1291,21 @@ class AdvancedScheduleExtractor:
         # Check basic yearly patterns
         for pattern in self.recurrence_patterns['yearly']['exact'] + self.recurrence_patterns['yearly']['variations']:
             if pattern in text:
-                return {'type': 'yearly', 'interval': 1}
+                # Default to January 1st
+                return {'type': 'yearly', 'interval': 1, 'month': 1, 'day': 1}
 
-        # Check custom intervals
-        match = self._match_pattern_list(text, self.recurrence_patterns['custom']['intervals'])
-        if match:
-            interval = int(match.group(1))
-            unit = match.group(2)
-            return {'type': f'{unit}ly', 'interval': interval}
-
-        # Check relative intervals
+        # Check relative intervals (every other day, etc.)
         match = self._match_pattern_list(text, self.recurrence_patterns['custom']['relative'])
         if match:
             unit = match.group(1)
-            return {'type': f'{unit}ly', 'interval': 2}
+            if unit == 'day':
+                return {'type': 'daily', 'interval': 2, 'day': 1}
+            elif unit == 'week':
+                return {'type': 'weekly', 'interval': 2, 'day': 'monday'}
+            elif unit == 'month':
+                return {'type': 'monthly', 'interval': 2, 'day': 1}
+            elif unit == 'year':
+                return {'type': 'yearly', 'interval': 2, 'month': 1, 'day': 1}
 
         return None
 
@@ -1275,18 +1325,21 @@ class AdvancedScheduleExtractor:
         if not pattern or pattern['type'] == 'unknown':
             return False
             
-        if 'interval' in pattern and pattern['interval'] < 1:
+        if 'interval' not in pattern or pattern['interval'] < 1:
             return False
             
-        if 'day' in pattern and pattern['type'] == 'monthly':
-            if not (1 <= pattern['day'] <= 31):
-                return False
+        # Make sure 'day' is present for all pattern types
+        if 'day' not in pattern:
+            return False
+            
+        if pattern['type'] == 'monthly' and not (1 <= pattern['day'] <= 31):
+            return False
                 
         if 'month' in pattern and not (1 <= pattern['month'] <= 12):
             return False
             
         return True
-
+    
     def _standardize_time_format(self, time):
         """Standardize time format to HH:MM in 24-hour format"""
         if isinstance(time, str):
