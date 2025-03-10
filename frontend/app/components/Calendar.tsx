@@ -39,6 +39,11 @@ interface DayHoverInfo {
   };
 }
 
+interface ModalPosition {
+  x: number;
+  y: number;
+}
+
 interface CalendarProps {
   onEventChange?: () => void;
 }
@@ -47,6 +52,7 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange }) => {
   const [currentEvents, setCurrentEvents] = useState<EventApi[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<EventDetails | null>(null);
+  const [modalPosition, setModalPosition] = useState<ModalPosition | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<any>(null);
@@ -54,7 +60,7 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange }) => {
   const [hoverTimer, setHoverTimer] = useState<NodeJS.Timeout | null>(null);
   const calendarRef = useRef(null);
   const shouldFetch = useRef(true);
-  const currentEventsRef = useRef(currentEvents); // Add this line
+  const currentEventsRef = useRef(currentEvents);
   const hoverTimerRef = useRef(null);
 
   // Update the ref whenever currentEvents changes
@@ -194,7 +200,7 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange }) => {
       color: event.backgroundColor || '#3788d8'
     };
 
-        fetch(`http://127.0.0.1:8000/api/events/${event.id}/`, {
+    fetch(`http://127.0.0.1:8000/api/events/${event.id}/`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
@@ -220,6 +226,26 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange }) => {
 
   const handleDateSelect = useCallback((selectInfo: DateSelectArg) => {
     const startDate = selectInfo.start;
+    
+    // Calculate position of modal based on the cell element
+    const rect = selectInfo.jsEvent?.target.getBoundingClientRect();
+    
+    if (rect) {
+      const viewportWidth = window.innerWidth;
+      const modalWidth = 400; // Approximate modal width
+      
+      // Position modal to the right of the day cell if there's room, otherwise to the left
+      let x = rect.right + 10;
+      if (rect.right + modalWidth + 20 > viewportWidth) {
+        x = Math.max(10, rect.left - modalWidth - 10);
+      }
+      
+      setModalPosition({
+        x: x + window.scrollX,
+        y: rect.top + window.scrollY
+      });
+    }
+    
     setSelectedEvent({
       eventId: '',
       event_name: '',
@@ -247,18 +273,12 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange }) => {
     setIsModalOpen(true);
   }, []);
   
-
   const getCSRFToken = () => {
     return document.cookie
       .split('; ')
       .find((row) => row.startsWith('csrftoken='))
       ?.split('=')[1] || '';
   };
-
-
-
-
-
 
   const handleDayCellDidMount = useCallback((info) => {
     const cell = info.el;
@@ -327,6 +347,15 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange }) => {
     };
   }, []);
 
+  const handleEventChange = (field: keyof EventDetails, value: any) => {
+    if (selectedEvent) {
+      setSelectedEvent({
+        ...selectedEvent,
+        [field]: value
+      });
+    }
+  };
+
   const DayDetailPopup = ({ info }) => {
     return (
       <div
@@ -353,7 +382,6 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange }) => {
             weekday: 'long',
             month: 'long',
             day: 'numeric'
-
           })}
         </h3>
         <div className="overflow-hidden">
@@ -389,7 +417,6 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange }) => {
     );
   };
 
-
   return (
     <div className="bahahhaha">
       <div className="adadadadad">
@@ -414,6 +441,23 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange }) => {
             const event = clickInfo.event;
             const startDate = new Date(event.start);
             const endDate = event.end ? new Date(event.end) : startDate;
+            
+            // Calculate position of modal based on the event element
+            const eventEl = clickInfo.el;
+            const rect = eventEl.getBoundingClientRect();
+            const viewportWidth = window.innerWidth;
+            const modalWidth = 400; // Approximate modal width
+            
+            // Position modal to the right of the event if there's room, otherwise to the left
+            let x = rect.right + 10;
+            if (rect.right + modalWidth + 20 > viewportWidth) {
+              x = Math.max(10, rect.left - modalWidth - 10);
+            }
+            
+            setModalPosition({
+              x: x + window.scrollX,
+              y: rect.top + window.scrollY
+            });
 
             setSelectedEvent({
               eventId: event.id,
@@ -457,8 +501,8 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange }) => {
           isOpen={isModalOpen}
           onClose={() => setIsModalOpen(false)}
           selectedEvent={selectedEvent}
-          setResult={setResult}
-          setError={setError}
+          position={modalPosition}
+          onChange={handleEventChange}
           onSubmit={handleEventSubmit}
           onDelete={async (eventId) => {
             try {

@@ -1,6 +1,4 @@
-// components/EventModal.tsx
-
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import '../styles/modalstyle.css';
 
 interface EventDetails {
@@ -20,10 +18,16 @@ interface EventDetails {
   color: string;
 }
 
+interface Position {
+  x: number;
+  y: number;
+}
+
 interface EventModalProps {
   isOpen: boolean;
   onClose: () => void;
   selectedEvent: EventDetails | null;
+  position: Position | null;
   onSubmit: (e: React.FormEvent) => void;
   onDelete?: (eventId: string) => void;
   onChange: (field: keyof EventDetails, value: any) => void;
@@ -33,24 +37,70 @@ const EventModal: React.FC<EventModalProps> = ({
   isOpen,
   onClose,
   selectedEvent,
+  position,
   onSubmit,
   onDelete,
   onChange,
 }) => {
-  // Add this useEffect to handle body class
+  const modalRef = useRef<HTMLDivElement>(null);
+  const [finalPosition, setFinalPosition] = useState<React.CSSProperties>({});
+    
   useEffect(() => {
     if (isOpen) {
       document.body.classList.add('modal-open');
+      
+      // Wait for the modal to render before calculating position
+      setTimeout(() => {
+        if (modalRef.current && position) {
+          const modalRect = modalRef.current.getBoundingClientRect();
+          const viewportWidth = window.innerWidth;
+          const viewportHeight = window.innerHeight;
+          
+          // Keep horizontal shift, but increase vertical shift significantly
+          let xPos = position.x - 60; // 60px to the left
+          let yPos = position.y - 150; // Increased from 80px to 150px upward
+          
+          // Check right edge
+          if (xPos + modalRect.width > viewportWidth) {
+            xPos = Math.max(20, viewportWidth - modalRect.width - 40);
+          }
+          
+          // Check left edge
+          if (xPos < 20) {
+            xPos = 20;
+          }
+          
+          // Check bottom edge - more aggressive repositioning
+          if (yPos + modalRect.height > viewportHeight) {
+            // Push the modal higher up when it hits the bottom
+            yPos = Math.max(20, viewportHeight - modalRect.height - 60);
+          }
+          
+          // Check top edge - but don't let it go completely off-screen
+          if (yPos < 20) {
+            yPos = 20;
+          }
+          
+          setFinalPosition({
+            position: 'absolute',
+            top: `${yPos}px`,
+            left: `${xPos}px`,
+            maxHeight: '80vh',
+            overflowY: 'auto'
+          });
+        }
+      }, 10);
     } else {
       document.body.classList.remove('modal-open');
     }
     
-    // Cleanup function to ensure class is removed when component unmounts
+    // Cleanup function
     return () => {
       document.body.classList.remove('modal-open');
     };
-  }, [isOpen]);
-
+  }, [isOpen, position]);
+  
+  // Early return if not open or no selected event
   if (!isOpen || !selectedEvent) return null;
   
   const recurrenceOptions = [
@@ -72,7 +122,11 @@ const EventModal: React.FC<EventModalProps> = ({
 
   return (
     <div className="modal-overlay">
-      <div className="modal-container">
+      <div 
+        ref={modalRef} 
+        className="modal-container" 
+        style={finalPosition}
+      >
         <h2 className="modal-header">
           {selectedEvent.eventId ? "Edit Event" : "Add New Event"}
         </h2>

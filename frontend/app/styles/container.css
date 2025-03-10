@@ -11,7 +11,7 @@
   
   width: var(--sidebar-width);
   height: 100vh;
-  background: hsl(var(--muted) / 0.3);
+  background: hsl(var(--muted) / );
   border-right: 1px solid var(--border-color);
   position: fixed;
   top: 0;
