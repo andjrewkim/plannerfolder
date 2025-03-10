@@ -44,11 +44,14 @@ const RootLayout: React.FC<RootLayoutProps> = ({ children }) => {
     }
 
     const handleMouseMove = (e: MouseEvent) => {
-      if (e.clientY <= 50) {
+      if (e.clientY <= 25) {
+        // Show navbar when mouse is within 25px of the top
         setVisible(true);
-      } else {
+      } else if (e.clientY > 70) {
+        // Only hide when mouse is more than 50px from the top
         setVisible(false);
       }
+      // Between 25px and 50px, maintain current state (sticky behavior)
     };
 
     window.addEventListener('mousemove', handleMouseMove);

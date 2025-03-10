@@ -108,6 +108,7 @@
 .event-form-container {
   width: 70%;
   padding: 1rem;
+  margin-top: 2rem;
   position: relative;
 }
 
@@ -130,7 +131,8 @@
 
 .event-textarea {
   flex: 1;
-  min-height: 80px;
+  min-height: 50px;
+  max-height: 60px;
   padding: 12px;
   border: 1px solid #e5e7eb;
   border-radius: 8px;
@@ -139,6 +141,7 @@
   resize: vertical;
   transition: all 0.2s ease;
   margin: 0; /* Remove margin */
+  overflow:hidden;
 }
 
 .event-textarea:focus {

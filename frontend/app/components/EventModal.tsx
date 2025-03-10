@@ -1,16 +1,7 @@
 // components/EventModal.tsx
 
-import React from 'react';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/app/components/ui/Dialog";
-import { Button } from "@/app/components/ui/button";
-import { Input } from "@/app/components/ui/input";
-import { Label } from "@/app/components/ui/label";
-import Checkbox from "@/app/components/ui/checkbox"
+import React, { useEffect } from 'react';
+import '../styles/modalstyle.css';
 
 interface EventDetails {
   eventId: string;
@@ -46,130 +37,212 @@ const EventModal: React.FC<EventModalProps> = ({
   onDelete,
   onChange,
 }) => {
-  if (!selectedEvent) return null;
+  // Add this useEffect to handle body class
+  useEffect(() => {
+    if (isOpen) {
+      document.body.classList.add('modal-open');
+    } else {
+      document.body.classList.remove('modal-open');
+    }
+    
+    // Cleanup function to ensure class is removed when component unmounts
+    return () => {
+      document.body.classList.remove('modal-open');
+    };
+  }, [isOpen]);
+
+  if (!isOpen || !selectedEvent) return null;
+  
+  const recurrenceOptions = [
+    { value: "", label: "No recurrence" },
+    { value: "daily", label: "Daily" },
+    { value: "weekly", label: "Weekly" },
+    { value: "biweekly", label: "Bi-weekly" },
+    { value: "monthly", label: "Monthly" },
+    { value: "yearly", label: "Yearly" },
+    { value: "weekdays", label: "Every weekday" },
+    { value: "custom", label: "Custom" }
+  ];
+
+  const handleClose = () => {
+    // Make sure to remove the modal-open class when closing manually
+    document.body.classList.remove('modal-open');
+    onClose();
+  };
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[500px]">
-        <DialogHeader>
-          <DialogTitle>
-            {selectedEvent.eventId ? "Edit Event" : "Add New Event"}
-          </DialogTitle>
-        </DialogHeader>
-        <form onSubmit={onSubmit} className="space-y-4">
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="event_name">Event Name</Label>
-              <Input
-                id="event_name"
+    <div className="modal-overlay">
+      <div className="modal-container">
+        <h2 className="modal-header">
+          {selectedEvent.eventId ? "Edit Event" : "Add New Event"}
+        </h2>
+        <form onSubmit={onSubmit}>
+          <div className="form-grid">
+            <div className="form-grid-full">
+              <label className="form-label">Event Name</label>
+              <input
+                type="text"
                 value={selectedEvent.event_name}
                 onChange={(e) => onChange('event_name', e.target.value)}
+                className="modal-input"
                 required
               />
             </div>
 
             <div>
-              <Label htmlFor="date">Date</Label>
-              <Input
-                id="date"
+              <label className="form-label">Date</label>
+              <input
                 type="date"
                 value={selectedEvent.date}
                 onChange={(e) => onChange('date', e.target.value)}
+                className="modal-input"
                 required
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            {/* Time inputs side by side */}
+            <div className="time-inputs">
               <div>
-                <Label htmlFor="start_time">Start Time</Label>
-                <Input
-                  id="start_time"
+                <label className="form-label">Start Time</label>
+                <input
                   type="time"
                   value={selectedEvent.start_time}
                   onChange={(e) => onChange('start_time', e.target.value)}
+                  className="modal-input"
                   required
                 />
               </div>
               <div>
-                <Label htmlFor="end_time">End Time</Label>
-                <Input
-                  id="end_time"
+                <label className="form-label">End Time</label>
+                <input
                   type="time"
                   value={selectedEvent.end_time}
                   onChange={(e) => onChange('end_time', e.target.value)}
+                  className="modal-input"
                   required
                 />
               </div>
             </div>
 
             <div>
-              <Label htmlFor="location">Location</Label>
-              <Input
-                id="location"
+              <label className="form-label">Location</label>
+              <input
+                type="text"
                 value={selectedEvent.location}
                 onChange={(e) => onChange('location', e.target.value)}
+                className="modal-input"
               />
             </div>
 
+            <div className="form-grid-full">
+              <label className="form-label">Recurrence</label>
+              <select
+                value={selectedEvent.recurrence_pattern}
+                onChange={(e) => onChange('recurrence_pattern', e.target.value)}
+                className="modal-select"
+              >
+                {recurrenceOptions.map(option => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
             <div>
-              <Label htmlFor="event_type">Event Type</Label>
-              <Input
-                id="event_type"
+              <label className="form-label">Event Type</label>
+              <input
+                type="text"
                 value={selectedEvent.event_type}
                 onChange={(e) => onChange('event_type', e.target.value)}
+                className="modal-input"
               />
             </div>
 
             <div>
-              <Label htmlFor="notes">Notes</Label>
-              <Input
-                id="notes"
-                value={selectedEvent.notes}
-                onChange={(e) => onChange('notes', e.target.value)}
+              <label className="form-label">Category</label>
+              <input
+                type="text"
+                value={selectedEvent.category}
+                onChange={(e) => onChange('category', e.target.value)}
+                className="modal-input"
               />
-            </div>
-
-            <div className="flex items-center space-x-2">
-              <Checkbox
-                id="virtual"
-                checked={selectedEvent.virtual}
-                onCheckedChange={(checked) => onChange('virtual', checked)}
-              />
-              <Label htmlFor="virtual">Virtual Event</Label>
             </div>
 
             <div>
-              <Label htmlFor="urgency">Urgency</Label>
+              <label className="form-label">Urgency</label>
               <select
-                id="urgency"
                 value={selectedEvent.urgency}
                 onChange={(e) => onChange('urgency', e.target.value as 'low' | 'medium' | 'high')}
-                className="w-full p-2 border rounded"
+                className="modal-select"
               >
                 <option value="low">Low</option>
                 <option value="medium">Medium</option>
                 <option value="high">High</option>
               </select>
             </div>
+
+            {/* Virtual event checkbox */}
+            <div className="form-grid-full">
+              <label className="checkbox-wrapper">
+                <input
+                  type="checkbox"
+                  checked={selectedEvent.virtual}
+                  onChange={(e) => onChange('virtual', e.target.checked)}
+                  className="modal-checkbox"
+                />
+                <span>Virtual Event</span>
+              </label>
+            </div>
+
+            {/* Color picker */}
+            <div className="form-grid-full">
+              <label className="form-label">Color</label>
+              <div className="color-picker-wrapper">
+                <input
+                  type="color"
+                  value={selectedEvent.color || "#000000"}
+                  onChange={(e) => onChange('color', e.target.value)}
+                  className="modal-color-picker"
+                />
+              </div>
+            </div>
+
+            <div className="form-grid-full">
+              <label className="form-label">Notes</label>
+              <textarea
+                value={selectedEvent.notes}
+                onChange={(e) => onChange('notes', e.target.value)}
+                className="modal-textarea"
+                rows={4}
+              />
+            </div>
           </div>
 
-          <div className="flex justify-end gap-2 pt-4">
+          <div className="modal-buttons">
+            <button type="submit" className="modal-button modal-button-save">
+              {selectedEvent.eventId ? "Update" : "Create"}
+            </button>
             {selectedEvent.eventId && onDelete && (
-              <Button
+              <button
                 type="button"
-                variant="destructive"
                 onClick={() => onDelete(selectedEvent.eventId)}
+                className="modal-button modal-button-delete"
               >
                 Delete
-              </Button>
+              </button>
             )}
-            <Button type="submit">
-              {selectedEvent.eventId ? "Update" : "Create"}
-            </Button>
+            <button
+              type="button"
+              onClick={handleClose}
+              className="modal-button modal-button-close"
+            >
+              Close
+            </button>
           </div>
         </form>
-      </DialogContent>
-    </Dialog>
+      </div>
+    </div>
   );
 };
 
