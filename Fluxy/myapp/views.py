@@ -268,6 +268,22 @@ class TimeParser:
             r'\b\d{4}-\d{1,2}-\d{1,2}\b',  # ISO format
         ]
 
+        # Add weekday patterns
+        self.weekday_patterns = [
+            r'\b(?:mon|tues|wed|thurs|fri|sat|sun)[a-z]*\b',  # Weekday abbreviations
+            r'\b(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b',  # Full weekday names
+        ]
+
+        # Event indicator terms (for day markings)
+        self.event_indicators = [
+            r'\bexam\b', r'\btest\b', r'\bquiz\b', r'\bassignment\b', r'\bdue\b', r'\bdeadline\b',
+            r'\bmeeting\b', r'\bappointment\b', r'\binterview\b', r'\bpresentation\b',
+            r'\bconcert\b', r'\bshow\b', r'\bevent\b', r'\bparty\b', r'\bcelebration\b',
+            r'\bconference\b', r'\bworkshop\b', r'\bseminar\b', r'\blecture\b',
+            r'\bholiday\b', r'\bvacation\b', r'\btrip\b', r'\bvisit\b',
+            r'\bbirthday\b', r'\banniversary\b', r'\bwedding\b', r'\bgraduation\b'
+        ]
+
         # Enhanced special times
         self.special_times = {
             'noon': '12:00', 'midnight': '00:00', 'morning': '09:00',
@@ -312,6 +328,8 @@ class TimeParser:
         self.compiled_time_patterns = [re.compile(p, re.IGNORECASE) for p in self.time_patterns]
         self.compiled_duration_patterns = [re.compile(p, re.IGNORECASE) for p in self.duration_patterns]
         self.compiled_date_patterns = [re.compile(p, re.IGNORECASE) for p in self.date_patterns]
+        self.compiled_weekday_patterns = [re.compile(p, re.IGNORECASE) for p in self.weekday_patterns]
+        self.compiled_event_indicators = [re.compile(p, re.IGNORECASE) for p in self.event_indicators]
         self.special_times_pattern = re.compile(
             r'\b(' + '|'.join(self.special_times.keys()) + r')\b',
             re.IGNORECASE
@@ -325,14 +343,15 @@ class TimeParser:
             text: Input text containing time information
             
         Returns:
-            Dictionary with 'start_time' and 'end_time' keys (values may be None)
+            Dictionary with 'start_time', 'end_time', and 'day_marking' keys (values may be None)
         """
         if not isinstance(text, str):
-            return {'start_time': None, 'end_time': None}
+            return {'start_time': None, 'end_time': None, 'day_marking': False}
 
         result = {
             'start_time': None,
-            'end_time': None
+            'end_time': None,
+            'day_marking': False
         }
 
         # Check for special times first
@@ -361,7 +380,8 @@ class TimeParser:
                         groups.get('end_minute', '0')
                     )
                     if range_result:
-                        return range_result
+                        result.update(range_result)
+                        return result
                 
                 # Handle single time
                 time = self._parse_time_match(match)
@@ -382,7 +402,34 @@ class TimeParser:
                 except ValueError:
                     pass
 
+        # Check for day marking if no time was found
+        if not result['start_time'] and not result['end_time']:
+            result['day_marking'] = self._check_for_day_marking(text)
+
         return result
+
+    def _check_for_day_marking(self, text: str) -> bool:
+        """
+        Check if text indicates an important day marking when no specific time is given.
+        Returns True if there's a date reference with an event indicator.
+        """
+        has_date = False
+        has_event_indicator = False
+        
+        # Check for date reference (specific date or weekday)
+        for pattern in self.compiled_date_patterns + self.compiled_weekday_patterns:
+            if pattern.search(text):
+                has_date = True
+                break
+                
+        # Check for event indicators
+        for pattern in self.compiled_event_indicators:
+            if pattern.search(text):
+                has_event_indicator = True
+                break
+                
+        # Return True if both date and event indicator are present
+        return has_date and has_event_indicator
 
     def _is_part_of_date(self, text: str, start_pos: int, end_pos: int) -> bool:
         """Check if the matched text is part of a date"""
@@ -566,7 +613,6 @@ class TimeParser:
             
         except (ValueError, AttributeError, TypeError):
             return None
-        
         
 class ScheduleSpellChecker:
     def __init__(self):
@@ -1882,6 +1928,7 @@ class AdvancedScheduleExtractor:
             'subcategories': [],
             'recurrence_pattern': None,
             'deadline': None,
+            'day_marking': False,
             'confidence_scores': {}
         }
         
@@ -1898,13 +1945,17 @@ class AdvancedScheduleExtractor:
         time_info = time_parser.parse_time(text)
         result['start_time'] = time_info['start_time']
         result['end_time'] = time_info['end_time']
+        result['day_marking'] = time_info.get('day_marking', False)  # Add day marking feature
 
         # Extract date using dateparser with custom settings
         date_info = date_handler.parse_date(text)
         result['date'] = date_info
 
-        result['type'] = self.extract_event_type(text) #EXTRACTING WHETHER A TASK OR EVENT
-        
+        # If we have a date but no time, and it's a day marking event, set the type to "event"
+        if result['date'] and not result['start_time'] and result['day_marking']:
+            result['type'] = 'event'  # This will mark the day as important
+        else:
+            result['type'] = self.extract_event_type(text)  # Regular type extraction
 
         # Determine if virtual
         result['virtual'] = self._check_if_virtual(text)
@@ -1923,14 +1974,6 @@ class AdvancedScheduleExtractor:
 
         # Clean and validate results
         return self._validate_and_clean_results(result)
-
-    def _validate_and_clean_results(self, result: Dict[str, Any]) -> Dict[str, Any]:
-        """Validate and clean extracted information"""
-        # Remove None values from subcategories
-        result['subcategories'] = [s for s in result['subcategories'] if s]
-        
-        # No need for time format standardization since TimeParser already handles this
-        return result
 
 # Initialize extractor
 extractor = AdvancedScheduleExtractor()
