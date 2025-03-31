@@ -3,13 +3,15 @@ import {
   DateSelectArg,
   EventClickArg,
   EventApi,
-  EventDropArg
+  EventDropArg,
+  EventSourceInput
 } from "@fullcalendar/core";
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin from "@fullcalendar/interaction";
 import EventModal from './EventModal';
+import DayMarkingHighlighter from '../components/DayMarkingHIghlighter';
 import '../styles/calendar.css';
 import '../globals.css';
 
@@ -50,6 +52,7 @@ interface CalendarProps {
 
 const Calendar: React.FC<CalendarProps> = ({ onEventChange }) => {
   const [currentEvents, setCurrentEvents] = useState<EventApi[]>([]);
+  const [dayMarkings, setDayMarkings] = useState<EventSourceInput>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<EventDetails | null>(null);
   const [modalPosition, setModalPosition] = useState<ModalPosition | null>(null);
@@ -58,6 +61,7 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange }) => {
   const [result, setResult] = useState<any>(null);
   const [hoveredDay, setHoveredDay] = useState<DayHoverInfo | null>(null);
   const [hoverTimer, setHoverTimer] = useState<NodeJS.Timeout | null>(null);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
   const calendarRef = useRef(null);
   const shouldFetch = useRef(true);
   const currentEventsRef = useRef(currentEvents);
@@ -77,7 +81,12 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange }) => {
       if (!response.ok) throw new Error('Failed to fetch events');
       
       const data = await response.json();
-      const formattedEvents = data.map((event: any) => ({
+      // Filter out day markings from regular events
+      const regularEvents = data.filter((event: any) => 
+        !event.day_marking_title || event.start_time || event.end_time
+      );
+      
+      const formattedEvents = regularEvents.map((event: any) => ({
         id: event.id,
         title: event.event_name,
         start: formatToISOString(event.date, event.start_time),
@@ -110,6 +119,7 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange }) => {
   const refreshEvents = () => {
     shouldFetch.current = true;
     fetchEvents();
+    setRefreshTrigger(prev => prev + 1); // Trigger a refresh of day markings
   };
 
   const formatToISOString = (date: string, time: string) => {
@@ -356,6 +366,11 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange }) => {
     }
   };
 
+  // Handler for when day markings are loaded
+  const handleDayMarkingsLoaded = useCallback((markings: EventSourceInput) => {
+    setDayMarkings(markings);
+  }, []);
+
   const DayDetailPopup = ({ info }) => {
     return (
       <div
@@ -417,8 +432,20 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange }) => {
     );
   };
 
+  // Combine regular events and day markings for the calendar
+  const allEvents = [
+    ...(currentEvents || []),
+    ...(dayMarkings || [])
+  ];
+
   return (
     <div className="bahahhaha">
+      {/* Include the DayMarkingHighlighter component */}
+      <DayMarkingHighlighter 
+        onMarkingsLoaded={handleDayMarkingsLoaded}
+        refreshTrigger={refreshTrigger}
+      />
+      
       <div className="adadadadad">
         <FullCalendar
           ref={calendarRef}
@@ -435,9 +462,14 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange }) => {
           dayMaxEvents={true}
           dayMaxEventRows={false}
           displayEventEnd={false}
-          events={currentEvents}
+          events={allEvents}
           select={handleDateSelect}
           eventClick={(clickInfo) => {
+            // Skip opening modal for day markings
+            if (clickInfo.event.extendedProps.isDayMarking) {
+              return;
+            }
+            
             const event = clickInfo.event;
             const startDate = new Date(event.start);
             const endDate = event.end ? new Date(event.end) : startDate;

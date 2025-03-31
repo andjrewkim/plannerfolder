@@ -8,57 +8,41 @@ from .views import extract_schedule_info  # Import the function you've already w
 from datetime import datetime
 
 class CalendarEventCreate(APIView):
+
     def post(self, request):
-        input_text = request.data.get('input_text')
-        if not input_text:
-            return Response({"error": "Input text is required."}, status=status.HTTP_400_BAD_REQUEST)
-
         try:
-            extracted_data = extract_schedule_info(input_text)
-            
-            if extracted_data['type'] == 'task':
-                todoAPI = extracted_data
-                return Response({"message": "Todo task created"}, status=status.HTTP_201_CREATED)
-                
-            elif extracted_data['type'] == 'event':
-                # Format the datetime properly
-                date = extracted_data['date']
-                start_time = datetime.strptime(extracted_data['start_time'], '%H:%M').time()
-                end_time = datetime.strptime(extracted_data['end_time'], '%H:%M').time()
-                
-                event_data = {
-                    'event_name': extracted_data.get('event_name'),
-                    'date': date,
-                    'start_time': start_time,
-                    'end_time': end_time,
-                    'location': extracted_data.get('location'),
-                    'virtual': extracted_data.get('virtual', False),
-                    'urgency': extracted_data.get('urgency', 'medium'),
-                    'notes': extracted_data.get('notes'),
-                    'event_type': 'event',
-                    'category': extracted_data.get('category'),
-                    'subcategories': ','.join(extracted_data.get('subcategories', [])),
-                    'recurrence_pattern': extracted_data.get('recurrence_pattern'),
-                    'color': request.data.get('color', "#000")
-                }
-                
-                print("Debug - Formatted event data:", event_data)  # Debug print
-                
-                serializer = CalendarEventSerializer(data=event_data)
-                if serializer.is_valid():
-                    event_instance = serializer.save()
-                    return Response(serializer.data, status=status.HTTP_201_CREATED)
-                print("Debug - Serializer errors:", serializer.errors)  # Debug print
-                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-            
-            else:
-                return Response({"error": f"Unknown type: {extracted_data['type']}"}, 
-                              status=status.HTTP_400_BAD_REQUEST)
+            # Format the datetime properly
+            date = request.data.get('date')
+            start_time = datetime.strptime(request.data.get('start_time'), '%H:%M').time()
+            end_time = datetime.strptime(request.data.get('end_time'), '%H:%M').time()
+            day_marking_title = request.data.get('day_marking_title', 'Blank Date')
 
+            
+            event_data = {
+                'event_name': request.data.get('event_name'),
+                'date': date,
+                'start_time': start_time,
+                'end_time': end_time,
+                'location': request.data.get('location'),
+                'virtual': request.data.get('virtual', False),
+                'urgency': request.data.get('urgency', 'medium'),
+                'notes': request.data.get('notes'),
+                'event_type': 'event',
+                'category': request.data.get('category'),
+                'subcategories': ','.join(request.data.get('subcategories', [])),
+                'recurrence_pattern': request.data.get('recurrence_pattern'),
+                'day_marking_title': day_marking_title if not (start_time or end_time) else None,
+                'color': request.data.get('color', "#000")
+                
+            }
+            
+            serializer = CalendarEventSerializer(data=event_data)
+            if serializer.is_valid():
+                event_instance = serializer.save()
+                return Response(serializer.data, status=status.HTTP_201_CREATED)
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            
         except Exception as e:
-            import traceback
-            print(f"Error: {str(e)}")
-            print(traceback.format_exc())
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     def delete(self, request, *args, **kwargs):

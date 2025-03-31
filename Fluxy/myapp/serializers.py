@@ -24,6 +24,7 @@ class CalendarEventSerializer(serializers.ModelSerializer):
             'category',
             'subcategories',
             'recurrence_pattern',
+            'day_marking_title',
             'color'
         ]
 

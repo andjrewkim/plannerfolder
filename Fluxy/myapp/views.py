@@ -275,14 +275,73 @@ class TimeParser:
         ]
 
         # Event indicator terms (for day markings)
-        self.event_indicators = [
-            r'\bexam\b', r'\btest\b', r'\bquiz\b', r'\bassignment\b', r'\bdue\b', r'\bdeadline\b',
-            r'\bmeeting\b', r'\bappointment\b', r'\binterview\b', r'\bpresentation\b',
-            r'\bconcert\b', r'\bshow\b', r'\bevent\b', r'\bparty\b', r'\bcelebration\b',
-            r'\bconference\b', r'\bworkshop\b', r'\bseminar\b', r'\blecture\b',
-            r'\bholiday\b', r'\bvacation\b', r'\btrip\b', r'\bvisit\b',
-            r'\bbirthday\b', r'\banniversary\b', r'\bwedding\b', r'\bgraduation\b'
-        ]
+        self.event_indicators = {
+            r'\bexam\b': 'Exam', 
+            r'\btest\b': 'Test', 
+            r'\bquiz\b': 'Quiz', 
+            r'\bassignment\b': 'Assignment', 
+            r'\bdue\b': 'Due Date', 
+            r'\bdeadline\b': 'Deadline',
+            r'\bmeeting\b': 'Meeting', 
+            r'\bappointment\b': 'Appointment', 
+            r'\binterview\b': 'Interview', 
+            r'\bpresentation\b': 'Presentation',
+            r'\bconcert\b': 'Concert', 
+            r'\bshow\b': 'Show', 
+            r'\bevent\b': 'Event', 
+            r'\bparty\b': 'Party', 
+            r'\bcelebration\b': 'Celebration',
+            r'\bconference\b': 'Conference', 
+            r'\bworkshop\b': 'Workshop', 
+            r'\bseminar\b': 'Seminar', 
+            r'\blecture\b': 'Lecture',
+            r'\bholiday\b': 'Holiday', 
+            r'\bvacation\b': 'Vacation', 
+            r'\btrip\b': 'Trip', 
+            r'\bvisit\b': 'Visit',
+            r'\bbirthday\b': 'Birthday', 
+            r'\banniversary\b': 'Anniversary', 
+            r'\bwedding\b': 'Wedding', 
+            r'\bgraduation\b': 'Graduation',
+            r'\bpapers\b': 'Papers Due',
+            r'\bproject\b': 'Project',
+            r'\bresearch\b': 'Research',
+            r'\blabs\b': 'Laboratory',
+            r'\bstudy\b': 'Study Session',
+            r'\breview\b': 'Review Session',
+            r'\bconsultation\b': 'Consultation',
+            r'\bcheckup\b': 'Checkup',
+            r'\bappointment\b': 'Appointment',
+            r'\bflight\b': 'Flight',
+            r'\bdemo\b': 'Demo',
+            r'\bdemonstration\b': 'Demonstration',
+            r'\blaunch\b': 'Launch',
+            r'\breleases?\b': 'Release'
+        }
+
+        # Subject/category patterns (to describe the type of event)
+        self.subject_patterns = {
+            r'\bmath\b|\bmathematics\b': 'Math',
+            r'\bchem\b|\bchemistry\b': 'Chemistry',
+            r'\bphysics\b': 'Physics',
+            r'\bbio\b|\bbiology\b': 'Biology',
+            r'\bhistory\b': 'History',
+            r'\bliterature\b|\benglish\b': 'English/Literature',
+            r'\bcomputer\b|\bcs\b|\bprogramming\b': 'Computer Science',
+            r'\bart\b|\bdrawing\b|\bpainting\b': 'Art',
+            r'\bmusic\b': 'Music',
+            r'\bdoctor\b|\bmedical\b|\bhealth\b': 'Medical',
+            r'\bdental\b|\bdentist\b': 'Dental',
+            r'\blegal\b|\blawyer\b|\blaw\b': 'Legal',
+            r'\bfinancial\b|\bfinance\b|\baccounting\b': 'Financial',
+            r'\bsocial\b': 'Social',
+            r'\bfamily\b': 'Family',
+            r'\bbusiness\b': 'Business',
+            r'\bwork\b': 'Work',
+            r'\bschool\b|\bcollege\b|\buniversity\b|\bacademic\b': 'School',
+            r'\bsports?\b|\bgym\b|\bfitness\b|\bexercise\b': 'Sports/Fitness',
+            r'\btravel\b': 'Travel'
+        }
 
         # Enhanced special times
         self.special_times = {
@@ -329,7 +388,8 @@ class TimeParser:
         self.compiled_duration_patterns = [re.compile(p, re.IGNORECASE) for p in self.duration_patterns]
         self.compiled_date_patterns = [re.compile(p, re.IGNORECASE) for p in self.date_patterns]
         self.compiled_weekday_patterns = [re.compile(p, re.IGNORECASE) for p in self.weekday_patterns]
-        self.compiled_event_indicators = [re.compile(p, re.IGNORECASE) for p in self.event_indicators]
+        self.compiled_event_indicators = {re.compile(p, re.IGNORECASE): label for p, label in self.event_indicators.items()}
+        self.compiled_subject_patterns = {re.compile(p, re.IGNORECASE): label for p, label in self.subject_patterns.items()}
         self.special_times_pattern = re.compile(
             r'\b(' + '|'.join(self.special_times.keys()) + r')\b',
             re.IGNORECASE
@@ -343,15 +403,15 @@ class TimeParser:
             text: Input text containing time information
             
         Returns:
-            Dictionary with 'start_time', 'end_time', and 'day_marking' keys (values may be None)
+            Dictionary with 'start_time', 'end_time', and 'day_marking_title' keys (values may be None)
         """
         if not isinstance(text, str):
-            return {'start_time': None, 'end_time': None, 'day_marking': False}
+            return {'start_time': None, 'end_time': None, 'day_marking_title': None}
 
         result = {
             'start_time': None,
             'end_time': None,
-            'day_marking': False
+            'day_marking_title': None
         }
 
         # Check for special times first
@@ -404,33 +464,53 @@ class TimeParser:
 
         # Check for day marking if no time was found
         if not result['start_time'] and not result['end_time']:
-            result['day_marking'] = self._check_for_day_marking(text)
+            day_marking_title = self._generate_day_marking_title(text)
+            if day_marking_title:
+                result['day_marking_title'] = day_marking_title
 
         return result
 
-    def _check_for_day_marking(self, text: str) -> bool:
+    def _generate_day_marking_title(self, text: str) -> Optional[str]:
         """
-        Check if text indicates an important day marking when no specific time is given.
-        Returns True if there's a date reference with an event indicator.
+        Generate a descriptive title for day marking events.
+        Returns a formatted title string if there's a date reference with an event indicator,
+        otherwise returns None.
         """
+        # Check if there's a date reference
         has_date = False
-        has_event_indicator = False
-        
-        # Check for date reference (specific date or weekday)
         for pattern in self.compiled_date_patterns + self.compiled_weekday_patterns:
             if pattern.search(text):
                 has_date = True
                 break
                 
-        # Check for event indicators
-        for pattern in self.compiled_event_indicators:
-            if pattern.search(text):
-                has_event_indicator = True
+        if not has_date:
+            return None
+        
+        # Find event indicator
+        event_type = None
+        for pattern, label in self.compiled_event_indicators.items():
+            match = pattern.search(text)
+            if match:
+                event_type = label
                 break
                 
-        # Return True if both date and event indicator are present
-        return has_date and has_event_indicator
-
+        if not event_type:
+            return None
+            
+        # Find subject/category if available
+        subject = None
+        for pattern, label in self.compiled_subject_patterns.items():
+            match = pattern.search(text)
+            if match:
+                subject = label
+                break
+        
+        # Generate the title
+        if subject:
+            return f"{subject} {event_type}"
+        else:
+            return event_type
+        
     def _is_part_of_date(self, text: str, start_pos: int, end_pos: int) -> bool:
         """Check if the matched text is part of a date"""
         try:
@@ -1928,7 +2008,7 @@ class AdvancedScheduleExtractor:
             'subcategories': [],
             'recurrence_pattern': None,
             'deadline': None,
-            'day_marking': False,
+            'day_marking_title': None,  # New field for descriptive day marking
             'confidence_scores': {}
         }
         
@@ -1945,15 +2025,19 @@ class AdvancedScheduleExtractor:
         time_info = time_parser.parse_time(text)
         result['start_time'] = time_info['start_time']
         result['end_time'] = time_info['end_time']
-        result['day_marking'] = time_info.get('day_marking', False)  # Add day marking feature
+        result['day_marking_title'] = time_info.get('day_marking_title')  # Add day marking title
 
         # Extract date using dateparser with custom settings
         date_info = date_handler.parse_date(text)
         result['date'] = date_info
 
         # If we have a date but no time, and it's a day marking event, set the type to "event"
-        if result['date'] and not result['start_time'] and result['day_marking']:
+        if result['date'] and not result['start_time'] and result['day_marking_title']:
             result['type'] = 'event'  # This will mark the day as important
+            
+            # If no event name was extracted, use the day marking title as the event name
+            if not result['event_name'] and result['day_marking_title']:
+                result['event_name'] = result['day_marking_title']
         else:
             result['type'] = self.extract_event_type(text)  # Regular type extraction
 
@@ -1974,6 +2058,42 @@ class AdvancedScheduleExtractor:
 
         # Clean and validate results
         return self._validate_and_clean_results(result)
+    
+    def _validate_and_clean_results(self, result: Dict[str, Any]) -> Dict[str, Any]:
+        """Validate and clean the extracted information"""
+        pass  # Placeholder for the function body
+        # Ensure event_name is not empty or None
+        if not result['event_name']:
+            # Try to generate a name from other fields if possible
+            if result['category']:
+                result['event_name'] = f"{result['category']} Event"
+        
+        # Ensure times are in proper format
+        if result['start_time'] and not isinstance(result['start_time'], str):
+            result['start_time'] = str(result['start_time'])
+        
+        if result['end_time'] and not isinstance(result['end_time'], str):
+            result['end_time'] = str(result['end_time'])
+        
+        # Ensure date is in proper format
+        if result['date'] and not isinstance(result['date'], str):
+            result['date'] = str(result['date'])
+        
+        # Set confidence scores for fields that don't have them
+        for key in result:
+            if key != 'confidence_scores' and key not in result['confidence_scores']:
+                result['confidence_scores'][key] = 0.5  # Default confidence
+        
+        # Validate urgency is one of the expected values
+        valid_urgency = ['low', 'medium', 'high']
+        if result['urgency'] not in valid_urgency:
+            result['urgency'] = 'medium'  # Default to medium
+        
+        # Clean empty lists
+        if not result['subcategories']:
+            result['subcategories'] = []
+        
+        return result
 
 # Initialize extractor
 extractor = AdvancedScheduleExtractor()
