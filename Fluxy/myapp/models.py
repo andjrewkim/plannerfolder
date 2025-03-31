@@ -5,7 +5,7 @@ from django.db import models
 
 class CalendarEvent(models.Model):
     event_name = models.CharField(max_length=255, null=True, blank=True)
-    date = models.DateTimeField(null=True, blank=True)  # Changed to DateTimeField
+    date = models.DateTimeField(null=True, blank=True)
     start_time = models.TimeField(null=True, blank=True)
     end_time = models.TimeField(null=True, blank=True)
     location = models.CharField(max_length=255, null=True, blank=True)
@@ -16,9 +16,13 @@ class CalendarEvent(models.Model):
     category = models.CharField(max_length=100, null=True, blank=True)
     subcategories = models.TextField(null=True, blank=True)
     recurrence_pattern = models.CharField(max_length=255, null=True, blank=True)
+    day_marking_title = models.CharField(max_length=255, null=True, blank=True)
     color = models.CharField(max_length=7, default="#000")
+
     def __str__(self):
         return f'{self.event_name} on {self.date} at {self.start_time}'
+
+
 
 
 class TodoTask(models.Model):

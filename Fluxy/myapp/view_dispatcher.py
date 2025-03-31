@@ -43,12 +43,15 @@ class ScheduleInputDispatcher(APIView):
                     }, status=status.HTTP_201_CREATED)
                 return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-            elif extracted_data.get('type') == 'event':
+            elif extracted_data.get('type') == 'event' or extracted_data.get('type') == 'marking':
                 calendar_view = CalendarEventCreate.as_view()
                 
                 # Just pass the extracted data directly - no need to modify recurrence_pattern
                 new_data = request_data.copy()
                 new_data.update(extracted_data)
+                
+                # Set the event_type to either 'event' or 'marking'
+                new_data['event_type'] = extracted_data.get('type')
                 
                 request._request.POST = QueryDict('').copy()
                 request._request.POST.update(new_data)

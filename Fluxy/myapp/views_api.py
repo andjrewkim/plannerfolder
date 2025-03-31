@@ -8,15 +8,25 @@ from .views import extract_schedule_info  # Import the function you've already w
 from datetime import datetime
 
 class CalendarEventCreate(APIView):
-
     def post(self, request):
         try:
             # Format the datetime properly
             date = request.data.get('date')
-            start_time = datetime.strptime(request.data.get('start_time'), '%H:%M').time()
-            end_time = datetime.strptime(request.data.get('end_time'), '%H:%M').time()
-            day_marking_title = request.data.get('day_marking_title', 'Blank Date')
-
+            
+            # Handle start and end times - they might be None for marking events
+            start_time = None
+            end_time = None
+            
+            if request.data.get('start_time'):
+                start_time = datetime.strptime(request.data.get('start_time'), '%H:%M').time()
+            
+            if request.data.get('end_time'):
+                end_time = datetime.strptime(request.data.get('end_time'), '%H:%M').time()
+                
+            day_marking_title = request.data.get('day_marking_title')
+            
+            # Use the type from the extracted data
+            event_type = request.data.get('type', 'event')
             
             event_data = {
                 'event_name': request.data.get('event_name'),
@@ -27,13 +37,12 @@ class CalendarEventCreate(APIView):
                 'virtual': request.data.get('virtual', False),
                 'urgency': request.data.get('urgency', 'medium'),
                 'notes': request.data.get('notes'),
-                'event_type': 'event',
+                'event_type': event_type,
                 'category': request.data.get('category'),
-                'subcategories': ','.join(request.data.get('subcategories', [])),
+                'subcategories': ','.join(request.data.get('subcategories', [])) if request.data.get('subcategories') else '',
                 'recurrence_pattern': request.data.get('recurrence_pattern'),
-                'day_marking_title': day_marking_title if not (start_time or end_time) else None,
+                'day_marking_title': day_marking_title,
                 'color': request.data.get('color', "#000")
-                
             }
             
             serializer = CalendarEventSerializer(data=event_data)
@@ -43,7 +52,13 @@ class CalendarEventCreate(APIView):
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
             
         except Exception as e:
+            # Add more detailed error information for debugging
+            import traceback
+            error_details = traceback.format_exc()
+            print(f"Error in CalendarEventCreate: {error_details}")
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
+        
 
     def delete(self, request, *args, **kwargs):
         event_id = kwargs.get('event_id')  # Get event_id from the URL

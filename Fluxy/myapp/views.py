@@ -1937,12 +1937,19 @@ class AdvancedScheduleExtractor:
    
     def extract_event_type(self, text):
         """
-        Simple classifier to determine if something is a calendar event or a task.
+        Classifier to determine if something is a calendar event, a task, or a day marker.
         Calendar events: Have specific times/dates or are scheduled appointments
         Tasks: Flexible activities, to-dos, or things without specific timing
+        Day markers: Intent to mark or highlight a date without specific timing
         """
         text = text.lower()
         
+        # 0. Check for marking intent
+        marking_words = ['mark', 'remember', 'highlight', 'note', 'important day']
+        is_marking = any(word in text for word in marking_words)
+        if is_marking and not any(time_marker in text for time_marker in ['am', 'pm', ':00', ':15', ':30', ':45']):
+            return 'marking'
+            
         # 1. Check for specific times
         time_markers = ['am', 'pm', ':00', ':15', ':30', ':45', 'oclock', "o'clock"]
         has_time = any(marker in text for marker in time_markers)
@@ -2031,15 +2038,18 @@ class AdvancedScheduleExtractor:
         date_info = date_handler.parse_date(text)
         result['date'] = date_info
 
-        # If we have a date but no time, and it's a day marking event, set the type to "event"
-        if result['date'] and not result['start_time'] and result['day_marking_title']:
-            result['type'] = 'event'  # This will mark the day as important
+        # First check for explicit marking intent
+        event_type = self.extract_event_type(text)
+        
+        # If marking type was detected or no times were found but we have a day marking title
+        if event_type == 'marking' or (result['date'] and not result['start_time'] and result['day_marking_title']):
+            result['type'] = 'marking'  # This will mark the day as important
             
             # If no event name was extracted, use the day marking title as the event name
             if not result['event_name'] and result['day_marking_title']:
                 result['event_name'] = result['day_marking_title']
         else:
-            result['type'] = self.extract_event_type(text)  # Regular type extraction
+            result['type'] = event_type  # Regular type extraction
 
         # Determine if virtual
         result['virtual'] = self._check_if_virtual(text)
