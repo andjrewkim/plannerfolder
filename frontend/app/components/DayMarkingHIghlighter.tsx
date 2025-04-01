@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { EventSourceInput } from '@fullcalendar/core';
+import '../styles/daymarking.css';
 
 interface DayMarkingHighlighterProps {
   onMarkingsLoaded: (events: EventSourceInput) => void;
@@ -34,7 +35,6 @@ const DayMarkingHighlighter: React.FC<DayMarkingHighlighterProps> = ({
         title: event.day_marking_title || event.event_name,
         start: event.date,
         display: 'background',
-        backgroundColor: event.color || '#3788d8',
         classNames: ['day-marking'],
         allDay: true,
         extendedProps: {

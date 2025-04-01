@@ -18,6 +18,7 @@ interface EventData {
   event_type: string;
   recurrence_pattern: string;
   color: string;
+  is_all_day: boolean;
 }
 
 const EventForm: React.FC<EventFormProps> = ({ setResult, setError }) => {
@@ -33,9 +34,27 @@ const EventForm: React.FC<EventFormProps> = ({ setResult, setError }) => {
     setIsSubmitting(true);
     
     try {
+      // Try to create the event with the raw input
       const data = await createEvent({ input_text: inputText });
-      setParsedEventData(data);
-      setEditedEventData(data);
+      
+      // Add is_all_day field if it doesn't exist
+      const processedData = {
+        ...data,
+        is_all_day: !data.start_time || !data.end_time || false
+      };
+      
+      // If there's no time specified, set default values
+      if (!processedData.start_time) processedData.start_time = "00:00";
+      if (!processedData.end_time) processedData.end_time = "23:59";
+      
+      // Format the date properly to match yyyy-MM-dd
+      if (processedData.date && processedData.date.includes('T')) {
+        processedData.date = processedData.date.split('T')[0];
+      }
+      
+      setParsedEventData(processedData);
+      setEditedEventData(processedData);
+      
       // Add a small delay before showing the modal
       setTimeout(() => {
         setIsModalVisible(true);
@@ -52,10 +71,18 @@ const EventForm: React.FC<EventFormProps> = ({ setResult, setError }) => {
     }
   };
 
-  
   const handleConfirm = () => {
     if (editedEventData) {
-      setResult((prevState) => Array.isArray(prevState) ? [...prevState, editedEventData] : [editedEventData]);
+      // Format date before submission if needed
+      const formattedData = { ...editedEventData };
+      
+      // If it's an all-day event and we're using placeholder times, update them
+      if (formattedData.is_all_day) {
+        formattedData.start_time = "00:00";
+        formattedData.end_time = "23:59";
+      }
+      
+      setResult((prevState) => Array.isArray(prevState) ? [...prevState, formattedData] : [formattedData]);
       setInputText('');
       setIsModalVisible(false);
       setParsedEventData(null);
@@ -69,9 +96,19 @@ const EventForm: React.FC<EventFormProps> = ({ setResult, setError }) => {
     setEditedEventData(null);
   };
 
-  const handleEdit = (field: keyof EventData, value: string) => {
+  const handleEdit = (field: keyof EventData, value: string | boolean) => {
     if (editedEventData) {
       setEditedEventData({ ...editedEventData, [field]: value });
+    }
+  };
+
+  const toggleAllDayEvent = () => {
+    if (editedEventData) {
+      const newValue = !editedEventData.is_all_day;
+      setEditedEventData({ 
+        ...editedEventData, 
+        is_all_day: newValue,
+      });
     }
   };
 
@@ -112,6 +149,7 @@ const EventForm: React.FC<EventFormProps> = ({ setResult, setError }) => {
                   value={editedEventData?.event_name || ''}
                   onChange={(e) => handleEdit('event_name', e.target.value)}
                   className="detail-input"
+                  placeholder="Event name"
                 />
               </div>
 
@@ -124,25 +162,41 @@ const EventForm: React.FC<EventFormProps> = ({ setResult, setError }) => {
                   className="detail-input"
                 />
               </div>
-
-              <div className="detail-row">
-                <Clock className="icon" />
-                <div className="time-inputs">
+              
+              {/* All-day event toggle */}
+              <div className="detail-row all-day-toggle">
+                <label className="checkbox-container">
                   <input
-                    type="time"
-                    value={editedEventData?.start_time || ''}
-                    onChange={(e) => handleEdit('start_time', e.target.value)}
-                    className="detail-input"
+                    type="checkbox"
+                    checked={editedEventData?.is_all_day || false}
+                    onChange={toggleAllDayEvent}
                   />
-                  <span>to</span>
-                  <input
-                    type="time"
-                    value={editedEventData?.end_time || ''}
-                    onChange={(e) => handleEdit('end_time', e.target.value)}
-                    className="detail-input"
-                  />
-                </div>
+                  <span className="custom-checkbox"></span>
+                  Mark important day/
+                </label>
               </div>
+
+              {/* Show time inputs only if not an all-day event */}
+              {!editedEventData?.is_all_day && (
+                <div className="detail-row">
+                  <Clock className="icon" />
+                  <div className="time-inputs">
+                    <input
+                      type="time"
+                      value={editedEventData?.start_time || ''}
+                      onChange={(e) => handleEdit('start_time', e.target.value)}
+                      className="detail-input"
+                    />
+                    <span>to</span>
+                    <input
+                      type="time"
+                      value={editedEventData?.end_time || ''}
+                      onChange={(e) => handleEdit('end_time', e.target.value)}
+                      className="detail-input"
+                    />
+                  </div>
+                </div>
+              )}
 
               <div className="detail-row">
                 <MapPin className="icon" />

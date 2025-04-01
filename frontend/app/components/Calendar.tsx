@@ -122,10 +122,16 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange }) => {
     setRefreshTrigger(prev => prev + 1); // Trigger a refresh of day markings
   };
 
-  const formatToISOString = (date: string, time: string) => {
-    const [hours, minutes] = time.split(':');
+  const formatToISOString = (date: string, time: string | null) => {
+    if (!date) return new Date().toISOString(); // Default to current date/time if no date
+    
     const dateObj = new Date(date);
-    dateObj.setHours(parseInt(hours, 10), parseInt(minutes, 10), 0);
+    
+    if (time) {
+      const [hours, minutes] = time.split(':');
+      dateObj.setHours(parseInt(hours, 10), parseInt(minutes, 10), 0);
+    }
+    
     return dateObj.toISOString();
   };
 

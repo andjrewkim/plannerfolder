@@ -321,3 +321,7 @@
 @keyframes spin {
   to { transform: rotate(360deg); }
 }
+
+.all-day-toggle {
+  margin: 10px 0;
+}
