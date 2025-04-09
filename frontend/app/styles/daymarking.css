@@ -1,0 +1,24 @@
+/* Day marking base styles */
+.day-marking {
+    opacity: 0.7;
+    transition: all 0.2s ease;
+  }
+  
+  /* Theme-aware urgency colors */
+  .day-marking-low {
+    background-color: var(--day-marking-low-bg) !important;
+    border-left: 3px solid var(--day-marking-medium-color) !important;
+  }
+  .day-marking-medium {
+    background-color: var(--day-marking-medium-bg) !important;
+    border-left: 3px solid var(--day-marking-medium-color) !important;
+  }
+  .day-marking-high {
+    background-color: var(--day-marking-high-bg) !important;
+    border-left: 3px solid var(--day-marking-medium-color) !important;
+  }
+  
+  /* Hover effects */
+  .day-marking:hover {
+    opacity: 0.9;
+  }

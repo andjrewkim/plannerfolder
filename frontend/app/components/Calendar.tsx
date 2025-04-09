@@ -11,7 +11,7 @@ import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin from "@fullcalendar/interaction";
 import EventModal from './EventModal';
-import DayMarkingHighlighter from '../components/DayMarkingHIghlighter';
+import DayMarkingHighlighter from '../components/DayMarkingHighlighter';
 import '../styles/calendar.css';
 import '../globals.css';
 
@@ -65,7 +65,7 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange }) => {
   const calendarRef = useRef(null);
   const shouldFetch = useRef(true);
   const currentEventsRef = useRef(currentEvents);
-  const hoverTimerRef = useRef(null);
+  const hoverTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Update the ref whenever currentEvents changes
   useEffect(() => {
@@ -81,14 +81,10 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange }) => {
       if (!response.ok) throw new Error('Failed to fetch events');
       
       const data = await response.json();
-      // Filter out day markings from regular events
-      const regularEvents = data.filter((event: any) => 
-        !event.day_marking_title || event.start_time || event.end_time
-      );
-      
-      const formattedEvents = regularEvents.map((event: any) => ({
+      // Process all events, including day markings
+      const formattedEvents = data.map((event: any) => ({
         id: event.id,
-        title: event.event_name,
+        title: event.day_marking_title || event.event_name, // Use day_marking_title if available
         start: formatToISOString(event.date, event.start_time),
         end: formatToISOString(event.date, event.end_time),
         backgroundColor: event.color,
@@ -101,7 +97,9 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange }) => {
           event_type: event.event_type,
           category: event.category,
           subcategories: event.subcategories,
-          recurrence_pattern: event.recurrence_pattern
+          recurrence_pattern: event.recurrence_pattern,
+          isDayMarking: event.event_type === 'marking',
+          day_marking_title: event.day_marking_title // Store the day marking title explicitly
         }
       }));
 
@@ -296,6 +294,36 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange }) => {
       ?.split('=')[1] || '';
   };
 
+  // Delete event function shared across components
+  const handleDeleteEvent = async (eventId: string) => {
+    try {
+      setIsLoading(true);
+      const response = await fetch(`http://127.0.0.1:8000/api/events/${eventId}/`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRFToken': getCSRFToken(),
+        },
+        credentials: 'include',
+      });
+
+      if (response.ok) {
+        refreshEvents();
+        if (onEventChange) onEventChange();
+        setError(null);
+        return true;
+      } else {
+        throw new Error('Failed to delete event');
+      }
+    } catch (error) {
+      console.error('Error:', error);
+      setError('Failed to delete event');
+      return false;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleDayCellDidMount = useCallback((info) => {
     const cell = info.el;
 
@@ -378,6 +406,97 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange }) => {
   }, []);
 
   const DayDetailPopup = ({ info }) => {
+    const [editMode, setEditMode] = useState<string | null>(null);
+    const [updatedMarking, setUpdatedMarking] = useState<{ id: string; day_marking_title: string; urgency: string } | null>(null);
+    const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  
+    // Identify day markings and regular events
+    const dayMarkings = info.events.filter(event => 
+      event.extendedProps && event.extendedProps.event_type === 'marking'
+    );
+    
+    const regularEvents = info.events.filter(event => 
+      !event.extendedProps || event.extendedProps.event_type !== 'marking'
+    );
+  
+    const handleEditMarking = (event) => {
+      setEditMode(event.id);
+      setDeleteConfirmId(null);
+      setUpdatedMarking({
+        id: event.id,
+        day_marking_title: event.extendedProps.day_marking_title || event.title,
+        urgency: event.extendedProps.urgency || 'low'
+      });
+    };
+  
+    const handleSaveMarking = async (event) => {
+      if (!updatedMarking) return;
+      
+      try {
+        // Get the original event to preserve other properties
+        const originalEvent = info.events.find(e => e.id === event.id);
+        
+        // Prepare the update data, preserving the original fields
+        const updatedData = {
+          // Preserve the original event properties
+          event_name: updatedMarking.day_marking_title, // Use the updated title
+          date: new Date(originalEvent.start).toISOString().split('T')[0],
+          start_time: null,
+          end_time: null,
+          location: originalEvent.extendedProps.location || '',
+          virtual: originalEvent.extendedProps.virtual || false,
+          notes: originalEvent.extendedProps.notes || '',
+          event_type: 'marking', // Ensure it stays as a marking
+          category: originalEvent.extendedProps.category || '',
+          subcategories: originalEvent.extendedProps.subcategories || '',
+          recurrence_pattern: originalEvent.extendedProps.recurrence_pattern || '',
+          day_marking_title: updatedMarking.day_marking_title,
+          urgency: updatedMarking.urgency,
+          color: originalEvent.backgroundColor || '#3788d8'
+        };
+  
+        const response = await fetch(`http://127.0.0.1:8000/api/events/${event.id}/`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCSRFToken(),
+          },
+          credentials: 'include',
+          body: JSON.stringify(updatedData),
+        });
+  
+        if (response.ok) {
+          refreshEvents();
+          if (onEventChange) onEventChange();
+          setEditMode(null);
+          setUpdatedMarking(null);
+        } else {
+          throw new Error('Failed to update day marking');
+        }
+      } catch (error) {
+        console.error('Error updating day marking:', error);
+        setError('Failed to update day marking');
+      }
+    };
+  
+    const handleCancel = () => {
+      setEditMode(null);
+      setUpdatedMarking(null);
+      setDeleteConfirmId(null);
+    };
+    
+    const handleDeleteMarkingClick = (eventId: string) => {
+      setDeleteConfirmId(eventId);
+      setEditMode(null);
+    };
+    
+    const confirmDelete = async (eventId: string) => {
+      const success = await handleDeleteEvent(eventId);
+      if (success) {
+        setDeleteConfirmId(null);
+      }
+    };
+  
     return (
       <div
         className="popup-details fixed z-50 bg-white shadow-lg rounded-lg p-4 border border-gray-200"
@@ -388,7 +507,6 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange }) => {
           maxHeight: '300px',
           overflowY: 'auto'
         }}
-        
         onMouseEnter={() => {
           if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
         }}
@@ -405,35 +523,140 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange }) => {
             day: 'numeric'
           })}
         </h3>
-        <div className="overflow-hidden">
-          {info.events.map((event, index) => (
-            <div
-              key={event.id}
-              className={`p-2 rounded ${index > 0 ? 'mt-2' : ''}`}
-              style={{
-                borderLeft: `4px solid ${event.backgroundColor}`,
-                backgroundColor: `${event.backgroundColor}15`
-              }}
-            >
-              <div className="font-medium">{event.title}</div>
-              <div className="text-sm text-gray-600">
-                {new Date(event.start).toLocaleTimeString('en-US', {
-                  hour: 'numeric',
-                  minute: '2-digit'
-                })}
-                {event.end && ` - ${new Date(event.end).toLocaleTimeString('en-US', {
-                  hour: 'numeric',
-                  minute: '2-digit'
-                })}`}
+        
+        {/* Day Markings Section */}
+        {dayMarkings.length > 0 && (
+          <div className="mb-3">
+            <h4 className="text-sm font-semibold text-gray-600 mb-1">Day Markings</h4>
+            {dayMarkings.map((event) => (
+              <div
+                key={event.id}
+                className={`p-2 rounded mb-2 day-marking-${event.extendedProps.urgency?.toLowerCase() || 'low'}`}
+                style={{
+                  borderLeft: `4px solid var(--day-marking-${event.extendedProps.urgency?.toLowerCase() || 'low'}-color)`,
+                  backgroundColor: `var(--day-marking-${event.extendedProps.urgency?.toLowerCase() || 'low'}-bg)`
+                }}
+              >
+                {editMode === event.id && updatedMarking ? (
+                  <div className="marking-edit-form">
+                    <div className="mb-2">
+                      <input
+                        type="text"
+                        className="w-full border rounded px-2 py-1 text-sm"
+                        value={updatedMarking.day_marking_title}
+                        onChange={(e) => setUpdatedMarking({...updatedMarking, day_marking_title: e.target.value})}
+                        placeholder="Marking Title"
+                      />
+                    </div>
+                    <div className="mb-2">
+                      <select
+                        className="w-full border rounded px-2 py-1 text-sm"
+                        value={updatedMarking.urgency}
+                        onChange={(e) => setUpdatedMarking({...updatedMarking, urgency: e.target.value})}
+                      >
+                        <option value="low">Low Importance</option>
+                        <option value="medium">Medium Importance</option>
+                        <option value="high">High Importance</option>
+                      </select>
+                    </div>
+                    <div className="flex justify-end space-x-2 mt-2">
+                      <button 
+                        className="px-3 py-1 bg-gray-200 text-gray-800 rounded text-xs"
+                        onClick={handleCancel}
+                      >
+                        Cancel
+                      </button>
+                      <button 
+                        className="px-3 py-1 bg-blue-500 text-white rounded text-xs"
+                        onClick={() => handleSaveMarking(event)}
+                      >
+                        Save
+                      </button>
+                    </div>
+                  </div>
+                ) : deleteConfirmId === event.id ? (
+                  <div className="delete-confirmation">
+                    <p className="text-sm mb-2">Delete this day marking?</p>
+                    <div className="flex justify-end space-x-2">
+                      <button 
+                        className="px-3 py-1 bg-gray-200 text-gray-800 rounded text-xs"
+                        onClick={handleCancel}
+                      >
+                        Cancel
+                      </button>
+                      <button 
+                        className="px-3 py-1 bg-red-500 text-white rounded text-xs"
+                        onClick={() => confirmDelete(event.id)}
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex justify-between items-start">
+                    <div className="font-medium">
+                      {event.extendedProps.day_marking_title || event.title}
+                    </div>
+                    <div className="flex space-x-1">
+                      <button 
+                        className="text-gray-500 hover:text-blue-500"
+                        onClick={() => handleEditMarking(event)}
+                        title="Edit"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                        </svg>
+                      </button>
+                      <button 
+                        className="text-gray-500 hover:text-red-500"
+                        onClick={() => handleDeleteMarkingClick(event.id)}
+                        title="Delete"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
-              {event.extendedProps.location && (
-                <div className="text-sm text-gray-600 mt-1">
-                  📍 {event.extendedProps.location}
+            ))}
+          </div>
+        )}
+        
+        {/* Regular Events Section */}
+        {regularEvents.length > 0 && (
+          <div>
+            <h4 className="text-sm font-semibold text-gray-600 mb-1">Events</h4>
+            {regularEvents.map((event) => (
+              <div
+                key={event.id}
+                className="p-2 rounded mb-2"
+                style={{
+                  borderLeft: `4px solid ${event.backgroundColor}`,
+                  backgroundColor: `${event.backgroundColor}15`
+                }}
+              >
+                <div className="font-medium">{event.title}</div>
+                <div className="text-sm text-gray-600">
+                  {new Date(event.start).toLocaleTimeString('en-US', {
+                    hour: 'numeric',
+                    minute: '2-digit'
+                  })}
+                  {event.end && ` - ${new Date(event.end).toLocaleTimeString('en-US', {
+                    hour: 'numeric',
+                    minute: '2-digit'
+                  })}`}
                 </div>
-              )}
-            </div>
-          ))}
-        </div>
+                {event.extendedProps.location && (
+                  <div className="text-sm text-gray-600 mt-1">
+                    📍 {event.extendedProps.location}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     );
   };
@@ -472,7 +695,7 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange }) => {
           select={handleDateSelect}
           eventClick={(clickInfo) => {
             // Skip opening modal for day markings
-            if (clickInfo.event.extendedProps.isDayMarking) {
+            if (clickInfo.event.extendedProps.event_type === 'marking') {
               return;
             }
             
@@ -542,33 +765,7 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange }) => {
           position={modalPosition}
           onChange={handleEventChange}
           onSubmit={handleEventSubmit}
-          onDelete={async (eventId) => {
-            try {
-              setIsLoading(true);
-              const response = await fetch(`http://127.0.0.1:8000/api/events/${eventId}/`, {
-                method: 'DELETE',
-                headers: {
-                  'Content-Type': 'application/json',
-                  'X-CSRFToken': getCSRFToken(),
-                },
-                credentials: 'include',
-              });
-
-              if (response.ok) {
-                setIsModalOpen(false);
-                refreshEvents();
-                if (onEventChange) onEventChange();
-                setError(null);
-              } else {
-                throw new Error('Failed to delete event');
-              }
-            } catch (error) {
-              console.error('Error:', error);
-              setError('Failed to delete event');
-            } finally {
-              setIsLoading(false);
-            }
-          }}
+          onDelete={handleDeleteEvent}
         />
       )}
     </div>
