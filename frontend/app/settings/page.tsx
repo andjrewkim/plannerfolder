@@ -2,9 +2,9 @@
 import React, { useState, useEffect } from 'react';
 import { Calendar, Clock, Bell, Globe, User, Sliders, Palette, Mail } from 'lucide-react';
 import DisplaySettings from '@/app/settings/settingspages/DisplaySettings';
-import GeneralPreferences from './settingspages/GeneralPreferences';
-import NotificationSettings from './settingspages/NotificationSettings';
-import TimeSettings from './settingspages/TimeSettings';
+import GeneralPreferences from '@/app/settings/settingspages/GeneralPreferences';
+import NotificationSettings from '@/app/settings/settingspages/NotificationSettings';
+import TimeSettings from '@/app/settings/settingspages/TimeSettings';
 
 
 // Define a type for all possible section names
@@ -115,3 +115,4 @@ export default function CalendarSettings() {
       </div>
     </div>
   );
+}

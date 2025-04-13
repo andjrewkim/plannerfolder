@@ -242,7 +242,7 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange }) => {
     const startDate = selectInfo.start;
     
     // Calculate position of modal based on the cell element
-    const rect = selectInfo.jsEvent?.target.getBoundingClientRect();
+    const rect = selectInfo.jsEvent?.target ? selectInfo.jsEvent.target.getBoundingClientRect() : null;
     
     if (rect) {
       const viewportWidth = window.innerWidth;
