@@ -11,7 +11,7 @@ import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin from "@fullcalendar/interaction";
 import EventModal from './EventModal';
-import DayMarkingHighlighter from '../components/DayMarkingHighlighter';
+import DayMarkingHighlighter from './DayMarkingHighlighter';
 import '../styles/calendar.css';
 import '../globals.css';
 
