@@ -1,8 +1,7 @@
-
 // TimeSettings.tsx
 "use client"
 import React from 'react';
-import { Clock, Globe } from 'lucide-react';
+import { Globe } from 'lucide-react';
 import { Switch } from '@/radix/switch';
 
 export default function TimeSettings() {

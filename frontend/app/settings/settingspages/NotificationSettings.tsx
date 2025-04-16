@@ -1,4 +1,3 @@
-// NotificationSettings.tsx
 "use client"
 import React from 'react';
 import { Bell, Mail, MessageSquare } from 'lucide-react';
@@ -85,7 +84,7 @@ export default function NotificationSettings() {
         <div className="flex items-center justify-between">
           <div>
             <label className="form-label">Quiet Hours</label>
-            <p className="form-helper">Don't send notifications during these hours</p>
+            <p className="form-helper">Don&apos;t send notifications during these hours</p>
           </div>
           <Switch />
         </div>

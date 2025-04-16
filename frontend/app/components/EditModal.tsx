@@ -20,24 +20,42 @@ interface EditModalProps {
   isOpen: boolean;
   onClose: () => void;
   eventDetails: EventDetails | null;
-  onSave: (e: React.FormEvent, eventId: string, updatedEvent: EventDetails) => void;
+  onSave: (e: React.FormEvent<HTMLFormElement>, eventId: string, updatedEvent: EventDetails) => void;
   onDelete: (eventId: string) => void;
 }
 
 const EditModal: React.FC<EditModalProps> = ({ isOpen, onClose, eventDetails, onSave, onDelete }) => {
-  if (!isOpen || !eventDetails) return null;
+  // Initialize state with empty/default values
+  const [event_name, setEventName] = useState('');
+  const [start_time, setStartTime] = useState('');
+  const [end_time, setEndTime] = useState('');
+  const [date, setDate] = useState('');
+  const [virtual, setVirtual] = useState(false);
+  const [urgency, setUrgency] = useState<'low' | 'medium' | 'high'>('low');
+  const [notes, setNotes] = useState('');
+  const [event_type, setEventType] = useState('');
+  const [category, setCategory] = useState('');
+  const [recurrence_pattern, setRecurrencePattern] = useState('');
+  const [color, setColor] = useState('#000000');
 
-  const [event_name, setEventName] = useState(eventDetails.event_name);
-  const [start_time, setStartTime] = useState(eventDetails.start_time);
-  const [end_time, setEndTime] = useState(eventDetails.end_time);
-  const [date, setDate] = useState(eventDetails.date);
-  const [virtual, setVirtual] = useState(eventDetails.virtual);
-  const [urgency, setUrgency] = useState(eventDetails.urgency);
-  const [notes, setNotes] = useState(eventDetails.notes);
-  const [event_type, setEventType] = useState(eventDetails.event_type);
-  const [category, setCategory] = useState(eventDetails.category);
-  const [recurrence_pattern, setRecurrencePattern] = useState(eventDetails.recurrence_pattern);
-  const [color, setColor] = useState(eventDetails.color);
+  // Update state values when eventDetails changes
+  React.useEffect(() => {
+    if (eventDetails) {
+      setEventName(eventDetails.event_name);
+      setStartTime(eventDetails.start_time);
+      setEndTime(eventDetails.end_time);
+      setDate(eventDetails.date);
+      setVirtual(eventDetails.virtual);
+      setUrgency(eventDetails.urgency);
+      setNotes(eventDetails.notes);
+      setEventType(eventDetails.event_type);
+      setCategory(eventDetails.category);
+      setRecurrencePattern(eventDetails.recurrence_pattern);
+      setColor(eventDetails.color);
+    }
+  }, [eventDetails]);
+
+  if (!isOpen || !eventDetails) return null;
 
   const recurrenceOptions = [
     { value: "", label: "No recurrence" },
@@ -50,7 +68,7 @@ const EditModal: React.FC<EditModalProps> = ({ isOpen, onClose, eventDetails, on
     { value: "custom", label: "Custom" }
   ];
 
-  const handleSave = (e: React.FormEvent) => {
+  const handleSave = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const updatedEvent = {
       eventId: eventDetails.eventId,

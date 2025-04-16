@@ -3,11 +3,6 @@ import { createEvent } from '../services/apiService';
 import { Clock, Calendar, MapPin, Tag } from 'lucide-react';
 import '../styles/eventform.css';
 
-interface EventFormProps {
-  setResult: React.Dispatch<React.SetStateAction<any>>;
-  setError: React.Dispatch<React.SetStateAction<string | null>>;
-}
-
 interface EventData {
   id?: string;
   event_name: string;
@@ -19,6 +14,11 @@ interface EventData {
   recurrence_pattern: string;
   color: string;
   is_all_day: boolean;
+}
+
+interface EventFormProps {
+  setResult: React.Dispatch<React.SetStateAction<EventData[]>>;
+  setError: React.Dispatch<React.SetStateAction<string | null>>;
 }
 
 const EventForm: React.FC<EventFormProps> = ({ setResult, setError }) => {

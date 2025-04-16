@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import '../styles/container.css';
 
 interface APIEvent {
@@ -52,7 +52,7 @@ const Sidebar: React.FC = () => {
   useEffect(() => {
     totalHeightRef.current = 900; // Default value, adjust based on your sidebar height
     heightsRef.current = sectionHeights;
-  }, []);
+  }, [sectionHeights]);
   
   // Update ref when state changes
   useEffect(() => {
@@ -66,12 +66,12 @@ const Sidebar: React.FC = () => {
     }
   }, [isAddingLongTerm]);
 
-  const getCSRFToken = () => {
+  const getCSRFToken = useCallback(() => {
     return document.cookie
       .split('; ')
       .find((row) => row.startsWith('csrftoken='))
       ?.split('=')[1] || '';
-  };
+  }, []);
 
   // Handle click on long-term tasks area to initiate task creation
   const handleLongTermAreaClick = (e: React.MouseEvent) => {
@@ -82,6 +82,144 @@ const Sidebar: React.FC = () => {
       setIsAddingLongTerm(true);
     }
   };
+
+  // Fetch tasks function wrapped in useCallback to prevent recreation on every render
+  const fetchTasks = useCallback(async () => {
+    try {
+      const response = await fetch('http://127.0.0.1:8000/api/tasks/', {
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRFToken': getCSRFToken(),
+        },
+        credentials: 'include',
+      });
+
+      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+      
+      const data = await response.json();
+      
+      const regular: TodoTask[] = [];
+      const longTerm: TodoTask[] = [];
+      
+      data.forEach((task: TodoTask) => {
+        // Consider tasks with "longterm" marker as long term goals
+        if (task.date === "longterm") {
+          longTerm.push(task);
+        } else if (!task.date) {
+          regular.push(task);
+        }
+      });
+
+      setTasks(regular);
+      setLongTermTasks(longTerm);
+      setError(null);
+    } catch (error) {
+      console.error('Error fetching tasks:', error);
+      setError('Failed to load tasks');
+    }
+  }, [getCSRFToken]);
+
+  // Function to reset daily tasks wrapped in useCallback
+  const resetDailyTasks = useCallback(async () => {
+    try {
+      // Get all current tasks first
+      const response = await fetch('http://127.0.0.1:8000/api/tasks/', {
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRFToken': getCSRFToken(),
+        },
+        credentials: 'include',
+      });
+
+      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+      
+      const tasks = await response.json();
+      
+      // Filter for regular (non-dated) tasks that need to be reset
+      const regularTasks = tasks.filter((task: TodoTask) => !task.date);
+      
+      // Delete all regular tasks
+      for (const task of regularTasks) {
+        await fetch(`http://127.0.0.1:8000/api/tasks/${task.id}/`, {
+          method: 'DELETE',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCSRFToken(),
+          },
+          credentials: 'include',
+        });
+      }
+
+      // Recreate all regular tasks
+      for (const task of regularTasks) {
+        await fetch('http://127.0.0.1:8000/api/tasks/', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCSRFToken(),
+          },
+          credentials: 'include',
+          body: JSON.stringify({
+            event: task.event,
+            date: null
+          })
+        });
+      }
+
+      // Refresh tasks after reset
+      fetchTasks();
+      
+    } catch (error) {
+      console.error('Error resetting tasks:', error);
+      setError('Failed to reset tasks');
+    }
+  }, [getCSRFToken, fetchTasks]);
+
+  // Function to check if tasks should be reset wrapped in useCallback
+  const checkAndResetTasks = useCallback(async () => {
+    const today = new Date();
+    const todayFormatted = today.toISOString().split('T')[0]; // YYYY-MM-DD format
+    const lastResetDate = localStorage.getItem(LAST_RESET_KEY);
+
+    // If the last reset date is different from today, reset all tasks
+    if (lastResetDate !== todayFormatted) {
+      console.log('New day detected. Resetting daily tasks...');
+      await resetDailyTasks();
+      // Update the last reset date
+      localStorage.setItem(LAST_RESET_KEY, todayFormatted);
+    }
+  }, [resetDailyTasks]);
+
+  // Fetch today's events function wrapped in useCallback
+  const fetchTodayEvents = useCallback(async () => {
+    try {
+      const response = await fetch('http://127.0.0.1:8000/api/events/', {
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRFToken': getCSRFToken(),
+        },
+        credentials: 'include',
+      });
+
+      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+      
+      const data = await response.json();
+      const today = new Date();
+      const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+      const todayEnd = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1);
+
+      const filteredEvents = data.filter((event: APIEvent) => {
+        const eventDate = new Date(event.date);
+        return eventDate >= todayStart && eventDate < todayEnd;
+      });
+
+      setTodayEvents(filteredEvents);
+      setError(null);
+    } catch (error) {
+      console.error('Error fetching events:', error);
+      setError('Failed to load events');
+    }
+  }, [getCSRFToken]);
 
   // Handle long term goal creation
   const handleCreateLongTerm = async (e: React.FormEvent) => {
@@ -143,9 +281,6 @@ const Sidebar: React.FC = () => {
     const sectionIndex = sections.indexOf(section);
     const nextSectionIndex = sectionIndex + 1;
     const nextSection = nextSectionIndex < sections.length ? sections[nextSectionIndex] : null;
-    
-    // Calculate remaining height
-    const totalUsedHeight = Object.values(heightsRef.current).reduce((a, b) => a + b, 0);
     
     // Show resizing cursor
     document.body.classList.add('resizing');
@@ -214,142 +349,6 @@ const Sidebar: React.FC = () => {
     document.addEventListener('mouseup', handleMouseUp);
   };
 
-  // Function to check if tasks should be reset
-  const checkAndResetTasks = async () => {
-    const today = new Date();
-    const todayFormatted = today.toISOString().split('T')[0]; // YYYY-MM-DD format
-    const lastResetDate = localStorage.getItem(LAST_RESET_KEY);
-
-    // If the last reset date is different from today, reset all tasks
-    if (lastResetDate !== todayFormatted) {
-      console.log('New day detected. Resetting daily tasks...');
-      await resetDailyTasks();
-      // Update the last reset date
-      localStorage.setItem(LAST_RESET_KEY, todayFormatted);
-    }
-  };
-
-  // Function to reset daily tasks
-  const resetDailyTasks = async () => {
-    try {
-      // Get all current tasks first
-      const response = await fetch('http://127.0.0.1:8000/api/tasks/', {
-        headers: {
-          'Content-Type': 'application/json',
-          'X-CSRFToken': getCSRFToken(),
-        },
-        credentials: 'include',
-      });
-
-      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-      
-      const tasks = await response.json();
-      
-      // Filter for regular (non-dated) tasks that need to be reset
-      const regularTasks = tasks.filter((task: TodoTask) => !task.date);
-      
-      // Delete all regular tasks
-      for (const task of regularTasks) {
-        await fetch(`http://127.0.0.1:8000/api/tasks/${task.id}/`, {
-          method: 'DELETE',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-CSRFToken': getCSRFToken(),
-          },
-          credentials: 'include',
-        });
-      }
-
-      // Recreate all regular tasks
-      for (const task of regularTasks) {
-        await fetch('http://127.0.0.1:8000/api/tasks/', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-CSRFToken': getCSRFToken(),
-          },
-          credentials: 'include',
-          body: JSON.stringify({
-            event: task.event,
-            date: null
-          })
-        });
-      }
-
-      // Refresh tasks after reset
-      fetchTasks();
-      
-    } catch (error) {
-      console.error('Error resetting tasks:', error);
-      setError('Failed to reset tasks');
-    }
-  };
-
-  const fetchTodayEvents = async () => {
-    try {
-      const response = await fetch('http://127.0.0.1:8000/api/events/', {
-        headers: {
-          'Content-Type': 'application/json',
-          'X-CSRFToken': getCSRFToken(),
-        },
-        credentials: 'include',
-      });
-
-      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-      
-      const data = await response.json();
-      const today = new Date();
-      const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-      const todayEnd = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1);
-
-      const filteredEvents = data.filter((event: APIEvent) => {
-        const eventDate = new Date(event.date);
-        return eventDate >= todayStart && eventDate < todayEnd;
-      });
-
-      setTodayEvents(filteredEvents);
-      setError(null);
-    } catch (error) {
-      console.error('Error fetching events:', error);
-      setError('Failed to load events');
-    }
-  };
-
-  const fetchTasks = async () => {
-    try {
-      const response = await fetch('http://127.0.0.1:8000/api/tasks/', {
-        headers: {
-          'Content-Type': 'application/json',
-          'X-CSRFToken': getCSRFToken(),
-        },
-        credentials: 'include',
-      });
-
-      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-      
-      const data = await response.json();
-      
-      const regular: TodoTask[] = [];
-      const longTerm: TodoTask[] = [];
-      
-      data.forEach((task: TodoTask) => {
-        // Consider tasks with "longterm" marker as long term goals
-        if (task.date === "longterm") {
-          longTerm.push(task);
-        } else if (!task.date) {
-          regular.push(task);
-        }
-      });
-
-      setTasks(regular);
-      setLongTermTasks(longTerm);
-      setError(null);
-    } catch (error) {
-      console.error('Error fetching tasks:', error);
-      setError('Failed to load tasks');
-    }
-  };
-
   // Enhanced task completion with animation
   const handleTaskComplete = async (taskId: number) => {
     setDeletingTasks(prev => [...prev, taskId]);
@@ -403,7 +402,7 @@ const Sidebar: React.FC = () => {
       clearInterval(timer);
       document.body.classList.remove('resizing');
     };
-  }, []);
+  }, [checkAndResetTasks, fetchTasks, fetchTodayEvents]); // Now correctly referencing stable function references
 
   return (
     <div className="app-layout">
@@ -418,7 +417,7 @@ const Sidebar: React.FC = () => {
             transition: isResizing ? 'none' : 'height 0.2s ease-out'
           }}
         >
-          <h3 className="section-title">Today's Schedule</h3>
+          <h3 className="section-title">Today&apos;s Schedule</h3>
           <div className="section-content">
             {error ? (
               <div className="error-message">{error}</div>
@@ -544,12 +543,11 @@ const Sidebar: React.FC = () => {
             ) : (
               <div className="empty-state">Click here to add long-term goals</div>
             )}
-      </div>
-      <div 
-        className={`resize-handle ${activeSection === 'longTerm' ? 'active' : ''}`}
-        onMouseDown={startResize('longTerm')}
-      />
-
+          </div>
+          <div 
+            className={`resize-handle ${activeSection === 'longTerm' ? 'active' : ''}`}
+            onMouseDown={startResize('longTerm')}
+          />
         </section>
       </aside>
 

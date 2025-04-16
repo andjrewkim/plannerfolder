@@ -30,7 +30,7 @@ interface EventModalProps {
   position: Position | null;
   onSubmit: (e: React.FormEvent) => void;
   onDelete?: (eventId: string) => void;
-  onChange: (field: keyof EventDetails, value: any) => void;
+  onChange: (field: keyof EventDetails, value: string | boolean) => void;
 }
 
 const EventModal: React.FC<EventModalProps> = ({

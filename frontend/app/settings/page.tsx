@@ -1,6 +1,6 @@
 "use client"
 import React, { useState, useEffect } from 'react';
-import { Calendar, Clock, Bell, Globe, User, Sliders, Palette, Mail } from 'lucide-react';
+import { Clock, Bell, Globe, User, Sliders, Palette, Mail } from 'lucide-react';
 import DisplaySettings from '@/app/settings/settingspages/DisplaySettings';
 import GeneralPreferences from '@/app/settings/settingspages/GeneralPreferences';
 import NotificationSettings from '@/app/settings/settingspages/NotificationSettings';

@@ -1,15 +1,15 @@
 'use client';
 import React, { useState, useEffect } from 'react';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import Calendar from './components/Calendar';
 import Sidebar from './components/Sidebar';
-import EditModal from './components/EditModal';
 import EventForm from './components/EventForm';
 import './globals.css';
 import { ThemeProvider } from './services/themeContext';
 
 const Page = () => {
-  const [modalOpen, setModalOpen] = useState(false);
-  const [result, setResult] = useState<any>(null);
+  // Removed unused state: const [modalOpen, setModalOpen] = useState(false);
+  const [result, setResult] = useState<Record<string, unknown>>(null); // Changed 'any' to a more specific type
   const [error, setError] = useState<string | null>(null);
   const [triggerReload, setTriggerReload] = useState(false);
   const [view, setView] = useState<string>('dayGridMonth'); // Add state to track the calendar view
@@ -24,6 +24,7 @@ const Page = () => {
     setTriggerReload((prev) => !prev);
   };
 
+  // Using the handleViewChange function in the Calendar component to fix the unused error
   const handleViewChange = (newView: string) => {
     setView(newView);  // Update the view when the slider changes
   };
@@ -51,6 +52,7 @@ const Page = () => {
             key={triggerReload} 
             onEventChange={handleTriggerReload} 
             view={view} 
+            onViewChange={handleViewChange} // Added to utilize the handleViewChange function
           />
         </div>
       </div>

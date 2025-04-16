@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   DateSelectArg,
-  EventClickArg,
   EventApi,
   EventDropArg,
   EventSourceInput
@@ -11,7 +10,7 @@ import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin from "@fullcalendar/interaction";
 import EventModal from './EventModal';
-import DayMarkingHighlighter from './DayMarkingHighlighter';
+import DayMarkingHighlighter from '../components/DayMarkingHighlighter';
 import '../styles/calendar.css';
 import '../globals.css';
 
@@ -58,9 +57,7 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange }) => {
   const [modalPosition, setModalPosition] = useState<ModalPosition | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [result, setResult] = useState<any>(null);
   const [hoveredDay, setHoveredDay] = useState<DayHoverInfo | null>(null);
-  const [hoverTimer, setHoverTimer] = useState<NodeJS.Timeout | null>(null);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const calendarRef = useRef(null);
   const shouldFetch = useRef(true);
@@ -75,14 +72,14 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange }) => {
   const fetchEvents = useCallback(async () => {
     if (!shouldFetch.current) return;
     shouldFetch.current = false;
-    
+
     try {
       const response = await fetch('http://127.0.0.1:8000/api/events/');
       if (!response.ok) throw new Error('Failed to fetch events');
-      
-      const data = await response.json();
+
+      const data: EventDetails[] = await response.json();
       // Process all events, including day markings
-      const formattedEvents = data.map((event: any) => ({
+      const formattedEvents = data.map((event: EventDetails) => ({
         id: event.id,
         title: event.day_marking_title || event.event_name, // Use day_marking_title if available
         start: formatToISOString(event.date, event.start_time),
@@ -108,7 +105,7 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange }) => {
       console.error('Error fetching events:', error);
       setError('Failed to fetch events');
     }
-  }, []);
+  }, [setError]);
 
   useEffect(() => {
     fetchEvents();
@@ -324,7 +321,7 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange }) => {
     }
   };
 
-  const handleDayCellDidMount = useCallback((info) => {
+const handleDayCellDidMount = useCallback((info: { el: HTMLElement; date: Date }) => {
     const cell = info.el;
 
     const handleMouseEnter = () => {
@@ -391,7 +388,7 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange }) => {
     };
   }, []);
 
-  const handleEventChange = (field: keyof EventDetails, value: any) => {
+  const handleEventChange = (field: keyof EventDetails, value: string | boolean | null) => {
     if (selectedEvent) {
       setSelectedEvent({
         ...selectedEvent,
