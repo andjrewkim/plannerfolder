@@ -15,21 +15,23 @@ import '../styles/calendar.css';
 import '../globals.css';
 
 interface EventDetails {
-  eventId: string;
-  event_name: string;
+  id: string | number; // use string or number depending on your backend
   date: string;
   start_time: string;
   end_time: string;
-  location: string;
-  virtual: boolean;
-  urgency: 'low' | 'medium' | 'high';
-  notes: string;
-  event_type: string;
-  category: string;
-  subcategories: string;
-  recurrence_pattern: string;
+  event_name?: string;
+  day_marking_title?: string;
   color: string;
+  location?: string;
+  virtual?: boolean;
+  urgency?: string;
+  notes?: string;
+  event_type?: string;
+  category?: string;
+  subcategories?: string[];
+  recurrence_pattern?: string;
 }
+
 
 interface DayHoverInfo {
   date: Date;
@@ -72,20 +74,22 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange }) => {
   const fetchEvents = useCallback(async () => {
     if (!shouldFetch.current) return;
     shouldFetch.current = false;
-
+  
     try {
       const response = await fetch('http://127.0.0.1:8000/api/events/');
       if (!response.ok) throw new Error('Failed to fetch events');
-
+  
       const data: EventDetails[] = await response.json();
-      // Process all events, including day markings
+      
+      // Create an array of event objects that matches FullCalendar's expected input format
       const formattedEvents = data.map((event: EventDetails) => ({
-        id: event.id,
-        title: event.day_marking_title || event.event_name, // Use day_marking_title if available
+        id: String(event.id),
+        title: event.day_marking_title || event.event_name || 'Untitled',
         start: formatToISOString(event.date, event.start_time),
         end: formatToISOString(event.date, event.end_time),
         backgroundColor: event.color,
         borderColor: event.color,
+        allDay: false,
         extendedProps: {
           location: event.location,
           virtual: event.virtual,
@@ -96,16 +100,37 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange }) => {
           subcategories: event.subcategories,
           recurrence_pattern: event.recurrence_pattern,
           isDayMarking: event.event_type === 'marking',
-          day_marking_title: event.day_marking_title // Store the day marking title explicitly
+          day_marking_title: event.day_marking_title
         }
       }));
-
-      setCurrentEvents(formattedEvents);
-    } catch (error) {
-      console.error('Error fetching events:', error);
-      setError('Failed to fetch events');
+  
+      // Instead of directly setting EventApi objects, work with the FullCalendar instance
+      if (calendarRef.current) {
+        const calendarApi = calendarRef.current.getApi();
+        
+        // Remove existing events
+        calendarApi.removeAllEvents();
+        
+        // Add the new events
+        calendarApi.addEventSource(formattedEvents);
+        
+        // Update the currentEvents state with the actual EventApi objects from the calendar
+        setCurrentEvents(calendarApi.getEvents());
+      }
+      
+      // Filter day markings if needed
+      const dayMarkingsData = formattedEvents.filter(
+        event => event.extendedProps?.isDayMarking
+      );
+      setDayMarkings(dayMarkingsData);
+  
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'An unknown error occurred');
+    } finally {
+      setIsLoading(false);
+      if (onEventChange) onEventChange();
     }
-  }, [setError]);
+  }, [onEventChange]);
 
   useEffect(() => {
     fetchEvents();
@@ -496,31 +521,36 @@ const handleDayCellDidMount = useCallback((info: { el: HTMLElement; date: Date }
   
     return (
       <div
-        className="popup-details fixed z-50 bg-white shadow-lg rounded-lg p-4 border border-gray-200"
-        style={{
-          left: `${info.position.x}px`,
-          top: `${info.position.y}px`,
-          width: '320px',
-          maxHeight: '300px',
-          overflowY: 'auto'
-        }}
-        onMouseEnter={() => {
-          if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
-        }}
-        onMouseLeave={() => {
-          if (!document.querySelector('.fc-daygrid-day')?.matches(':hover')) {
-            setHoveredDay(null);
-          }
-        }}
-      >
-        <h3 className="text-lg font-semibold mb-3">
-          {info.date.toLocaleDateString('en-US', {
-            weekday: 'long',
-            month: 'long',
-            day: 'numeric'
-          })}
-        </h3>
-        
+      className="popup-details fixed z-50 bg-white shadow-lg rounded-lg p-4 border border-gray-200"
+      style={{
+        left: `${info.position.x}px`,
+        top: `${info.position.y}px`,
+        width: '320px',
+        maxHeight: '300px',
+        overflowY: 'auto'
+      }}
+      onMouseEnter={() => {
+        if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
+      }}
+      onMouseLeave={() => {
+        if (!document.querySelector('.fc-daygrid-day')?.matches(':hover')) {
+          setHoveredDay(null);
+        }
+      }}
+    >
+      {error && (
+        <div className="error-message text-red-500 mb-3">
+          {error.message || "An unexpected error occurred."}
+        </div>
+      )}
+  
+      <h3 className="text-lg font-semibold mb-3">
+        {info.date.toLocaleDateString('en-US', {
+          weekday: 'long',
+          month: 'long',
+          day: 'numeric'
+        })}
+      </h3>
         {/* Day Markings Section */}
         {dayMarkings.length > 0 && (
           <div className="mb-3">
