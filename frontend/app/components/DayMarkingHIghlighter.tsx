@@ -75,7 +75,7 @@ const DayMarkingHighlighter: React.FC<DayMarkingHighlighterProps> = ({
       
       // Transform the data into FullCalendar compatible format with theme awareness
       const formattedMarkings = dayMarkings.map(event => ({
-        id: event.id,
+        id: String(event.id),
         title: event.day_marking_title || event.event_name || '',
         start: event.date,
         display: 'background',

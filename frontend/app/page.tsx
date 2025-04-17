@@ -1,15 +1,15 @@
 'use client';
 import React, { useState, useEffect } from 'react';
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import Calendar from './components/Calendar';
 import Sidebar from './components/Sidebar';
 import EventForm from './components/EventForm';
 import './globals.css';
 import { ThemeProvider } from './services/themeContext';
 
+import { EventData } from './components/EventForm'; // Update import to match the type used in EventForm
+
 const Page = () => {
-  // Removed unused state: const [modalOpen, setModalOpen] = useState(false);
-  const [result, setResult] = useState<Record<string, unknown>>(null); // Changed 'any' to a more specific type
+  const [result, setResult] = useState<EventData[]>([]); // Changed to EventData[]
   const [error, setError] = useState<string | null>(null);
   const [triggerReload, setTriggerReload] = useState(false);
   const [view, setView] = useState<string>('dayGridMonth'); // Add state to track the calendar view
@@ -33,7 +33,7 @@ const Page = () => {
     <ThemeProvider>
       <div className="h-screen overflow-hidden">
         {/* Sidebar with fixed width */}
-        <Sidebar key={triggerReload} className="sidebar" /> {/* Sidebar takes 16rem width */}
+        <Sidebar key={Number(triggerReload)} /> {/* Sidebar takes 16rem width */}
 
         {/* Main content area */}
         <div className="ewfsf">
@@ -49,11 +49,11 @@ const Page = () => {
         {/* Calendar component in its own container */}
         <div className="calendar-container">
           <Calendar 
-            key={triggerReload} 
+            key={String(triggerReload)} 
             onEventChange={handleTriggerReload} 
-            view={view} 
             onViewChange={handleViewChange} // Added to utilize the handleViewChange function
           />
+          <p className="current-view">Current View: {view}</p> {/* Display the current view */}
         </div>
       </div>
     </ThemeProvider>

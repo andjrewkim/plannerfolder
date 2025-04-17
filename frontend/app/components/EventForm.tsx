@@ -3,7 +3,7 @@ import { createEvent } from '../services/apiService';
 import { Clock, Calendar, MapPin, Tag } from 'lucide-react';
 import '../styles/eventform.css';
 
-interface EventData {
+export interface EventData {
   id?: string;
   event_name: string;
   date: string;
