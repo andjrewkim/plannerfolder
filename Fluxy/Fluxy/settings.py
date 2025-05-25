@@ -17,18 +17,18 @@ SECRET_KEY = 'django-insecure-o$6dky9m&k81lced^&l+93@g4bgsjh&&#6thp$_%w#63)@4@e&
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['flux-qcj2.onrender.com', '127.0.0.1', 'localhost']
+ALLOWED_HOSTS = ['https://fluxyfolder.vercel.app', '127.0.0.1', 'localhost']
 
 # settings.py
 CSRF_COOKIE_NAME = "csrftoken"  # This will be the name of the CSRF token in the cookie
 CSRF_COOKIE_SECURE = False  # Only for development, set to True in production with HTTPS
-CSRF_TRUSTED_ORIGINS = ['http://localhost:3000']  # Add your local or production domain
+CSRF_TRUSTED_ORIGINS = ['http://localhost:3000, https://fluxyfolder.vercel.app']  # Add your local or production domain
 
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
     "http://127.0.0.1:8000",
     "http://127.0.0.1:3000",
-
+    "https://fluxyfolder.vercel.app",
     "https://flux-qcj2.onrender.com",
 ]
 CORS_ALLOW_CREDENTIALS = True
