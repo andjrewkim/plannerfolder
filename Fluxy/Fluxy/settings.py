@@ -33,6 +33,7 @@ CORS_ALLOWED_ORIGINS = [
 ]
 CORS_ALLOW_CREDENTIALS = True
 
+AUTH_USER_MODEL = 'myapp.CustomUser'
 
 
 # settings.py
