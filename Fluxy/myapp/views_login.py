@@ -1,9 +1,17 @@
 from django.contrib.auth import authenticate
-from rest_framework.decorators import api_view
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework import status
+from django.views.decorators.csrf import csrf_exempt
+from rest_framework.decorators import api_view, permission_classes, authentication_classes
+
+@csrf_exempt
 
 @api_view(['POST'])
+@permission_classes([AllowAny]) 
+@authentication_classes([])  # disable any auth on login view
+
 def login_user(request):
     username = request.data.get('username')
     password = request.data.get('password')
