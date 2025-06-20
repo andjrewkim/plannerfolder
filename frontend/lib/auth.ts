@@ -13,44 +13,59 @@ class AuthService {
   }
 
   async login(credentials: LoginCredentials): Promise<AuthResponse> {
-    const response = await fetch(`${API_BASE_URL}/login/`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(credentials),
-    });
+    try {
+      const response = await fetch(`${API_BASE_URL}/login/`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(credentials),
+      });
 
-    const data = await response.json();
+      const data = await response.json();
 
-    if (!response.ok) {
-      throw new Error(data.message || 'Login failed');
+      if (!response.ok) {
+        throw new Error(data.error || data.message || 'Login failed');
+      }
+
+      return data;
+    } catch (error) {
+      console.error('Login error:', error);
+      throw error;
     }
-
-    return data;
   }
 
   async register(userData: RegisterData): Promise<AuthResponse> {
-    const response = await fetch(`${API_BASE_URL}/register/`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(userData),
-    });
+    try {
+      console.log('Registering user:', userData);
+      
+      const response = await fetch(`${API_BASE_URL}/register/`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(userData),
+      });
 
-    const data = await response.json();
+      console.log('Registration response status:', response.status);
+      
+      const data = await response.json();
+      console.log('Registration response data:', data);
 
-    if (!response.ok) {
-      throw new Error(data.message || 'Registration failed');
+      if (!response.ok) {
+        throw new Error(data.error || data.message || 'Registration failed');
+      }
+
+      return data;
+    } catch (error) {
+      console.error('Registration error:', error);
+      throw error;
     }
-
-    return data;
   }
 
   async logout(): Promise<boolean> {
     try {
-      const response = await fetch(`${API_BASE_URL}/auth/logout/`, {
+      const response = await fetch(`${API_BASE_URL}/logout/`, {
         method: 'POST',
         headers: this.getAuthHeaders(),
       });
@@ -58,6 +73,7 @@ class AuthService {
       this.clearAuthData();
       return response.ok;
     } catch (error) {
+      console.error('Logout error:', error);
       this.clearAuthData();
       return false;
     }

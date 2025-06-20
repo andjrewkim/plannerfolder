@@ -4,7 +4,6 @@ import os
 
 PORT = os.getenv('PORT', 8080)
 
-
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -19,8 +18,8 @@ DEBUG = True
 
 ALLOWED_HOSTS = ['fluxyfolder.vercel.app', '127.0.0.1', 'localhost']
 
-# settings.py
-CSRF_COOKIE_NAME = "csrftoken"  # This will be the name of the CSRF token in the cookie
+# CSRF and CORS settings
+CSRF_COOKIE_NAME = "csrftoken"
 CSRF_COOKIE_SECURE = False  # Only for development, set to True in production with HTTPS
 CSRF_TRUSTED_ORIGINS = [
     'http://localhost:3000',
@@ -34,25 +33,7 @@ CORS_ALLOWED_ORIGINS = [
     "https://fluxyfolder.vercel.app",
     "https://flux-qcj2.onrender.com",
 ]
-CORS_ALLOW_CREDENTIALS = True
 
-AUTH_USER_MODEL = 'myapp.CustomUser'
-
-
-
-REST_FRAMEWORK = {
-    'DEFAULT_PERMISSION_CLASSES': [
-        'rest_framework.permissions.IsAuthenticated',  # default (can stay)
-    ],
-    'DEFAULT_AUTHENTICATION_CLASSES': [
-        'rest_framework.authentication.SessionAuthentication',
-        'rest_framework.authentication.BasicAuthentication',
-    ],
-}
-
-
-
-# settings.py
 CORS_ALLOW_METHODS = [
     'GET',
     'POST',
@@ -63,12 +44,28 @@ CORS_ALLOW_METHODS = [
 ]
 
 CORS_ALLOW_CREDENTIALS = True
-CSRF_COOKIE_SAMESITE = 'Lax'  # or 'None' if cross-site
-CSRF_COOKIE_HTTPONLY = False  # Allow JS access to the cookie
+CSRF_COOKIE_SAMESITE = 'Lax'
+CSRF_COOKIE_HTTPONLY = False
 
+# Custom user model
+AUTH_USER_MODEL = 'myapp.CustomUser'
+
+# REST Framework configuration
+REST_FRAMEWORK = {
+    'DEFAULT_PERMISSION_CLASSES': [
+        'rest_framework.permissions.IsAuthenticated',
+    ],
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'rest_framework.authentication.TokenAuthentication',  # Primary authentication
+        'rest_framework.authentication.SessionAuthentication',
+        'rest_framework.authentication.BasicAuthentication',
+    ],
+    'DEFAULT_RENDERER_CLASSES': [
+        'rest_framework.renderers.JSONRenderer',
+    ],
+}
 
 # Application definition
-
 INSTALLED_APPS = [
     'django.contrib.admin',
     'django.contrib.auth',
@@ -78,27 +75,24 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'corsheaders',
     'rest_framework',
+    'rest_framework.authtoken',  # This is CRUCIAL for token authentication
     'myapp',
-    'whitenoise.runserver_nostatic',  # For development purposes
-
-    
+    'whitenoise.runserver_nostatic',
 ]
 
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    'django.middleware.security.SecurityMiddleware',
-    'whitenoise.middleware.WhiteNoiseMiddleware',
 ]
 
 STATIC_URL = 'myapp/static/'
-
 
 ROOT_URLCONF = 'Fluxy.urls'
 
@@ -118,12 +112,7 @@ TEMPLATES = [
     },
 ]
 
-
-#blank comment
-#WSGI_APPLICATION = 'Fluxy.wsgi.application'
-
 # Database
-# For SQLite (default)
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
@@ -155,17 +144,12 @@ USE_TZ = True
 
 # Static files (CSS, JavaScript, Images)
 STATICFILES_DIRS = [
-    BASE_DIR / "myapp/static",  # This includes your project-level static files
-    os.path.join(BASE_DIR, "myapp", "static"),  # This includes your app-level static files
+    BASE_DIR / "myapp/static",
+    os.path.join(BASE_DIR, "myapp", "static"),
 ]
 
-# If you're using Django's default static file storage
 STATICFILES_STORAGE = 'django.contrib.staticfiles.storage.StaticFilesStorage'
-
-# Directory where static files are collected (for production)
-STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')  # Make sure this path is correct
-
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 
 # Default primary key field type
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
-

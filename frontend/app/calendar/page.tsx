@@ -1,12 +1,12 @@
 'use client';
 import React, { useState, useEffect } from 'react';
-import Calendar from './components/Calendar';
-import Sidebar from './components/Sidebar';
-import EventForm from './components/EventForm';
-import './globals.css';
-import { ThemeProvider } from './services/themeContext';
+import Calendar from '../components/Calendar';
+import Sidebar from '../components/Sidebar';
+import EventForm from '../components/EventForm';
+import '../globals.css';
+import { ThemeProvider } from '../services/themeContext';
 
-import { EventData } from './components/EventForm'; // Update import to match the type used in EventForm
+import { EventData } from '../components/EventForm'; // Update import to match the type used in EventForm
 
 const Page = () => {
   const [result, setResult] = useState<EventData[]>([]); // Changed to EventData[]
