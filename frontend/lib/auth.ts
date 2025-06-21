@@ -23,9 +23,18 @@ class AuthService {
       });
 
       const data = await response.json();
+      console.log('Login response data:', data); // ← ADD THIS
 
       if (!response.ok) {
         throw new Error(data.error || data.message || 'Login failed');
+      }
+
+      // ✅ THIS IS THE CRITICAL PART
+      if (data.token && data.user) {
+        console.log('Storing token:', data.token); // ← ADD THIS
+        this.setAuthData(data.token, data.user);
+      } else {
+        console.error('No token in response:', data); // ← ADD THIS
       }
 
       return data;
@@ -64,12 +73,23 @@ class AuthService {
   }
 
   async logout(): Promise<boolean> {
+    console.log('=== LOGOUT METHOD CALLED ===');
     try {
+      const token = this.getToken();
+      const headers = this.getAuthHeaders();
+      
+      console.log('Token:', token);
+      console.log('Headers:', headers);
+      
       const response = await fetch(`${API_BASE_URL}/logout/`, {
         method: 'POST',
-        headers: this.getAuthHeaders(),
+        headers: headers,
       });
-
+      
+      console.log('Response status:', response.status);
+      const responseText = await response.text();
+      console.log('Response body:', responseText);
+      
       this.clearAuthData();
       return response.ok;
     } catch (error) {
@@ -78,7 +98,6 @@ class AuthService {
       return false;
     }
   }
-
   getToken(): string | null {
     if (typeof window === 'undefined') return null;
     return localStorage.getItem('authToken');

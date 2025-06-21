@@ -77,25 +77,30 @@ def login_user(request):
         email = request.data.get('email')
         password = request.data.get('password')
         
+        # Validate required fields
         if not email or not password:
             return Response({
                 'error': 'Email and password are required'
             }, status=status.HTTP_400_BAD_REQUEST)
         
-        # Try to find user by email
+        # Find user by email first
         try:
             user = User.objects.get(email=email)
-            username = user.username
         except User.DoesNotExist:
             return Response({
-                'error': 'Invalid credentials'
+                'error': 'Invalid email or password'
             }, status=status.HTTP_401_UNAUTHORIZED)
         
-        # Authenticate user
-        user = authenticate(username=username, password=password)
-        if user is None:
+        # Check if the password is correct
+        if not user.check_password(password):
             return Response({
-                'error': 'Invalid credentials'
+                'error': 'Invalid email or password'
+            }, status=status.HTTP_401_UNAUTHORIZED)
+        
+        # Check if user is active
+        if not user.is_active:
+            return Response({
+                'error': 'Account is deactivated'
             }, status=status.HTTP_401_UNAUTHORIZED)
         
         # Get or create token
