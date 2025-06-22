@@ -73,6 +73,22 @@ const Sidebar: React.FC = () => {
       ?.split('=')[1] || '';
   }, []);
 
+  // Get authentication token/session - adjust based on your auth method
+  const getAuthHeaders = useCallback(() => {
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      'X-CSRFToken': getCSRFToken(),
+    };
+    
+    // If you're using token authentication, add it here
+    const token = localStorage.getItem('authToken');
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+    
+    return headers;
+  }, [getCSRFToken]);
+
   // Handle click on long-term tasks area to initiate task creation
   const handleLongTermAreaClick = (e: React.MouseEvent) => {
     // Only activate if clicking directly on the section content (not on task items)
@@ -87,14 +103,17 @@ const Sidebar: React.FC = () => {
   const fetchTasks = useCallback(async () => {
     try {
       const response = await fetch('http://127.0.0.1:8000/api/tasks/', {
-        headers: {
-          'Content-Type': 'application/json',
-          'X-CSRFToken': getCSRFToken(),
-        },
+        headers: getAuthHeaders(),
         credentials: 'include',
       });
 
-      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+      if (!response.ok) {
+        if (response.status === 401) {
+          setError('Please log in to view your tasks');
+          return;
+        }
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
       
       const data = await response.json();
       
@@ -117,21 +136,24 @@ const Sidebar: React.FC = () => {
       console.error('Error fetching tasks:', error);
       setError('Failed to load tasks');
     }
-  }, [getCSRFToken]);
+  }, [getAuthHeaders]);
 
   // Function to reset daily tasks wrapped in useCallback
   const resetDailyTasks = useCallback(async () => {
     try {
       // Get all current tasks first
       const response = await fetch('http://127.0.0.1:8000/api/tasks/', {
-        headers: {
-          'Content-Type': 'application/json',
-          'X-CSRFToken': getCSRFToken(),
-        },
+        headers: getAuthHeaders(),
         credentials: 'include',
       });
 
-      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+      if (!response.ok) {
+        if (response.status === 401) {
+          setError('Please log in to manage your tasks');
+          return;
+        }
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
       
       const tasks = await response.json();
       
@@ -142,10 +164,7 @@ const Sidebar: React.FC = () => {
       for (const task of regularTasks) {
         await fetch(`http://127.0.0.1:8000/api/tasks/${task.id}/`, {
           method: 'DELETE',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-CSRFToken': getCSRFToken(),
-          },
+          headers: getAuthHeaders(),
           credentials: 'include',
         });
       }
@@ -154,10 +173,7 @@ const Sidebar: React.FC = () => {
       for (const task of regularTasks) {
         await fetch('http://127.0.0.1:8000/api/tasks/', {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-CSRFToken': getCSRFToken(),
-          },
+          headers: getAuthHeaders(),
           credentials: 'include',
           body: JSON.stringify({
             event: task.event,
@@ -173,7 +189,7 @@ const Sidebar: React.FC = () => {
       console.error('Error resetting tasks:', error);
       setError('Failed to reset tasks');
     }
-  }, [getCSRFToken, fetchTasks]);
+  }, [getAuthHeaders, fetchTasks]);
 
   // Function to check if tasks should be reset wrapped in useCallback
   const checkAndResetTasks = useCallback(async () => {
@@ -194,14 +210,17 @@ const Sidebar: React.FC = () => {
   const fetchTodayEvents = useCallback(async () => {
     try {
       const response = await fetch('http://127.0.0.1:8000/api/events/', {
-        headers: {
-          'Content-Type': 'application/json',
-          'X-CSRFToken': getCSRFToken(),
-        },
+        headers: getAuthHeaders(),
         credentials: 'include',
       });
 
-      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+      if (!response.ok) {
+        if (response.status === 401) {
+          setError('Please log in to view your events');
+          return;
+        }
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
       
       const data = await response.json();
       const today = new Date();
@@ -219,7 +238,7 @@ const Sidebar: React.FC = () => {
       console.error('Error fetching events:', error);
       setError('Failed to load events');
     }
-  }, [getCSRFToken]);
+  }, [getAuthHeaders]);
 
   // Handle long term goal creation
   const handleCreateLongTerm = async (e: React.FormEvent) => {
@@ -234,10 +253,7 @@ const Sidebar: React.FC = () => {
       // We'll set date to "longterm" string which our API can interpret
       const response = await fetch('http://127.0.0.1:8000/api/tasks/', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-CSRFToken': getCSRFToken(),
-        },
+        headers: getAuthHeaders(),
         credentials: 'include',
         body: JSON.stringify({
           event: newLongTermText,
@@ -245,7 +261,13 @@ const Sidebar: React.FC = () => {
         })
       });
 
-      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+      if (!response.ok) {
+        if (response.status === 401) {
+          setError('Please log in to create tasks');
+          return;
+        }
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
       
       // Reset form
       setNewLongTermText('');
@@ -358,16 +380,17 @@ const Sidebar: React.FC = () => {
       try {
         const response = await fetch(`http://127.0.0.1:8000/api/tasks/${taskId}/`, {
           method: 'DELETE',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-CSRFToken': getCSRFToken(),
-          },
+          headers: getAuthHeaders(),
           credentials: 'include',
         });
 
         if (response.ok) {
           await fetchTasks();
         } else {
+          if (response.status === 401) {
+            setError('Please log in to manage tasks');
+            return;
+          }
           throw new Error(`HTTP error! status: ${response.status}`);
         }
       } catch (error) {

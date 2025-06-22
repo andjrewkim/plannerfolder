@@ -8,6 +8,7 @@ from .view_dispatcher import ScheduleInputDispatcher
 from myapp.views_user import register_user
 from myapp.views_user import login_user
 from myapp.views_logout import logout_view
+from myapp.views_check_login import check_login
 
 
 urlpatterns = [
@@ -22,4 +23,7 @@ urlpatterns = [
     path('api/logout/', logout_view),
     path('api/register/', register_user),
     path('api/login/', login_user),
+    
+    path('api/check-login/', check_login),
+
 ]

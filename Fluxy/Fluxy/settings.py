@@ -24,6 +24,7 @@ CSRF_COOKIE_SECURE = False  # Only for development, set to True in production wi
 CSRF_TRUSTED_ORIGINS = [
     'http://localhost:3000',
     'https://fluxyfolder.vercel.app',
+    "https://127.0.0.1:3000",
 ]
 
 CORS_ALLOWED_ORIGINS = [
@@ -32,6 +33,7 @@ CORS_ALLOWED_ORIGINS = [
     "http://127.0.0.1:3000",
     "https://fluxyfolder.vercel.app",
     "https://flux-qcj2.onrender.com",
+    "https://127.0.0.1:3000",
 ]
 
 CORS_ALLOW_METHODS = [

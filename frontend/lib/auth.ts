@@ -78,19 +78,19 @@ class AuthService {
       const token = this.getToken();
       const headers = this.getAuthHeaders();
       
-      console.log('Token:', token);
-      console.log('Headers:', headers);
+      console.log('Sending logout request...');
       
       const response = await fetch(`${API_BASE_URL}/logout/`, {
         method: 'POST',
         headers: headers,
+        credentials: 'include', // ← THIS IS CRITICAL - sends cookies
       });
       
       console.log('Response status:', response.status);
-      const responseText = await response.text();
-      console.log('Response body:', responseText);
       
+      // Clear auth data regardless of server response
       this.clearAuthData();
+      
       return response.ok;
     } catch (error) {
       console.error('Logout error:', error);
@@ -98,6 +98,8 @@ class AuthService {
       return false;
     }
   }
+
+  
   getToken(): string | null {
     if (typeof window === 'undefined') return null;
     return localStorage.getItem('authToken');
@@ -122,7 +124,7 @@ class AuthService {
   }
 
   isAuthenticated(): boolean {
-    return !!this.getToken();
+    return !!this.getToken();  
   }
 
   // Helper method for making authenticated API calls

@@ -71,11 +71,21 @@ def register_user(request):
 
 
 @api_view(['POST'])
+
+
 @permission_classes([AllowAny])
+
+
 def login_user(request):
     try:
+        print(f"DEBUG: Login attempt - Session key: {request.session.session_key}")
+        print(f"DEBUG: Current user authenticated: {request.user.is_authenticated}")
+        print(f"DEBUG: Cookies: {request.COOKIES}")
+        
         email = request.data.get('email')
         password = request.data.get('password')
+        
+        print(f"DEBUG: Email: {email}, Password provided: {bool(password)}")
         
         # Validate required fields
         if not email or not password:
@@ -86,13 +96,16 @@ def login_user(request):
         # Find user by email first
         try:
             user = User.objects.get(email=email)
+            print(f"DEBUG: User found - ID: {user.id}, Active: {user.is_active}")
         except User.DoesNotExist:
+            print(f"DEBUG: User not found for email: {email}")
             return Response({
                 'error': 'Invalid email or password'
             }, status=status.HTTP_401_UNAUTHORIZED)
         
         # Check if the password is correct
         if not user.check_password(password):
+            print(f"DEBUG: Password check failed for user: {email}")
             return Response({
                 'error': 'Invalid email or password'
             }, status=status.HTTP_401_UNAUTHORIZED)
@@ -105,6 +118,10 @@ def login_user(request):
         
         # Get or create token
         token, created = Token.objects.get_or_create(user=user)
+        print(f"DEBUG: Token {'created' if created else 'found'}: {token.key[:10]}...")
+        
+        print(f"DEBUG: Login successful - User ID: {user.id}")
+        print(f"DEBUG: Session after login: {request.session.session_key}")
         
         return Response({
             'message': 'Login successful',
@@ -119,6 +136,7 @@ def login_user(request):
         }, status=status.HTTP_200_OK)
         
     except Exception as e:
+        print(f"DEBUG: Exception in login: {str(e)}")
         return Response({
             'error': f'Login failed: {str(e)}'
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

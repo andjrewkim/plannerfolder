@@ -1,17 +1,19 @@
 # serializers.py
 from rest_framework import serializers
-from .models import CalendarEvent
-from .models import TodoTask
+from .models import CalendarEvent, TodoTask, CustomUser
 from django.core.exceptions import ValidationError
 import json
 
+
 class CalendarEventSerializer(serializers.ModelSerializer):
     recurrence_pattern = serializers.JSONField(required=False, allow_null=True)
+    user = serializers.PrimaryKeyRelatedField(read_only=True)
     
     class Meta:
         model = CalendarEvent
         fields = [
             'id',
+            'user',
             'event_name',
             'date',
             'start_time',
@@ -27,6 +29,12 @@ class CalendarEventSerializer(serializers.ModelSerializer):
             'day_marking_title',
             'color'
         ]
+
+    def create(self, validated_data):
+        """Create event with authenticated user"""
+        user = self.context['request'].user
+        validated_data['user'] = user
+        return super().create(validated_data)
 
     def validate_recurrence_pattern(self, value):
         if value is None:
@@ -50,26 +58,27 @@ class CalendarEventSerializer(serializers.ModelSerializer):
             raise ValidationError(f"Invalid recurrence pattern: {str(e)}")
 
 
-
-
-
-
-
-
-from rest_framework import serializers
-
 class TodoTaskSerializer(serializers.ModelSerializer):
     class Meta:
         model = TodoTask
-        fields = ['id', 'event', 'date']
+        fields = ['id', 'event', 'date', 'created_at']
         extra_kwargs = {
-            'date': {'allow_null': True}  # Explicitly allow null values
+            'date': {'allow_null': True}
         }
 
     def validate_event(self, value):
-        """
-        Check that the event is not empty or just whitespace
-        """
-        if not value.strip():
+        if not value or not value.strip():
             raise serializers.ValidationError("Event cannot be empty")
         return value.strip()
+
+    def create(self, validated_data):
+        """Create task with authenticated user"""
+        user = self.context['request'].user
+        validated_data['user'] = user
+        return super().create(validated_data)
+
+    def update(self, instance, validated_data):
+        """Update task, ensuring user ownership"""
+        if instance.user != self.context['request'].user:
+            raise serializers.ValidationError("You can only update your own tasks")
+        return super().update(instance, validated_data)

@@ -1,9 +1,18 @@
+# models.py
 from django.db import models
+from django.contrib.auth.models import AbstractUser
 
-# In models.py
+
+class CustomUser(AbstractUser):
+    email = models.EmailField(unique=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    USERNAME_FIELD = 'email'
+    REQUIRED_FIELDS = ['username']
 
 
 class CalendarEvent(models.Model):
+    user = models.ForeignKey(CustomUser, on_delete=models.CASCADE)  # Added user field
     event_name = models.CharField(max_length=255, null=True, blank=True)
     date = models.DateTimeField(null=True, blank=True)
     start_time = models.TimeField(null=True, blank=True)
@@ -20,30 +29,14 @@ class CalendarEvent(models.Model):
     color = models.CharField(max_length=7, default="#000")
 
     def __str__(self):
-        return f'{self.event_name} on {self.date} at {self.start_time}'
-
-
+        return f'{self.event_name} on {self.date} at {self.start_time} - {self.user.username}'
 
 
 class TodoTask(models.Model):
+    user = models.ForeignKey(CustomUser, on_delete=models.CASCADE)
     event = models.CharField(max_length=200)
-    date = models.DateField(null=True, blank=True)
-
-    def __str__(self):
-        return f"{self.event} - {self.date}"
-
-    class Meta:
-        ordering = ['date']  # Orders tasks by date
-        
-        
-        
-        
-        
-from django.contrib.auth.models import AbstractUser
-
-class CustomUser(AbstractUser):
-    email = models.EmailField(unique=True)
+    date = models.CharField(max_length=20, null=True, blank=True)  # Changed to CharField to handle "longterm"
     created_at = models.DateTimeField(auto_now_add=True)
     
-    USERNAME_FIELD = 'email'
-    REQUIRED_FIELDS = ['username']
+    def __str__(self):
+        return f"{self.event} - {self.user.username}"

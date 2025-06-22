@@ -115,10 +115,17 @@ class CalendarEventCreate(APIView):
 
 
 from rest_framework import viewsets
+from rest_framework import permissions
 from .serializers import CalendarEventSerializer
 
 class CalendarEventViewSet(viewsets.ModelViewSet):
-    queryset = CalendarEvent.objects.all()
     serializer_class = CalendarEventSerializer
+    permission_classes = [permissions.IsAuthenticated]
 
-    # Optionally add custom actions here if needed
+    def get_queryset(self):
+        """Return only events for the authenticated user"""
+        return CalendarEvent.objects.filter(user=self.request.user)
+
+    def perform_create(self, serializer):
+        """Set the user when creating an event"""
+        serializer.save(user=self.request.user)
