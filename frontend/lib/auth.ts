@@ -6,6 +6,8 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000/a
 class AuthService {
   private getAuthHeaders(): Record<string, string> {
     const token = this.getToken();
+    console.log('Token being sent:', token); // ← Add this debug
+
     return {
       'Content-Type': 'application/json',
       ...(token && { 'Authorization': `Token ${token}` }),
@@ -99,7 +101,25 @@ class AuthService {
     }
   }
 
-  
+  // ADD THIS METHOD - This is what you're missing!
+  async checkAuthStatus(): Promise<boolean> {
+    try {
+      const response = await fetch(`${API_BASE_URL}/check-login/`, {
+        method: 'GET',
+        headers: this.getAuthHeaders(), // ← This includes the Authorization header with token
+        credentials: 'include',
+      });
+      
+      const data = await response.json();
+      console.log('Auth check response:', data); // For debugging
+      
+      return data.isAuthenticated;
+    } catch (error) {
+      console.error('Auth check failed:', error);
+      return false;
+    }
+  }
+
   getToken(): string | null {
     if (typeof window === 'undefined') return null;
     return localStorage.getItem('authToken');
@@ -131,6 +151,8 @@ class AuthService {
   async authenticatedFetch(url: string, options: RequestInit = {}): Promise<Response> {
     const response = await fetch(url, {
       ...options,
+        credentials: 'include', // ← Make sure this is here
+
       headers: {
         ...this.getAuthHeaders(),
         ...options.headers,

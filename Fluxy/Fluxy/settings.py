@@ -67,6 +67,25 @@ REST_FRAMEWORK = {
     ],
 }
 
+
+
+
+CORS_ALLOW_HEADERS = [
+    'accept',
+    'accept-encoding',
+    'authorization',  # ← This is critical!
+    'content-type',
+    'dnt',
+    'origin',
+    'user-agent',
+    'x-csrftoken',
+    'x-requested-with',
+]
+
+CORS_EXPOSE_HEADERS = [
+    'authorization',
+]
+
 # Application definition
 INSTALLED_APPS = [
     'django.contrib.admin',

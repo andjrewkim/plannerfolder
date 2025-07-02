@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import '../styles/container.css';
+import { authAPI } from '../../lib/auth'; // Import the auth service
 
 interface APIEvent {
   id: number;
@@ -66,29 +67,6 @@ const Sidebar: React.FC = () => {
     }
   }, [isAddingLongTerm]);
 
-  const getCSRFToken = useCallback(() => {
-    return document.cookie
-      .split('; ')
-      .find((row) => row.startsWith('csrftoken='))
-      ?.split('=')[1] || '';
-  }, []);
-
-  // Get authentication token/session - adjust based on your auth method
-  const getAuthHeaders = useCallback(() => {
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-      'X-CSRFToken': getCSRFToken(),
-    };
-    
-    // If you're using token authentication, add it here
-    const token = localStorage.getItem('authToken');
-    if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
-    }
-    
-    return headers;
-  }, [getCSRFToken]);
-
   // Handle click on long-term tasks area to initiate task creation
   const handleLongTermAreaClick = (e: React.MouseEvent) => {
     // Only activate if clicking directly on the section content (not on task items)
@@ -99,13 +77,16 @@ const Sidebar: React.FC = () => {
     }
   };
 
-  // Fetch tasks function wrapped in useCallback to prevent recreation on every render
+  // Fetch tasks function using authAPI
   const fetchTasks = useCallback(async () => {
     try {
-      const response = await fetch('http://127.0.0.1:8000/api/tasks/', {
-        headers: getAuthHeaders(),
-        credentials: 'include',
-      });
+      // Check if user is authenticated first
+      if (!authAPI.isAuthenticated()) {
+        setError('Please log in to view your tasks');
+        return;
+      }
+
+      const response = await authAPI.authenticatedFetch('http://127.0.0.1:8000/api/tasks/');
 
       if (!response.ok) {
         if (response.status === 401) {
@@ -136,16 +117,19 @@ const Sidebar: React.FC = () => {
       console.error('Error fetching tasks:', error);
       setError('Failed to load tasks');
     }
-  }, [getAuthHeaders]);
+  }, []);
 
-  // Function to reset daily tasks wrapped in useCallback
+  // Function to reset daily tasks using authAPI
   const resetDailyTasks = useCallback(async () => {
     try {
+      // Check if user is authenticated first
+      if (!authAPI.isAuthenticated()) {
+        setError('Please log in to manage your tasks');
+        return;
+      }
+
       // Get all current tasks first
-      const response = await fetch('http://127.0.0.1:8000/api/tasks/', {
-        headers: getAuthHeaders(),
-        credentials: 'include',
-      });
+      const response = await authAPI.authenticatedFetch('http://127.0.0.1:8000/api/tasks/');
 
       if (!response.ok) {
         if (response.status === 401) {
@@ -162,19 +146,15 @@ const Sidebar: React.FC = () => {
       
       // Delete all regular tasks
       for (const task of regularTasks) {
-        await fetch(`http://127.0.0.1:8000/api/tasks/${task.id}/`, {
-          method: 'DELETE',
-          headers: getAuthHeaders(),
-          credentials: 'include',
+        await authAPI.authenticatedFetch(`http://127.0.0.1:8000/api/tasks/${task.id}/`, {
+          method: 'DELETE'
         });
       }
 
       // Recreate all regular tasks
       for (const task of regularTasks) {
-        await fetch('http://127.0.0.1:8000/api/tasks/', {
+        await authAPI.authenticatedFetch('http://127.0.0.1:8000/api/tasks/', {
           method: 'POST',
-          headers: getAuthHeaders(),
-          credentials: 'include',
           body: JSON.stringify({
             event: task.event,
             date: null
@@ -189,10 +169,15 @@ const Sidebar: React.FC = () => {
       console.error('Error resetting tasks:', error);
       setError('Failed to reset tasks');
     }
-  }, [getAuthHeaders, fetchTasks]);
+  }, [fetchTasks]);
 
   // Function to check if tasks should be reset wrapped in useCallback
   const checkAndResetTasks = useCallback(async () => {
+    // Only proceed if authenticated
+    if (!authAPI.isAuthenticated()) {
+      return;
+    }
+
     const today = new Date();
     const todayFormatted = today.toISOString().split('T')[0]; // YYYY-MM-DD format
     const lastResetDate = localStorage.getItem(LAST_RESET_KEY);
@@ -206,13 +191,16 @@ const Sidebar: React.FC = () => {
     }
   }, [resetDailyTasks]);
 
-  // Fetch today's events function wrapped in useCallback
+  // Fetch today's events function using authAPI
   const fetchTodayEvents = useCallback(async () => {
     try {
-      const response = await fetch('http://127.0.0.1:8000/api/events/', {
-        headers: getAuthHeaders(),
-        credentials: 'include',
-      });
+      // Check if user is authenticated first
+      if (!authAPI.isAuthenticated()) {
+        setError('Please log in to view your events');
+        return;
+      }
+
+      const response = await authAPI.authenticatedFetch('http://127.0.0.1:8000/api/events/');
 
       if (!response.ok) {
         if (response.status === 401) {
@@ -238,9 +226,9 @@ const Sidebar: React.FC = () => {
       console.error('Error fetching events:', error);
       setError('Failed to load events');
     }
-  }, [getAuthHeaders]);
+  }, []);
 
-  // Handle long term goal creation
+  // Handle long term goal creation using authAPI
   const handleCreateLongTerm = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -249,12 +237,16 @@ const Sidebar: React.FC = () => {
     }
     
     try {
+      // Check if user is authenticated first
+      if (!authAPI.isAuthenticated()) {
+        setError('Please log in to create tasks');
+        return;
+      }
+
       // For long-term goals, we'll use a special marker in the database
       // We'll set date to "longterm" string which our API can interpret
-      const response = await fetch('http://127.0.0.1:8000/api/tasks/', {
+      const response = await authAPI.authenticatedFetch('http://127.0.0.1:8000/api/tasks/', {
         method: 'POST',
-        headers: getAuthHeaders(),
-        credentials: 'include',
         body: JSON.stringify({
           event: newLongTermText,
           date: "longterm" // Special marker for long-term goals without dates
@@ -371,17 +363,22 @@ const Sidebar: React.FC = () => {
     document.addEventListener('mouseup', handleMouseUp);
   };
 
-  // Enhanced task completion with animation
+  // Enhanced task completion with animation using authAPI
   const handleTaskComplete = async (taskId: number) => {
     setDeletingTasks(prev => [...prev, taskId]);
     
     // Add delay before deletion to allow animation to play
     setTimeout(async () => {
       try {
-        const response = await fetch(`http://127.0.0.1:8000/api/tasks/${taskId}/`, {
-          method: 'DELETE',
-          headers: getAuthHeaders(),
-          credentials: 'include',
+        // Check if user is authenticated first
+        if (!authAPI.isAuthenticated()) {
+          setError('Please log in to manage tasks');
+          setDeletingTasks(prev => prev.filter(id => id !== taskId));
+          return;
+        }
+
+        const response = await authAPI.authenticatedFetch(`http://127.0.0.1:8000/api/tasks/${taskId}/`, {
+          method: 'DELETE'
         });
 
         if (response.ok) {
@@ -410,19 +407,32 @@ const Sidebar: React.FC = () => {
   };
 
   useEffect(() => {
-    fetchTodayEvents();
-    fetchTasks();
-    
-    // Check for daily reset when component loads
-    checkAndResetTasks();
-    
-    // Set up a timer to check for date change (useful for when app is left open overnight)
-    const timer = setInterval(() => {
+    // Only fetch data if user is authenticated
+    if (authAPI.isAuthenticated()) {
+      fetchTodayEvents();
+      fetchTasks();
+      
+      // Check for daily reset when component loads
       checkAndResetTasks();
-    }, 60 * 60 * 1000); // Check every hour
-    
+      
+      // Set up a timer to check for date change (useful for when app is left open overnight)
+      const timer = setInterval(() => {
+        checkAndResetTasks();
+      }, 60 * 60 * 1000); // Check every hour
+      
+      return () => {
+        clearInterval(timer);
+        document.body.classList.remove('resizing');
+      };
+    } else {
+      // Clear data and show login message if not authenticated
+      setTodayEvents([]);
+      setTasks([]);
+      setLongTermTasks([]);
+      setError('Please log in to access your data');
+    }
+
     return () => {
-      clearInterval(timer);
       document.body.classList.remove('resizing');
     };
   }, [checkAndResetTasks, fetchTasks, fetchTodayEvents]); // Now correctly referencing stable function references

@@ -71,11 +71,7 @@ def register_user(request):
 
 
 @api_view(['POST'])
-
-
 @permission_classes([AllowAny])
-
-
 def login_user(request):
     try:
         print(f"DEBUG: Login attempt - Session key: {request.session.session_key}")
@@ -116,9 +112,11 @@ def login_user(request):
                 'error': 'Account is deactivated'
             }, status=status.HTTP_401_UNAUTHORIZED)
         
-        # Get or create token
-        token, created = Token.objects.get_or_create(user=user)
-        print(f"DEBUG: Token {'created' if created else 'found'}: {token.key[:10]}...")
+        # DELETE OLD TOKENS AND CREATE NEW ONE
+        Token.objects.filter(user=user).delete()  # Delete any existing tokens
+        token = Token.objects.create(user=user)   # Create a fresh token
+        
+        print(f"DEBUG: New token created: {token.key}")
         
         print(f"DEBUG: Login successful - User ID: {user.id}")
         print(f"DEBUG: Session after login: {request.session.session_key}")

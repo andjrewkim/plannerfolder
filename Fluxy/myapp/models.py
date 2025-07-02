@@ -1,6 +1,9 @@
 # models.py
 from django.db import models
 from django.contrib.auth.models import AbstractUser
+from django.conf import settings
+
+
 
 
 class CustomUser(AbstractUser):
@@ -12,7 +15,8 @@ class CustomUser(AbstractUser):
 
 
 class CalendarEvent(models.Model):
-    user = models.ForeignKey(CustomUser, on_delete=models.CASCADE)  # Added user field
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True)
+
     event_name = models.CharField(max_length=255, null=True, blank=True)
     date = models.DateTimeField(null=True, blank=True)
     start_time = models.TimeField(null=True, blank=True)

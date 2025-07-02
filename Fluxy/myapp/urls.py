@@ -1,5 +1,5 @@
 # urls.py
-from django.urls import path
+from django.urls import path, include
 from . import views
 from . import views_settings
 from .views_api import CalendarEventCreate  # Import your view for handling events
@@ -25,5 +25,7 @@ urlpatterns = [
     path('api/login/', login_user),
     
     path('api/check-login/', check_login),
+    
+
 
 ]

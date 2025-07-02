@@ -1,5 +1,4 @@
 // pages/userlogin.tsx
-
 "use client"
 
 import React, { useState, useEffect } from 'react';
@@ -98,7 +97,6 @@ const LoginPage: React.FC = () => {
           password: formData.password
         });
         
-        authAPI.setAuthData(response.token, response.user);
         router.push('/calendar');
       } else {
         // Registration
