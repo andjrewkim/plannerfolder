@@ -1,6 +1,7 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
+from rest_framework.permissions import IsAuthenticated
 from .models import CalendarEvent
 from .serializers import CalendarEventSerializer
 from .views import extract_schedule_info  # Import the function you've already written
@@ -8,6 +9,8 @@ from .views import extract_schedule_info  # Import the function you've already w
 from datetime import datetime
 
 class CalendarEventCreate(APIView):
+    permission_classes = [IsAuthenticated]  # Ensure user is authenticated
+    
     def post(self, request):
         try:
             # Format the datetime properly
@@ -47,10 +50,12 @@ class CalendarEventCreate(APIView):
             
             serializer = CalendarEventSerializer(data=request.data, context={'request': request})
             if serializer.is_valid():
-                serializer.save()
+                # The serializer's create method will handle user assignment
+                event = serializer.save()
+                print(f"DEBUG: Event saved with user: {event.user}")  # Debug line
                 return Response(serializer.data, status=201)
             else:
-                print("DEBUG: Serializer errors:", serializer.errors)  # Add this line
+                print("DEBUG: Serializer errors:", serializer.errors)
                 return Response(serializer.errors, status=400)
                     
         except Exception as e:
@@ -62,13 +67,12 @@ class CalendarEventCreate(APIView):
         
         
         
-
     def delete(self, request, *args, **kwargs):
         event_id = kwargs.get('event_id')  # Get event_id from the URL
 
         try:
-            # Try to get the event by ID
-            event = CalendarEvent.objects.get(id=event_id)
+            # Try to get the event by ID and ensure it belongs to the authenticated user
+            event = CalendarEvent.objects.get(id=event_id, user=request.user)
             event.delete()  # Delete the event
             return Response({"message": "Event deleted successfully."}, status=status.HTTP_200_OK)
         except CalendarEvent.DoesNotExist:
@@ -77,8 +81,8 @@ class CalendarEventCreate(APIView):
     def put(self, request, *args, **kwargs):
         event_id = kwargs.get('event_id')  # Get the event ID
         try:
-            # Try to fetch the event
-            event = CalendarEvent.objects.get(id=event_id)
+            # Try to fetch the event and ensure it belongs to the authenticated user
+            event = CalendarEvent.objects.get(id=event_id, user=request.user)
         except CalendarEvent.DoesNotExist:
             return Response({"message": "Event not found."}, status=status.HTTP_404_NOT_FOUND)
 
@@ -110,7 +114,8 @@ class CalendarEventCreate(APIView):
     
     
     def get(self, request):
-        events = CalendarEvent.objects.all()
+        # Filter events by the authenticated user
+        events = CalendarEvent.objects.filter(user=request.user)
         serializer = CalendarEventSerializer(events, many=True)
         return Response(serializer.data)
 

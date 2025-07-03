@@ -46,9 +46,10 @@ class CalendarEventSerializer(serializers.ModelSerializer):
         ]
 
     def create(self, validated_data):
-        """Create event with authenticated user"""
-        user = self.context['request'].user
-        validated_data['user'] = user
+        # Ensure the user is set from the request context
+        request = self.context.get('request')
+        if request and hasattr(request, 'user'):
+            validated_data['user'] = request.user
         return super().create(validated_data)
 
     def validate_subcategories(self, value):
