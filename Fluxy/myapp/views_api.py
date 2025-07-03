@@ -45,18 +45,21 @@ class CalendarEventCreate(APIView):
                 'color': request.data.get('color', "#000")
             }
             
-            serializer = CalendarEventSerializer(data=event_data)
+            serializer = CalendarEventSerializer(data=request.data, context={'request': request})
             if serializer.is_valid():
-                event_instance = serializer.save()
-                return Response(serializer.data, status=status.HTTP_201_CREATED)
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-            
+                serializer.save()
+                return Response(serializer.data, status=201)
+            else:
+                print("DEBUG: Serializer errors:", serializer.errors)  # Add this line
+                return Response(serializer.errors, status=400)
+                    
         except Exception as e:
             # Add more detailed error information for debugging
             import traceback
             error_details = traceback.format_exc()
             print(f"Error in CalendarEventCreate: {error_details}")
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
         
         
 
