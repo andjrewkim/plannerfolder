@@ -1,3 +1,5 @@
+
+
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   DateSelectArg,
@@ -12,6 +14,7 @@ import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin from "@fullcalendar/interaction";
 import EventModal from './EventModal';
 import DayMarkingHighlighter from './DayMarkingHIghlighter';
+import { authAPI } from '../../lib/auth';
 import '../styles/calendar.css';
 import '../globals.css';
 
@@ -78,7 +81,7 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange, onViewChange }) => {
     shouldFetch.current = false;
 
     try {
-      const response = await fetch('http://127.0.0.1:8000/api/events/');
+      const response = await authAPI.authenticatedFetch('http://127.0.0.1:8000/api/events/');
       if (!response.ok) throw new Error('Failed to fetch events');
 
       const data: EventDetails[] = await response.json();
@@ -160,13 +163,11 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange, onViewChange }) => {
         ? `http://127.0.0.1:8000/api/events/${selectedEvent.eventId}/`
         : 'http://127.0.0.1:8000/api/events/';
 
-      const response = await fetch(url, {
+      const response = await authAPI.authenticatedFetch(url, {
         method: selectedEvent.eventId ? 'PUT' : 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'X-CSRFToken': getCSRFToken(),
         },
-        credentials: 'include',
         body: JSON.stringify(formattedEvent),
       });
 
@@ -216,13 +217,11 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange, onViewChange }) => {
       color: event.backgroundColor || '#3788d8'
     };
 
-    fetch(`http://127.0.0.1:8000/api/events/${event.id}/`, {
+    authAPI.authenticatedFetch(`http://127.0.0.1:8000/api/events/${event.id}/`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
-        'X-CSRFToken': getCSRFToken(),
       },
-      credentials: 'include',
       body: JSON.stringify(updatedEvent),
     })
       .then(response => {
@@ -290,24 +289,15 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange, onViewChange }) => {
     setIsModalOpen(true);
   }, [refreshEvents]);
 
-  const getCSRFToken = () => {
-    return document.cookie
-      .split('; ')
-      .find((row) => row.startsWith('csrftoken='))
-      ?.split('=')[1] || '';
-  };
-
   // Delete event function shared across components
   const handleDeleteEvent = async (eventId: string): Promise<boolean> => {
     try {
       setIsLoading(true);
-      const response = await fetch(`http://127.0.0.1:8000/api/events/${eventId}/`, {
+      const response = await authAPI.authenticatedFetch(`http://127.0.0.1:8000/api/events/${eventId}/`, {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
-          'X-CSRFToken': getCSRFToken(),
         },
-        credentials: 'include',
       });
 
       if (response.ok) {
@@ -464,13 +454,11 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange, onViewChange }) => {
           color: originalEvent.backgroundColor || '#3788d8'
         };
 
-        const response = await fetch(`http://127.0.0.1:8000/api/events/${event.id}/`, {
+        const response = await authAPI.authenticatedFetch(`http://127.0.0.1:8000/api/events/${event.id}/`, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
-            'X-CSRFToken': getCSRFToken(),
           },
-          credentials: 'include',
           body: JSON.stringify(updatedData),
         });
 
@@ -784,7 +772,12 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange, onViewChange }) => {
         <EventModal
           isOpen={isModalOpen}
           onClose={() => setIsModalOpen(false)}
-          selectedEvent={selectedEvent ? { ...selectedEvent, eventId: selectedEvent.eventId || '', start_time: selectedEvent.start_time ?? '', end_time: selectedEvent.end_time ?? '' } : null}
+          selectedEvent={{
+            ...selectedEvent,
+            eventId: selectedEvent.eventId || '',
+            start_time: selectedEvent.start_time ?? '',
+            end_time: selectedEvent.end_time ?? ''
+          }}
           position={modalPosition}
           onChange={handleEventChange}
           onSubmit={handleEventSubmit}

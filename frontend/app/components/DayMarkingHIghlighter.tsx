@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { EventSourceInput } from '@fullcalendar/core';
 import '../styles/daymarking.css';
 import { useTheme } from '../services/themeContext'; // Import theme context
+import { authAPI } from '../../lib/auth'; // Import the auth service
 
 interface DayMarkingHighlighterProps {
   onMarkingsLoaded: (events: EventSourceInput) => void;
@@ -63,8 +64,23 @@ const DayMarkingHighlighter: React.FC<DayMarkingHighlighterProps> = ({
   const fetchDayMarkings = useCallback(async () => {
     setIsLoading(true);
     try {
-      const response = await fetch(apiEndpoint);
-      if (!response.ok) throw new Error('Failed to fetch day markings');
+      // Check if user is authenticated first
+      if (!authAPI.isAuthenticated()) {
+        setError('Please log in to view day markings');
+        onMarkingsLoaded([]); // Pass empty array when not authenticated
+        return;
+      }
+
+      const response = await authAPI.authenticatedFetch(apiEndpoint);
+      
+      if (!response.ok) {
+        if (response.status === 401) {
+          setError('Please log in to view day markings');
+          onMarkingsLoaded([]);
+          return;
+        }
+        throw new Error('Failed to fetch day markings');
+      }
       
       const data: EventData[] = await response.json();
       
@@ -98,13 +114,21 @@ const DayMarkingHighlighter: React.FC<DayMarkingHighlighterProps> = ({
     } catch (err) {
       console.error('Error fetching day markings:', err);
       setError('Failed to load day markings');
+      onMarkingsLoaded([]); // Pass empty array on error
     } finally {
       setIsLoading(false);
     }
   }, [apiEndpoint, onMarkingsLoaded]);
 
   useEffect(() => {
-    fetchDayMarkings();
+    // Only fetch data if user is authenticated
+    if (authAPI.isAuthenticated()) {
+      fetchDayMarkings();
+    } else {
+      // Clear markings and show error if not authenticated
+      onMarkingsLoaded([]);
+      setError('Please log in to access day markings');
+    }
     
     // For debugging - showing that we're using the state variables
     // so TypeScript doesn't complain about unused variables
@@ -115,7 +139,7 @@ const DayMarkingHighlighter: React.FC<DayMarkingHighlighterProps> = ({
     if (error) {
       console.debug('Error state:', error);
     }
-  }, [fetchDayMarkings, refreshTrigger, isLoading, error]);
+  }, [fetchDayMarkings, refreshTrigger, isLoading, error, onMarkingsLoaded]);
 
   // This component doesn't render anything visible
   return null;
