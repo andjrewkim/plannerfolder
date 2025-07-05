@@ -88,7 +88,7 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange, onViewChange }) => {
       // Process all events, including day markings
       const formattedEvents = data.map((event: EventDetails) => ({
         id: String(event.id),
-        title: event.day_marking_title || event.event_name, // Use day_marking_title if available
+        title: event.day_marking_title || event.event_name,
         start: formatToISOString(event.date, event.start_time),
         end: formatToISOString(event.date, event.end_time),
         backgroundColor: event.color,
@@ -103,26 +103,29 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange, onViewChange }) => {
           subcategories: event.subcategories,
           recurrence_pattern: event.recurrence_pattern,
           isDayMarking: event.event_type === 'marking',
-          day_marking_title: event.day_marking_title // Store the day marking title explicitly
+          day_marking_title: event.day_marking_title
         }
       }));
 
       setCurrentEvents(formattedEvents as unknown as EventApi[]);
     } catch (err) {
       console.error('Error fetching events:', err);
+      // Use the setError function directly instead of from dependency
       setError(err instanceof Error ? err.message : 'An unexpected error occurred');
     }
-  }, [setError]);
+  }, []); // ← Remove setError from dependencies
 
+  // Alternative approach - use useEffect with empty dependency array
   useEffect(() => {
     fetchEvents();
-  }, [fetchEvents]);
+  }, []); // ← Only run once on mount
+
 
   const refreshEvents = useCallback(() => {
     shouldFetch.current = true;
     fetchEvents();
-    setRefreshTrigger(prev => prev + 1); // Trigger a refresh of day markings
-  }, [fetchEvents]);
+    setRefreshTrigger(prev => prev + 1);
+  }, []);
 
   const formatToISOString = (date: string, time: string | null): string => {
     if (!date) return new Date().toISOString(); // Default to current date/time if no date

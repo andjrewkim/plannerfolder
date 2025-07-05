@@ -470,12 +470,16 @@ class TimeParser:
 
         return result
 
-    def _generate_day_marking_title(self, text: str) -> Optional[str]:
+    def _generate_day_marking_title(self, text: str, event_name: str = None) -> Optional[str]:
         """
         Generate a descriptive title for day marking events.
-        Returns a formatted title string if there's a date reference with an event indicator,
-        otherwise returns None.
+        If event_name is provided, use it as the day marking title.
+        Otherwise, generate from text patterns.
         """
+        # If we have an event name, use it directly as the day marking title
+        if event_name and event_name.strip():
+            return event_name.strip()
+        
         # Check if there's a date reference
         has_date = False
         for pattern in self.compiled_date_patterns + self.compiled_weekday_patterns:

@@ -118,8 +118,9 @@ const DayMarkingHighlighter: React.FC<DayMarkingHighlighterProps> = ({
     } finally {
       setIsLoading(false);
     }
-  }, [apiEndpoint, onMarkingsLoaded]);
+  }, [apiEndpoint, onMarkingsLoaded]); // Only include stable dependencies
 
+  // Effect for initial load and refresh trigger
   useEffect(() => {
     // Only fetch data if user is authenticated
     if (authAPI.isAuthenticated()) {
@@ -129,7 +130,10 @@ const DayMarkingHighlighter: React.FC<DayMarkingHighlighterProps> = ({
       onMarkingsLoaded([]);
       setError('Please log in to access day markings');
     }
-    
+  }, [refreshTrigger]); // Only depend on refreshTrigger, not fetchDayMarkings
+
+  // Separate effect for debugging that doesn't cause re-renders
+  useEffect(() => {
     // For debugging - showing that we're using the state variables
     // so TypeScript doesn't complain about unused variables
     if (isLoading) {
@@ -139,7 +143,7 @@ const DayMarkingHighlighter: React.FC<DayMarkingHighlighterProps> = ({
     if (error) {
       console.debug('Error state:', error);
     }
-  }, [fetchDayMarkings, refreshTrigger, isLoading, error, onMarkingsLoaded]);
+  }, [isLoading, error]); // This is separate so it doesn't trigger fetches
 
   // This component doesn't render anything visible
   return null;

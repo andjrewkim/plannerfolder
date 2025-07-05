@@ -172,7 +172,7 @@ const EventForm: React.FC<EventFormProps> = ({ setResult, setError }) => {
                     onChange={toggleAllDayEvent}
                   />
                   <span className="custom-checkbox"></span>
-                  Mark important day/
+                  Mark important day
                 </label>
               </div>
 
