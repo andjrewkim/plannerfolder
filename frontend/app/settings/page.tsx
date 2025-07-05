@@ -16,7 +16,7 @@ const sectionTitles: Record<SectionName, string> = {
   display: 'Display Settings',
   timezone: 'Time & Date',
   notifications: 'Notifications',
-  profile: 'Profile',
+  profile: 'Account Settings',
   sharing: 'Calendar Sharing',
   email: 'Email Settings'
 };
@@ -88,7 +88,7 @@ export default function CalendarSettings() {
             <a href="#profile" 
                className={`nav-item ${activeSection === 'profile' ? 'active' : ''}`}>
               <User size={16} />
-              Profile
+              Account Settings
             </a>
             <a href="#sharing" 
                className={`nav-item ${activeSection === 'sharing' ? 'active' : ''}`}>

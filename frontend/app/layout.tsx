@@ -5,6 +5,7 @@ import { Geist, Geist_Mono, Poppins } from "next/font/google";
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
+import { authAPI } from '../lib/auth'; // Adjust path as needed
 import './globals.css';
 import './styles/navbar.css';
 
@@ -29,11 +30,30 @@ interface RootLayoutProps {
 
 const RootLayout: React.FC<RootLayoutProps> = ({ children }) => {
   const [visible, setVisible] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isLoadingAuth, setIsLoadingAuth] = useState(true);
   const pathname = usePathname();
   
   // Define paths where navbar should always be visible
   const alwaysVisiblePaths = ['/settings'];
   const shouldAlwaysShow = alwaysVisiblePaths.includes(pathname);
+
+  // Check authentication status
+  useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        const isAuth = await authAPI.checkAuthStatus();
+        setIsAuthenticated(isAuth);
+      } catch (error) {
+        console.error('Error checking auth status:', error);
+        setIsAuthenticated(false);
+      } finally {
+        setIsLoadingAuth(false);
+      }
+    };
+
+    checkAuth();
+  }, [pathname]); // Re-check on path change
 
   useEffect(() => {
     // If we're on a path where navbar should always be visible, 
@@ -81,9 +101,19 @@ const RootLayout: React.FC<RootLayoutProps> = ({ children }) => {
           }}
         >
           <div className="logo">
-            <span className="logo-text">Flux Calendar</span>
+            <span className="logo-text" style={{ fontSize: '20px' }}>Flux Calendar</span>
           </div>
           <div className="menu">
+            <Link href="/calendar" className="calendar-button">
+              <Image
+                src="/images/calendar.png"
+                alt="Calendar"
+                width={24}
+                height={24}
+                className="nav-icon"
+                
+              />
+            </Link>
             <Link href="/" className="home-button">
               <Image
                 src="/images/home.png"
@@ -102,15 +132,42 @@ const RootLayout: React.FC<RootLayoutProps> = ({ children }) => {
                 className="nav-icon"
               />
             </Link>
-            <Link href="/profile" className="profile-button">
-              <Image
-                src="/images/usericon.png"
-                alt="Profile"
-                width={24}
-                height={24}
-                className="nav-icon"
-              />
-            </Link>
+            
+            {/* Conditional Profile/Login Button */}
+            {isLoadingAuth ? (
+              // Show loading state while checking auth
+              <div className="profile-button" style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'center',
+                minWidth: '60px'
+              }}>
+                <span style={{ fontSize: '12px', color: '#666' }}>...</span>
+              </div>
+            ) : isAuthenticated ? (
+              // Show profile button when authenticated
+              <Link href="/profile" className="profile-button">
+                <Image
+                  src="/images/usericon.png"
+                  alt="Profile"
+                  width={24}
+                  height={24}
+                  className="nav-icon"
+                />
+              </Link>
+            ) : (
+              // Show "Log In" text when not authenticated
+              <Link href="/userlogin" className="login-button" style={{
+                display: 'flex',
+
+
+                fontWeight: '550',
+                borderRadius: '4px',
+                transition: 'background-color 0.2s ease',
+              }}>
+                Log In
+              </Link>
+            )}
           </div>
         </nav>
 

@@ -1,7 +1,7 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from .models import CalendarEvent
 from .serializers import CalendarEventSerializer
 from .views import extract_schedule_info  # Import the function you've already written
@@ -9,7 +9,7 @@ from .views import extract_schedule_info  # Import the function you've already w
 from datetime import datetime
 
 class CalendarEventCreate(APIView):
-    permission_classes = [IsAuthenticated]  # Ensure user is authenticated
+    permission_classes = [AllowAny]  # Ensure user is authenticated
     
     def post(self, request):
         try:
