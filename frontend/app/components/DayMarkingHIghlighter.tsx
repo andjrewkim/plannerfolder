@@ -84,9 +84,11 @@ const DayMarkingHighlighter: React.FC<DayMarkingHighlighterProps> = ({
       
       const data: EventData[] = await response.json();
       
-      // Filter for events that have day_marking_title and no time
+      // Filter for events that have a non-empty day_marking_title
+      // Backend handles time filtering, so we only check for valid day marking titles
       const dayMarkings = data.filter(event => 
-        event.day_marking_title && !event.start_time && !event.end_time
+        event.day_marking_title && 
+        event.day_marking_title.trim() !== ''
       );
       
       // Transform the data into FullCalendar compatible format with theme awareness

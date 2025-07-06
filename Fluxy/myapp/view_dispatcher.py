@@ -7,6 +7,7 @@ from .views_api import CalendarEventCreate
 from django.http import QueryDict
 
 class ScheduleInputDispatcher(APIView):
+
     def post(self, request):
         # Get input text from request data
         if not isinstance(request.data, dict):
@@ -22,9 +23,14 @@ class ScheduleInputDispatcher(APIView):
             )
 
         try:
-            # Extract schedule information
-            extracted_data = extract_schedule_info(input_text)
-
+            # Check if we already have extracted data (from frontend edits)
+            if 'event_name' in request_data and 'date' in request_data:
+                # Use the provided data instead of re-extracting
+                extracted_data = request_data.copy()
+            else:
+                # Extract schedule information only if not already provided
+                extracted_data = extract_schedule_info(input_text)
+            
             
 
                 
