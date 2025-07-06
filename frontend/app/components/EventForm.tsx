@@ -104,12 +104,14 @@ const EventForm: React.FC<EventFormProps> = ({ setResult, setError }) => {
         }
         
         // Now save to backend using the original endpoint
+        // DON'T send input_text - send the edited data directly
+        console.log('Sending event data to backend:', formattedData);
         const response = await authAPI.authenticatedFetch('http://127.0.0.1:8000/api/schedule/', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({ input_text: inputText, ...formattedData }),
+          body: JSON.stringify(formattedData),
         });
 
         if (!response.ok) {

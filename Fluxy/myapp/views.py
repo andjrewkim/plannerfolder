@@ -2037,7 +2037,6 @@ class AdvancedScheduleExtractor:
     
     def _validate_and_clean_results(self, result: Dict[str, Any]) -> Dict[str, Any]:
         """Validate and clean the extracted information"""
-        pass  # Placeholder for the function body
         # Ensure event_name is not empty or None
         if not result['event_name']:
             # Try to generate a name from other fields if possible
@@ -2051,9 +2050,15 @@ class AdvancedScheduleExtractor:
         if result['end_time'] and not isinstance(result['end_time'], str):
             result['end_time'] = str(result['end_time'])
         
-        # Ensure date is in proper format
-        if result['date'] and not isinstance(result['date'], str):
-            result['date'] = str(result['date'])
+        # Format date to yyyy-MM-dd
+        if result['date']:
+            date_str = str(result['date'])
+            # Remove timestamp if present
+            if ' ' in date_str:
+                date_str = date_str.split(' ')[0]
+            elif 'T' in date_str:
+                date_str = date_str.split('T')[0]
+            result['date'] = date_str
         
         # Set confidence scores for fields that don't have them
         for key in result:
@@ -2070,7 +2075,8 @@ class AdvancedScheduleExtractor:
             result['subcategories'] = []
         
         return result
-
+    
+    
 # Initialize extractor
 extractor = AdvancedScheduleExtractor()
 
