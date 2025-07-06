@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { createEvent } from '../services/apiService';
 import { Clock, Calendar, MapPin, Tag } from 'lucide-react';
+import { authAPI } from '../../lib/auth'; // Import the auth service
 import '../styles/eventform.css';
 
 export interface EventData {
@@ -14,6 +15,7 @@ export interface EventData {
   recurrence_pattern: string;
   color: string;
   is_all_day: boolean;
+  day_marking_title?: string;
 }
 
 interface EventFormProps {
@@ -34,8 +36,20 @@ const EventForm: React.FC<EventFormProps> = ({ setResult, setError }) => {
     setIsSubmitting(true);
     
     try {
-      // Try to create the event with the raw input
-      const data = await createEvent({ input_text: inputText });
+      // Parse the event data only (not saving to backend yet)
+      const response = await authAPI.authenticatedFetch('http://127.0.0.1:8000/api/schedule/parse/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ input_text: inputText }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to parse event details');
+      }
+
+      const data = await response.json();
       
       // Add is_all_day field if it doesn't exist
       const processedData = {
@@ -71,22 +85,50 @@ const EventForm: React.FC<EventFormProps> = ({ setResult, setError }) => {
     }
   };
 
-  const handleConfirm = () => {
+  const handleConfirm = async () => {
     if (editedEventData) {
-      // Format date before submission if needed
-      const formattedData = { ...editedEventData };
+      setIsSubmitting(true);
       
-      // If it's an all-day event and we're using placeholder times, update them
-      if (formattedData.is_all_day) {
-        formattedData.start_time = "00:00";
-        formattedData.end_time = "23:59";
+      try {
+        // Format date before submission if needed
+        const formattedData = { ...editedEventData };
+        
+        // If it's an all-day event and we're using placeholder times, update them
+        if (formattedData.is_all_day) {
+          formattedData.start_time = "00:00";
+          formattedData.end_time = "23:59";
+          formattedData.day_marking_title = formattedData.event_name;
+          formattedData.event_type = 'marking';
+        } else {
+          formattedData.event_type = 'event';
+        }
+        
+        // Now save to backend using the original endpoint
+        const response = await authAPI.authenticatedFetch('http://127.0.0.1:8000/api/schedule/', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ input_text: inputText, ...formattedData }),
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to save event');
+        }
+
+        const savedData = await response.json();
+        
+        setResult((prevState) => Array.isArray(prevState) ? [...prevState, savedData] : [savedData]);
+        setInputText('');
+        setIsModalVisible(false);
+        setParsedEventData(null);
+        setEditedEventData(null);
+      } catch (err) {
+        console.error(err);
+        setError('Failed to save event. Please try again.');
+      } finally {
+        setIsSubmitting(false);
       }
-      
-      setResult((prevState) => Array.isArray(prevState) ? [...prevState, formattedData] : [formattedData]);
-      setInputText('');
-      setIsModalVisible(false);
-      setParsedEventData(null);
-      setEditedEventData(null);
     }
   };
 
@@ -98,17 +140,35 @@ const EventForm: React.FC<EventFormProps> = ({ setResult, setError }) => {
 
   const handleEdit = (field: keyof EventData, value: string | boolean) => {
     if (editedEventData) {
-      setEditedEventData({ ...editedEventData, [field]: value });
+      const updatedData = { ...editedEventData, [field]: value };
+      
+      // If event_name is being changed and it's marked as all-day, update day_marking_title too
+      if (field === 'event_name' && editedEventData.is_all_day) {
+        updatedData.day_marking_title = value as string;
+      }
+      
+      setEditedEventData(updatedData);
     }
   };
 
   const toggleAllDayEvent = () => {
     if (editedEventData) {
       const newValue = !editedEventData.is_all_day;
-      setEditedEventData({ 
+      const updatedData = { 
         ...editedEventData, 
         is_all_day: newValue,
-      });
+      };
+      
+      // If marking as all-day (important day), set day_marking_title to event_name
+      if (newValue) {
+        updatedData.day_marking_title = editedEventData.event_name;
+        updatedData.event_type = 'marking';
+      } else {
+        updatedData.day_marking_title = '';
+        updatedData.event_type = 'event';
+      }
+      
+      setEditedEventData(updatedData);
     }
   };
 
@@ -210,10 +270,18 @@ const EventForm: React.FC<EventFormProps> = ({ setResult, setError }) => {
             </div>
 
             <div className="button-group">
-              <button onClick={handleConfirm} className="confirm-button">
-                Create Event
+              <button 
+                onClick={handleConfirm} 
+                className="confirm-button"
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? 'Saving...' : 'Create Event'}
               </button>
-              <button onClick={handleCancel} className="cancel-button">
+              <button 
+                onClick={handleCancel} 
+                className="cancel-button"
+                disabled={isSubmitting}
+              >
                 Cancel
               </button>
             </div>

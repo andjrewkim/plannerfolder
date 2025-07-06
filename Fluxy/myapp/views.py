@@ -462,58 +462,17 @@ class TimeParser:
                 except ValueError:
                     pass
 
-        # Check for day marking if no time was found
-        if not result['start_time'] and not result['end_time']:
-            day_marking_title = self._generate_day_marking_title(text)
-            if day_marking_title:
-                result['day_marking_title'] = day_marking_title
 
+
+        is_day_marking = not result.get('start_time') and not result.get('end_time')
+        # Check for day marking if no time was found
+        print(is_day_marking)
+        print("BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB")
+        result['day_marking_title'] = is_day_marking
+            
+            
         return result
 
-    def _generate_day_marking_title(self, text: str, event_name: str = None) -> Optional[str]:
-        """
-        Generate a descriptive title for day marking events.
-        If event_name is provided, use it as the day marking title.
-        Otherwise, generate from text patterns.
-        """
-        # If we have an event name, use it directly as the day marking title
-        if event_name and event_name.strip():
-            return event_name.strip()
-        
-        # Check if there's a date reference
-        has_date = False
-        for pattern in self.compiled_date_patterns + self.compiled_weekday_patterns:
-            if pattern.search(text):
-                has_date = True
-                break
-                
-        if not has_date:
-            return None
-        
-        # Find event indicator
-        event_type = None
-        for pattern, label in self.compiled_event_indicators.items():
-            match = pattern.search(text)
-            if match:
-                event_type = label
-                break
-                
-        if not event_type:
-            return None
-            
-        # Find subject/category if available
-        subject = None
-        for pattern, label in self.compiled_subject_patterns.items():
-            match = pattern.search(text)
-            if match:
-                subject = label
-                break
-        
-        # Generate the title
-        if subject:
-            return f"{subject} {event_type}"
-        else:
-            return event_type
         
     def _is_part_of_date(self, text: str, start_pos: int, end_pos: int) -> bool:
         """Check if the matched text is part of a date"""
@@ -2023,9 +1982,10 @@ class AdvancedScheduleExtractor:
             'confidence_scores': {}
         }
         
+        event_name = self._extract_event_name(text)   
+        
         # Extract event name
-        result['event_name'] = self._extract_event_name(text)   
-
+        result['event_name'] = event_name
         # Extract category with context
         category_info = self._extract_category_and_context(text)
         result['category'] = category_info['category']
@@ -2036,7 +1996,11 @@ class AdvancedScheduleExtractor:
         time_info = time_parser.parse_time(text)
         result['start_time'] = time_info['start_time']
         result['end_time'] = time_info['end_time']
-        result['day_marking_title'] = time_info.get('day_marking_title')  # Add day marking title
+        
+        if result['day_marking_title']:  # If True, we want a day marking
+            result['day_marking_title'] = None  # or just leave it as False
+        else:  # If False, no day marking needed
+            result['day_marking_title'] = event_name  # Use event name or default
 
         # Extract date using dateparser with custom settings
         date_info = date_handler.parse_date(text)
@@ -2049,9 +2013,7 @@ class AdvancedScheduleExtractor:
         if event_type == 'marking' or (result['date'] and not result['start_time'] and result['day_marking_title']):
             result['type'] = 'marking'  # This will mark the day as important
             
-            # If no event name was extracted, use the day marking title as the event name
-            if not result['event_name'] and result['day_marking_title']:
-                result['event_name'] = result['day_marking_title']
+
         else:
             result['type'] = event_type  # Regular type extraction
 

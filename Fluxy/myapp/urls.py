@@ -9,6 +9,7 @@ from myapp.views_user import register_user
 from myapp.views_user import login_user
 from myapp.views_logout import logout_view
 from myapp.views_check_login import check_login
+from .view_dispatcher import ScheduleInputDispatcher, ScheduleInputParser  # Import the missing views
 
 
 urlpatterns = [
@@ -26,6 +27,6 @@ urlpatterns = [
     
     path('api/check-login/', check_login),
     
-
-
+    path('api/schedule/', ScheduleInputDispatcher.as_view(), name='schedule-dispatcher'),
+    path('api/schedule/parse/', ScheduleInputParser.as_view(), name='schedule-parser'),
 ]

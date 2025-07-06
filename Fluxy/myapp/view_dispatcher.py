@@ -70,3 +70,33 @@ class ScheduleInputDispatcher(APIView):
                 {"error": str(e)}, 
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+
+class ScheduleInputParser(APIView):
+    def post(self, request):
+        # Get input text from request data
+        if not isinstance(request.data, dict):
+            request_data = QueryDict(request.data).dict()
+        else:
+            request_data = request.data.copy()
+        
+        input_text = request_data.get('input_text')
+        if not input_text:
+            return Response(
+                {"error": "Input text is required."}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            # Extract schedule information WITHOUT saving
+            extracted_data = extract_schedule_info(input_text)
+            print("Debug - Parser received type:", extracted_data.get('type'))
+
+            # Return the parsed data without saving to database
+            return Response(extracted_data, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            print(f"Debug - Parser error: {str(e)}")
+            return Response(
+                {"error": str(e)}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
