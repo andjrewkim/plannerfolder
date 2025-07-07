@@ -175,6 +175,7 @@ const RootLayout: React.FC<RootLayoutProps> = ({ children }) => {
           style={{ 
             minHeight: '100vh',
             paddingTop: visible ? '90px' : '30px',
+            marginTop: '-97.7px',
             transition: 'padding-top 0.4s ease-in-out',
           }}
         >

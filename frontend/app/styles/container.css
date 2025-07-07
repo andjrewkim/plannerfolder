@@ -11,7 +11,7 @@
   
   width: var(--sidebar-width);
   height: 100vh;
-  background: hsl(var(--muted) / );
+  background: hsl(var(--muted) / 1.02);
   border-right: 1px solid var(--border-color);
   position: fixed;
   top: 0;
@@ -22,7 +22,6 @@
   box-shadow: inset -1px 0 0 hsl(var(--border) / 0.1), 1px 0 3px rgba(15, 23, 42, 0.05);
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   transition: width var(--transition-slow);
-  will-change: transform; /* Optimize for animations */
 }
 
 /* Content container */
@@ -42,7 +41,7 @@
   border-bottom: 1px solid var(--border-color);
   position: sticky;
   top: 0;
-  z-index: 5;
+  z-index: 2;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -71,7 +70,6 @@
   border-bottom: 1px solid var(--border-color);
   transition: min-height 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   box-sizing: border-box;
-  will-change: height; /* Hardware acceleration hint */
 }
 
 /* Section content with improved scrolling */
@@ -82,8 +80,8 @@
   scrollbar-width: thin;
   scrollbar-color: hsl(var(--muted)) hsl(var(--card));
   position: relative;
-  height: calc(100% - 45px); /* Account for header */
-  overscroll-behavior: contain; /* Prevent scroll chaining */
+  height: calc(100% - 45px);
+  overscroll-behavior: contain;
 }
 
 /* Better scrollbars */
@@ -328,7 +326,7 @@
   bottom: 0;
   left: 0;
   background: transparent;
-  z-index: 25; /* Higher than other elements */
+  z-index: 15;
   transition: background-color 0.2s ease;
 }
 
@@ -379,28 +377,18 @@
   animation: fadeIn 0.2s ease forwards;
 }
 
-/* Enhanced resizing behavior */
-.resizing {
-  user-select: none !important;
-  cursor: ns-resize !important;
+/* Scoped resizing behavior - only affects sidebar */
+.app-sidebar.resizing {
+  user-select: none;
+  cursor: ns-resize;
+}
+
+.app-sidebar.resizing .section-content {
   pointer-events: none;
 }
 
-.resizing .section-content {
-  pointer-events: none;
-}
-
-.sidebar-section.resizing {
-  transition: none !important;
-}
-
-/* Add global resizing indicator */
-body.resizing {
-  cursor: ns-resize !important;
-}
-
-body.resizing * {
-  cursor: ns-resize !important;
+.app-sidebar.resizing .sidebar-section {
+  transition: none;
 }
 
 /* Visual resize feedback */
@@ -411,13 +399,13 @@ body.resizing * {
   height: 1px;
   background: hsl(var(--primary) / 0.5);
   pointer-events: none;
-  z-index: 30;
+  z-index: 16;
   box-shadow: 0 0 3px hsl(var(--primary) / 0.5);
   opacity: 0;
   transition: opacity 0.2s ease;
 }
 
-.resizing .resize-ghost {
+.app-sidebar.resizing .resize-ghost {
   opacity: 1;
 }
 
@@ -471,7 +459,6 @@ body.resizing * {
   }
 }
 
-
 /* Enhanced long-term goals styling */
 .sidebar-section[data-section="longTerm"] {
   position: relative;
@@ -506,7 +493,7 @@ body.resizing * {
   cursor: pointer;
   box-shadow: 0 2px 4px hsl(var(--primary) / 0.2);
   transition: transform 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease;
-  z-index: 10;
+  z-index: 12;
 }
 
 .add-task-button:hover {
@@ -595,21 +582,21 @@ body.resizing * {
 }
 
 /* Long-term goal items with unique styling */
-.sidebar-section[data-section="longTerm"] .task-item {
+.long-term-task {
   border-left: 2px solid hsl(var(--chart-1));
 }
 
-.sidebar-section[data-section="longTerm"] .task-checkbox:checked {
+.long-term-task .task-checkbox:checked {
   background: hsl(var(--chart-1));
   border-color: hsl(var(--chart-1));
 }
 
-.sidebar-section[data-section="longTerm"] .task-text {
+.long-term-task .task-text {
   font-weight: 500;
 }
 
 /* Add subtle pulsing animation to empty state */
-.sidebar-section[data-section="longTerm"] .empty-state {
+.long-term-empty {
   border: 1px dashed hsl(var(--chart-1));
   color: hsl(var(--chart-1) / 0.9);
   animation: pulseBlue 3s infinite ease-in-out;
@@ -628,13 +615,13 @@ body.resizing * {
 }
 
 /* Completed long-term goal animation */
-.sidebar-section[data-section="longTerm"] .task-checkbox:checked ~ .task-text {
+.long-term-task .task-checkbox:checked ~ .task-text {
   color: hsl(var(--chart-1) / 0.9);
   text-decoration-color: hsl(var(--chart-1) / 0.5);
   position: relative;
 }
 
-.sidebar-section[data-section="longTerm"] .task-checkbox:checked ~ .task-text::after {
+.long-term-task .task-checkbox:checked ~ .task-text::after {
   content: '🎉';
   position: absolute;
   right: -20px;
@@ -654,7 +641,7 @@ body.resizing * {
 }
 
 /* Transition for when a new goal is added */
-.sidebar-section[data-section="longTerm"] .task-item:first-child {
+.long-term-task:first-child {
   animation: newGoalAdded 0.4s cubic-bezier(0.2, 0.8, 0.2, 1.2);
 }
 
@@ -672,18 +659,12 @@ body.resizing * {
 }
 
 /* Hover state for long-term goals */
-.sidebar-section[data-section="longTerm"] .task-label:hover {
-  border-left: 2px solid hsl(var(--chart-1));
+.long-term-task .task-label:hover {
   background-color: hsl(var(--chart-1) / 0.05);
 }
 
-/* Focus state to add focus highlight to long-term goals section */
-.sidebar-section[data-section="longTerm"]:focus-within {
-  box-shadow: 0 0 0 2px hsl(var(--chart-1) / 0.15);
-}
-
 /* Progress indicator for long-term goals */
-.sidebar-section[data-section="longTerm"] .section-title::before {
+.long-term-section .section-title::before {
   content: '';
   position: absolute;
   left: 0;
@@ -692,14 +673,14 @@ body.resizing * {
   background: linear-gradient(90deg, hsl(var(--chart-1)), hsl(var(--chart-1) / 0.8));
   width: 0%;
   transition: width 0.3s ease-out;
-  z-index: 6;
+  z-index: 3;
 }
 
-.sidebar-section[data-section="longTerm"]:hover .section-title::before {
+.long-term-section:hover .section-title::before {
   width: 100%;
 }
 
-/* Category colors for task items, matching the calendar event categories */
+/* Category colors for task items */
 .task-item.category-1 {
   border-left: 2px solid hsl(var(--chart-1));
 }

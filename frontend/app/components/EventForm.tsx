@@ -174,7 +174,7 @@ const EventForm: React.FC<EventFormProps> = ({ setResult, setError }) => {
   };
 
   return (
-    <div className="event-form-container">
+    <div className="event-form-container ml-[320px] w-[calc(100%-320px)]">
       <form 
         onSubmit={handleInitialSubmit} 
         className={`event-form ${isError ? 'error-shake' : ''}`}

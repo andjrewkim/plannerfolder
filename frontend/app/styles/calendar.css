@@ -1,8 +1,9 @@
 .fc {
-  width: 100%;
+  width: 100% !important;
+  max-width: none;
   height: 85vh;
   display: flex;
-  margin: 0rem;
+  margin-top: -2.5rem;
   overflow: hidden;
   box-sizing: border-box;
   background: linear-gradient(145deg, hsl(var(--card)), hsl(var(--card) / 0.9));
@@ -232,25 +233,6 @@
 .popup-details .space-y-2::-webkit-scrollbar-thumb {
   background-color: hsl(var(--muted) / 0.4);
   border-radius: 20px;
-}
-
-/* Required positioning classes from your globals.css */
-.h-screen {  
-  margin-top: -6.5rem;
-  width: 100%;
-  margin-left: 319px;
-}
-
-.calendar-container {
-  margin-top: -2rem;
-  width: calc(100% - 320px);
-  height: 100%;
-  overflow: hidden;
-  border: 0px solid red; 
-}
-
-.ewfsf {
-  width: 90%
 }
 
 /* Category colors for events */

@@ -1,3 +1,5 @@
+
+
 /* Add these new keyframes at the top of your file */
 @keyframes slideIn {
   from {
@@ -96,19 +98,11 @@
 
 
 
-
-
-
-
-
-
-
-
-
 .event-form-container {
   width: 70%;
   padding: 1rem;
-  margin-top: 2rem;
+  margin-top: 1rem;
+
   position: relative;
 }
 

@@ -498,7 +498,7 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange, onViewChange }) => {
       }
     };
 
-    return (
+return (
       <div
         className="popup-details fixed z-50 bg-white shadow-lg rounded-lg p-4 border border-gray-200"
         style={{
@@ -677,14 +677,20 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange, onViewChange }) => {
   ];
 
   return (
-    <div className="bahahhaha">
-      {/* Include the DayMarkingHighlighter component */}
-      <DayMarkingHighlighter
-        onMarkingsLoaded={handleDayMarkingsLoaded}
-        refreshTrigger={refreshTrigger}
-      />
+    <div className="flex">
+      {/* Empty sidebar spacer */}
+      <div className="w-[320px] bg-gray-100">
+        {/* You can put sidebar content here or leave empty */}
+      </div>
 
-      <div className="adadadadad">
+      {/* Main calendar content */}
+      <div className="flex-1">
+        <DayMarkingHighlighter
+          onMarkingsLoaded={handleDayMarkingsLoaded}
+          refreshTrigger={refreshTrigger}
+        />
+
+        <div className="w-full">
         <FullCalendar
           ref={calendarRef}
           plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
@@ -787,6 +793,7 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange, onViewChange }) => {
           onDelete={handleDeleteEvent}
         />
       )}
+      </div>
     </div>
   );
 };
