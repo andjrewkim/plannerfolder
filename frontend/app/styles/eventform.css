@@ -1,3 +1,82 @@
+.recurrence-section {
+  flex-direction: column;
+  gap: 8px;
+}
+
+.recurrence-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.recurrence-details {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.interval-input {
+  width: 60px;
+}
+
+.recurrence-summary {
+  background: #f8f9fa;
+  padding: 8px;
+  border-radius: 4px;
+}
+
+.recurrence-text {
+  font-size: 14px;
+  color: #666;
+}
+
+
+
+
+
+
+.event-type-switcher {
+  display: flex;
+  margin-bottom: 20px;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.type-tab {
+  flex: 1;
+  padding: 12px 16px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-weight: 500;
+  color: #666;
+  border-bottom: 2px solid transparent;
+  transition: all 0.2s ease;
+}
+
+.type-tab.active {
+  color: #007bff;
+  border-bottom-color: #007bff;
+}
+
+.type-tab:hover {
+  background: #f8f9fa;
+}
+
+.task-time-input {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.time-help {
+  font-size: 12px;
+  color: #888;
+}
+
+
+
+
+
 
 
 /* Add these new keyframes at the top of your file */

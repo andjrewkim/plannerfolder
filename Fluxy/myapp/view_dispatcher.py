@@ -31,19 +31,19 @@ class ScheduleInputDispatcher(APIView):
                 # Extract schedule information only if not already provided
                 extracted_data = extract_schedule_info(input_text)
             
-            
-
-                
             print("Debug - Dispatcher received type:", extracted_data.get('type'))
 
             if extracted_data.get('type') == 'task':
-                # Prepare task data
+                # Prepare task data - make sure all required fields are present
                 task_data = {
-                    'event': extracted_data.get('event_name'),
-                    'date': extracted_data.get('date'),
+                    'event': extracted_data.get('event_name', ''),
+                    'date': extracted_data.get('date', ''),
                 }
                 
-                serializer = TodoTaskSerializer(data=task_data)
+                print("Debug - Task data being sent to serializer:", task_data)
+                
+                # Pass request context to serializer if needed
+                serializer = TodoTaskSerializer(data=task_data, context={'request': request})
                 if serializer.is_valid():
                     task = serializer.save()
                     return Response({
@@ -51,7 +51,9 @@ class ScheduleInputDispatcher(APIView):
                         'event': task.event,
                         'date': task.date
                     }, status=status.HTTP_201_CREATED)
-                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+                else:
+                    print("Debug - Serializer errors:", serializer.errors)
+                    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
             elif extracted_data.get('type') in ['event', 'marking'] or extracted_data.get('event_type') in ['event', 'marking']:
                 calendar_view = CalendarEventCreate()
@@ -77,6 +79,8 @@ class ScheduleInputDispatcher(APIView):
 
         except Exception as e:
             print(f"Debug - Dispatcher error: {str(e)}")
+            import traceback
+            print(f"Debug - Full traceback: {traceback.format_exc()}")
             return Response(
                 {"error": str(e)}, 
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
