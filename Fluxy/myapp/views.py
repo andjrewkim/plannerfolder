@@ -23,53 +23,194 @@ import calendar
 
 
 
-class DateHandler:
-    def __init__(self):
-        # Build month mappings including variants
-        self.month_mappings: Dict[str, int] = {}
-        for i, month in enumerate(calendar.month_name[1:], 1):
-            self.month_mappings[month.lower()] = i
-            self.month_mappings[month[:3].lower()] = i
-        # Add numeric months
-        for i in range(1, 13):
-            self.month_mappings[str(i)] = i
-            self.month_mappings[f"{i:02d}"] = i
 
-        # Weekday mappings (0 = Monday, 6 = Sunday)
-        self.weekday_mappings = {
-            'monday': 0, 'mon': 0,
-            'tuesday': 1, 'tue': 1,
-            'wednesday': 2, 'wed': 2,
-            'thursday': 3, 'thu': 3,
-            'friday': 4, 'fri': 4,
-            'saturday': 5, 'sat': 5,
+import requests
+import json
+import re
+from typing import Dict, Optional, List, Any, Union
+from datetime import datetime, timedelta
+import calendar
+import logging
+
+# Set up logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+class DucklingDateTimeParser:
+    """Enhanced date and time parser using Duckling for robust natural language processing"""
+    
+    def __init__(self, duckling_url: str = "http://127.0.0.1:8080"):
+        """
+        Initialize the parser with Duckling service URL
+        
+        Args:
+            duckling_url: URL where Duckling service is running (default: http://127.0.0.1:8080)
+        """
+        self.duckling_url = duckling_url
+        self.reference_time = datetime.now()
+        
+        # Fallback mappings for when Duckling is unavailable
+        self.month_mappings = self._build_month_mappings()
+        self.weekday_mappings = self._build_weekday_mappings()
+        self.special_dates = self._build_special_dates()
+        
+        # Event indicators for day marking titles
+        self.event_indicators = {
+            r'\bexam\b': 'Exam', r'\btest\b': 'Test', r'\bquiz\b': 'Quiz',
+            r'\bassignment\b': 'Assignment', r'\bdue\b': 'Due Date', r'\bdeadline\b': 'Deadline',
+            r'\bmeeting\b': 'Meeting', r'\bappointment\b': 'Appointment', r'\binterview\b': 'Interview',
+            r'\bpresentation\b': 'Presentation', r'\bconcert\b': 'Concert', r'\bshow\b': 'Show',
+            r'\bevent\b': 'Event', r'\bparty\b': 'Party', r'\bcelebration\b': 'Celebration',
+            r'\bconference\b': 'Conference', r'\bworkshop\b': 'Workshop', r'\bseminar\b': 'Seminar',
+            r'\blecture\b': 'Lecture', r'\bholiday\b': 'Holiday', r'\bvacation\b': 'Vacation',
+            r'\btrip\b': 'Trip', r'\bvisit\b': 'Visit', r'\bbirthday\b': 'Birthday',
+            r'\banniversary\b': 'Anniversary', r'\bwedding\b': 'Wedding', r'\bgraduation\b': 'Graduation',
+            r'\bproject\b': 'Project', r'\bresearch\b': 'Research', r'\bstudy\b': 'Study Session',
+            r'\bflight\b': 'Flight', r'\blaunch\b': 'Launch'
+        }
+        
+        # Subject/category patterns
+        self.subject_patterns = {
+            r'\bmath\b|\bmathematics\b': 'Math', r'\bchem\b|\bchemistry\b': 'Chemistry',
+            r'\bphysics\b': 'Physics', r'\bbio\b|\bbiology\b': 'Biology',
+            r'\bhistory\b': 'History', r'\bliterature\b|\benglish\b': 'English/Literature',
+            r'\bcomputer\b|\bcs\b|\bprogramming\b': 'Computer Science',
+            r'\bart\b|\bdrawing\b|\bpainting\b': 'Art', r'\bmusic\b': 'Music',
+            r'\bdoctor\b|\bmedical\b|\bhealth\b': 'Medical', r'\bdental\b|\bdentist\b': 'Dental',
+            r'\bwork\b': 'Work', r'\bschool\b|\bcollege\b|\buniversity\b': 'School',
+            r'\bsports?\b|\bgym\b|\bfitness\b': 'Sports/Fitness', r'\btravel\b': 'Travel'
+        }
+        
+        # Compile patterns
+        self.compiled_event_indicators = {re.compile(p, re.IGNORECASE): label 
+                                        for p, label in self.event_indicators.items()}
+        self.compiled_subject_patterns = {re.compile(p, re.IGNORECASE): label 
+                                        for p, label in self.subject_patterns.items()}
+
+    def _build_month_mappings(self) -> Dict[str, int]:
+        """Build month name to number mappings"""
+        mappings = {}
+        for i, month in enumerate(calendar.month_name[1:], 1):
+            mappings[month.lower()] = i
+            mappings[month[:3].lower()] = i
+        for i in range(1, 13):
+            mappings[str(i)] = i
+            mappings[f"{i:02d}"] = i
+        return mappings
+
+    def _build_weekday_mappings(self) -> Dict[str, int]:
+        """Build weekday name to number mappings"""
+        return {
+            'monday': 0, 'mon': 0, 'tuesday': 1, 'tue': 1,
+            'wednesday': 2, 'wed': 2, 'thursday': 3, 'thu': 3,
+            'friday': 4, 'fri': 4, 'saturday': 5, 'sat': 5,
             'sunday': 6, 'sun': 6
         }
 
-        # Special date keywords
-        self.special_dates = {
-            'today': 0,
-            'tomorrow': 1,
-            'yesterday': -1,
-            'in a couple days': 2,
-            'day after tomorrow': 2,
-            'next week': 7,
-            'last week': -7
+    def _build_special_dates(self) -> Dict[str, int]:
+        """Build special date mappings"""
+        return {
+            'today': 0, 'tomorrow': 1, 'yesterday': -1,
+            'in a couple days': 2, 'day after tomorrow': 2,
+            'next week': 7, 'last week': -7
         }
 
+    def _call_duckling(self, text: str, dimensions: List[str] = None) -> List[Dict]:
+        """
+        Call Duckling service to parse text
+        
+        Args:
+            text: Input text to parse
+            dimensions: List of dimensions to parse (default: ['time'])
+            
+        Returns:
+            List of parsed entities from Duckling
+        """
+        if dimensions is None:
+            dimensions = ['time']
+            
+        try:
+            response = requests.post(
+                f"{self.duckling_url}/parse",
+                data={
+                    'text': text,
+                    'dims': json.dumps(dimensions),
+                    'reftime': int(self.reference_time.timestamp() * 1000)  # Duckling expects milliseconds
+                },
+                timeout=5
+            )
+            
+            if response.status_code == 200:
+                return response.json()
+            else:
+                logger.warning(f"Duckling returned status {response.status_code}: {response.text}")
+                return []
+                
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Failed to connect to Duckling: {e}")
+            return []
+
     def parse_date(self, text: str) -> Optional[datetime]:
-        """Main entry point for date parsing"""
+        """
+        Parse date from text using Duckling with fallback
+        
+        Args:
+            text: Input text containing date information
+            
+        Returns:
+            Parsed datetime object or None
+        """
         if not text:
             return None
 
+        text = text.strip()
+        
+        # Try Duckling first
+        duckling_result = self._parse_date_with_duckling(text)
+        if duckling_result:
+        
+            return duckling_result
+            
+        # Fallback to manual parsing
+        logger.info("Falling back to manual date parsing")
+        return self._parse_date_fallback(text)
+
+    def _parse_date_with_duckling(self, text: str) -> Optional[datetime]:
+        """Parse date using Duckling service"""
+        try:
+            entities = self._call_duckling(text, ['time'])
+            
+            for entity in entities:
+                if entity.get('dim') == 'time':
+                    value = entity.get('value', {})
+                    
+                    # Handle different time value types
+                    if 'value' in value:
+                        # Single time point
+                        iso_time = value['value']
+                        return datetime.fromisoformat(iso_time.replace('Z', '+00:00')).replace(tzinfo=None)
+                    
+                    elif 'from' in value and 'to' in value:
+                        # Time interval - return the start time
+                        iso_time = value['from']['value']
+                        return datetime.fromisoformat(iso_time.replace('Z', '+00:00')).replace(tzinfo=None)
+                        
+            return None
+            
+        except Exception as e:
+            logger.error(f"Error parsing date with Duckling: {e}")
+            return None
+
+    def _parse_date_fallback(self, text: str) -> Optional[datetime]:
+        """Fallback date parsing when Duckling is unavailable"""
         text = text.lower().strip()
         
         # Try each parser in order
         parsers = [
-            self._parse_special_date,
-            self._parse_relative_weekday,
-            self._parse_month_day,
-            self._parse_formal_date
+            self._parse_special_date_fallback,
+            self._parse_relative_weekday_fallback,
+            self._parse_month_day_fallback,
+            self._parse_formal_date_fallback
         ]
 
         for parser in parsers:
@@ -78,15 +219,15 @@ class DateHandler:
                 if result:
                     return result
             except Exception as e:
+                logger.debug(f"Parser {parser.__name__} failed: {e}")
                 continue
 
         return None
 
-    def _parse_special_date(self, text: str) -> Optional[datetime]:
-        """Parse special date terms like 'today', 'tomorrow', etc."""
+    def _parse_special_date_fallback(self, text: str) -> Optional[datetime]:
+        """Fallback for special dates"""
         now = datetime.now()
         
-        # Check special dates dictionary
         for term, days in self.special_dates.items():
             if term in text:
                 return now + timedelta(days=days)
@@ -99,11 +240,10 @@ class DateHandler:
 
         return None
 
-    def _parse_relative_weekday(self, text: str) -> Optional[datetime]:
-        """Parse weekday expressions like 'next monday', 'this friday'"""
+    def _parse_relative_weekday_fallback(self, text: str) -> Optional[datetime]:
+        """Fallback for relative weekday parsing"""
         now = datetime.now()
 
-        # Match weekday patterns
         for day, day_num in self.weekday_mappings.items():
             if day not in text:
                 continue
@@ -115,18 +255,15 @@ class DateHandler:
             target_weekday = day_num
             
             if is_last:
-                # Go back to last occurrence
                 days_diff = (current_weekday - target_weekday) % 7
                 if days_diff == 0:
                     days_diff = 7
                 return now - timedelta(days=days_diff)
             
-            # Calculate days until next occurrence
             days_ahead = (target_weekday - current_weekday) % 7
             if days_ahead == 0 and not is_next:
                 days_ahead = 7
             
-            # Add extra week if "next" is specified
             if is_next:
                 days_ahead += 7
                 
@@ -134,15 +271,13 @@ class DateHandler:
 
         return None
 
-    def _parse_month_day(self, text: str) -> Optional[datetime]:
-        """Parse month and day combinations"""
+    def _parse_month_day_fallback(self, text: str) -> Optional[datetime]:
+        """Fallback for month/day parsing"""
         now = datetime.now()
         
-        # Remove common words and clean up text
         text = re.sub(r'\b(of|the|st|nd|rd|th)\b', '', text)
         text = ' '.join(text.split())
         
-        # Try to find month
         found_month = None
         month_value = None
         
@@ -155,21 +290,13 @@ class DateHandler:
         if not found_month:
             return None
 
-        # Find day number
         day_match = re.search(r'\b(\d{1,2})\b', text)
-        if not day_match:
-            # If just month is specified, use the 1st
-            day_value = 1
-        else:
-            day_value = int(day_match.group(1))
+        day_value = int(day_match.group(1)) if day_match else 1
             
-        # Validate day
         if not (1 <= day_value <= 31):
             return None
             
-        # Try to create date
         try:
-            # If the date would be in the past, use next year
             year = now.year
             date = datetime(year, month_value, day_value)
             if date < now:
@@ -178,232 +305,29 @@ class DateHandler:
         except ValueError:
             return None
 
-    def _parse_formal_date(self, text: str) -> Optional[datetime]:
-        """Parse formal date formats (YYYY-MM-DD, DD/MM/YYYY, etc.)"""
-        # Remove any surrounding text
-        text = text.strip()
-        
-        # Common date formats
+    def _parse_formal_date_fallback(self, text: str) -> Optional[datetime]:
+        """Fallback for formal date formats"""
         formats = [
-            "%Y-%m-%d",
-            "%d/%m/%Y",
-            "%m/%d/%Y",
-            "%Y/%m/%d",
-            "%d-%m-%Y",
-            "%m-%d-%Y"
+            "%Y-%m-%d", "%d/%m/%Y", "%m/%d/%Y", "%Y/%m/%d", "%d-%m-%Y", "%m-%d-%Y"
         ]
         
         for fmt in formats:
             try:
-                return datetime.strptime(text, fmt)
+                return datetime.strptime(text.strip(), fmt)
             except ValueError:
                 continue
                 
         return None
 
-# Example usage
-if __name__ == "__main__":
-    handler = DateHandler()
-    
-    test_cases = [
-        "april 15",
-        "15th of april",
-        "next monday",
-        "last friday",
-        "tomorrow",
-        "in 3 days",
-        "next week",
-        "2024-01-05",
-        "this wednesday",
-        "april",
-        "tomorrow at 3pm",
-        "next thursday",
-        "may 1st",
-    ]
-    
-    for test in test_cases:
-        result = handler.parse_date(test)
-        print(f"{test}: {result}")
-        
-        
-import re
-from typing import Dict, Optional, List, Any
-from datetime import datetime, timedelta
-from typing import Dict, Optional
-import re
-
-class TimeParser:
-    def __init__(self):
-        """Initialize time parser with comprehensive patterns"""
-        # Core time patterns (ordered by specificity)
-        self.time_patterns = [
-            # Enhanced 24-hour format with optional seconds
-            r'(?P<hour>2[0-3]|[01]\d)(?::?(?P<minute>[0-5]\d))(?:[:](?P<second>[0-5]\d))?\b',
-            
-            # Word-based hours with meridian
-            r'(?P<hour>one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)\s+'
-            r'(?P<meridian>am|pm|a\.m\.|p\.m\.|noon|midnight)\b',
-            
-            # Enhanced AM/PM formats with flexible spacing
-            r'(?P<hour>\d{1,2})(?:[:. ]?(?P<minute>\d{2}))?\s*'
-            r'(?P<meridian>am|pm|a\.m\.|p\.m\.|noon|midnight)\b',
-            
-            # Cross-meridian range handling
-            r'(?P<start_hour>\d{1,2})(?::(?P<start_minute>\d{2}))?'
-            r'(?:\s*(?P<start_meridian>am|pm|a\.m\.|p\.m\.))?\s*-\s*'
-            r'(?P<end_hour>\d{1,2})(?::(?P<end_minute>\d{2}))?'
-            r'(?:\s*(?P<end_meridian>am|pm|a\.m\.|p\.m\.))?',
-            
-            # Explicit range indicators
-            r'(?P<start_time>(\d{1,2}(?::\d{2})?)\s*(?:am|pm|a\.m\.|p\.m\.)?)\s+'
-            r'(?:to|until|through|thru|-|–|—)\s+'
-            r'(?P<end_time>(\d{1,2}(?::\d{2})?)\s*(?:am|pm|a\.m\.|p\.m\.)?)',
-        ]
-
-        # Enhanced date patterns
-        self.date_patterns = [
-            r'\b(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\s+\d{1,2}\b',
-            r'\b\d{1,2}\s+(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\b',
-            r'\b\d{1,2}[/-]\d{1,2}(?:[/-]\d{2,4})?\b',  # MM/DD/YY or DD-MM-YYYY
-            r'\b\d{4}-\d{1,2}-\d{1,2}\b',  # ISO format
-        ]
-
-        # Add weekday patterns
-        self.weekday_patterns = [
-            r'\b(?:mon|tues|wed|thurs|fri|sat|sun)[a-z]*\b',  # Weekday abbreviations
-            r'\b(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b',  # Full weekday names
-        ]
-
-        # Event indicator terms (for day markings)
-        self.event_indicators = {
-            r'\bexam\b': 'Exam', 
-            r'\btest\b': 'Test', 
-            r'\bquiz\b': 'Quiz', 
-            r'\bassignment\b': 'Assignment', 
-            r'\bdue\b': 'Due Date', 
-            r'\bdeadline\b': 'Deadline',
-            r'\bmeeting\b': 'Meeting', 
-            r'\bappointment\b': 'Appointment', 
-            r'\binterview\b': 'Interview', 
-            r'\bpresentation\b': 'Presentation',
-            r'\bconcert\b': 'Concert', 
-            r'\bshow\b': 'Show', 
-            r'\bevent\b': 'Event', 
-            r'\bparty\b': 'Party', 
-            r'\bcelebration\b': 'Celebration',
-            r'\bconference\b': 'Conference', 
-            r'\bworkshop\b': 'Workshop', 
-            r'\bseminar\b': 'Seminar', 
-            r'\blecture\b': 'Lecture',
-            r'\bholiday\b': 'Holiday', 
-            r'\bvacation\b': 'Vacation', 
-            r'\btrip\b': 'Trip', 
-            r'\bvisit\b': 'Visit',
-            r'\bbirthday\b': 'Birthday', 
-            r'\banniversary\b': 'Anniversary', 
-            r'\bwedding\b': 'Wedding', 
-            r'\bgraduation\b': 'Graduation',
-            r'\bpapers\b': 'Papers Due',
-            r'\bproject\b': 'Project',
-            r'\bresearch\b': 'Research',
-            r'\blabs\b': 'Laboratory',
-            r'\bstudy\b': 'Study Session',
-            r'\breview\b': 'Review Session',
-            r'\bconsultation\b': 'Consultation',
-            r'\bcheckup\b': 'Checkup',
-            r'\bappointment\b': 'Appointment',
-            r'\bflight\b': 'Flight',
-            r'\bdemo\b': 'Demo',
-            r'\bdemonstration\b': 'Demonstration',
-            r'\blaunch\b': 'Launch',
-            r'\breleases?\b': 'Release'
-        }
-
-        # Subject/category patterns (to describe the type of event)
-        self.subject_patterns = {
-            r'\bmath\b|\bmathematics\b': 'Math',
-            r'\bchem\b|\bchemistry\b': 'Chemistry',
-            r'\bphysics\b': 'Physics',
-            r'\bbio\b|\bbiology\b': 'Biology',
-            r'\bhistory\b': 'History',
-            r'\bliterature\b|\benglish\b': 'English/Literature',
-            r'\bcomputer\b|\bcs\b|\bprogramming\b': 'Computer Science',
-            r'\bart\b|\bdrawing\b|\bpainting\b': 'Art',
-            r'\bmusic\b': 'Music',
-            r'\bdoctor\b|\bmedical\b|\bhealth\b': 'Medical',
-            r'\bdental\b|\bdentist\b': 'Dental',
-            r'\blegal\b|\blawyer\b|\blaw\b': 'Legal',
-            r'\bfinancial\b|\bfinance\b|\baccounting\b': 'Financial',
-            r'\bsocial\b': 'Social',
-            r'\bfamily\b': 'Family',
-            r'\bbusiness\b': 'Business',
-            r'\bwork\b': 'Work',
-            r'\bschool\b|\bcollege\b|\buniversity\b|\bacademic\b': 'School',
-            r'\bsports?\b|\bgym\b|\bfitness\b|\bexercise\b': 'Sports/Fitness',
-            r'\btravel\b': 'Travel'
-        }
-
-        # Enhanced special times
-        self.special_times = {
-            'noon': '12:00', 'midnight': '00:00', 'morning': '09:00',
-            'afternoon': '14:00', 'evening': '19:00', 'night': '22:00',
-            'dawn': '06:00', 'dusk': '18:00', 'midday': '12:00',
-            'lunchtime': '12:00', 'sunrise': '06:00', 'sunset': '18:00'
-        }
-
-        # Enhanced number words mapping
-        self.number_words = {
-            'one': 1, 'two': 2, 'three': 3, 'four': 4, 'five': 5, 
-            'six': 6, 'seven': 7, 'eight': 8, 'nine': 9, 'ten': 10,
-            'eleven': 11, 'twelve': 12, 'thirteen': 13, 'fourteen': 14,
-            'fifteen': 15, 'sixteen': 16, 'seventeen': 17, 'eighteen': 18,
-            'nineteen': 19, 'twenty': 20, 'thirty': 30, 'forty': 40,
-            'fifty': 50
-        }
-
-        # Enhanced duration patterns
-        self.duration_patterns = [
-            # Standard patterns
-            r'(?:\bfor\s+)?(?P<hours>\d+\.?\d*)\s*(?:h|hr|hour|hours)s?'
-            r'(?:\s+(?:and\s+)?(?P<minutes>\d+)\s*(?:m|min|minute|minutes)s?)?\b',
-            
-            # Word-based durations
-            r'(?:\bfor\s+)?(?P<hours>one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)'
-            r'(?:\s+and\s+(?:a\s+)?(?P<fraction>half|quarter))?\s*(?:hour|hours)s?\b',
-            
-            # Fractional durations
-            r'\b(?:a\s+)?half(?:\s+an?\s+hour)?\b',
-            r'\b(?:a\s+)?quarter(?:\s+of\s+an?\s+hour)?\b',
-        ]
-
-        # Enhanced special durations
-        self.special_durations = {
-            'an hour': 60, 'a hour': 60, 'half hour': 30, 'half an hour': 30,
-            'quarter hour': 15, 'quarter of an hour': 15, 'an hour and a half': 90,
-            'a half hour': 30, 'quarter hour': 15
-        }
-
-        # Compile all patterns
-        self.compiled_time_patterns = [re.compile(p, re.IGNORECASE) for p in self.time_patterns]
-        self.compiled_duration_patterns = [re.compile(p, re.IGNORECASE) for p in self.duration_patterns]
-        self.compiled_date_patterns = [re.compile(p, re.IGNORECASE) for p in self.date_patterns]
-        self.compiled_weekday_patterns = [re.compile(p, re.IGNORECASE) for p in self.weekday_patterns]
-        self.compiled_event_indicators = {re.compile(p, re.IGNORECASE): label for p, label in self.event_indicators.items()}
-        self.compiled_subject_patterns = {re.compile(p, re.IGNORECASE): label for p, label in self.subject_patterns.items()}
-        self.special_times_pattern = re.compile(
-            r'\b(' + '|'.join(self.special_times.keys()) + r')\b',
-            re.IGNORECASE
-        )
-
     def parse_time(self, text: str) -> Dict[str, Optional[str]]:
         """
-        Parse time and duration from text and return start and end times.
+        Parse time and duration from text using Duckling with fallback
         
         Args:
             text: Input text containing time information
             
         Returns:
-            Dictionary with 'start_time', 'end_time', and 'day_marking_title' keys (values may be None)
+            Dictionary with 'start_time', 'end_time', and 'day_marking_title' keys
         """
         if not isinstance(text, str):
             return {'start_time': None, 'end_time': None, 'day_marking_title': None}
@@ -414,249 +338,193 @@ class TimeParser:
             'day_marking_title': None
         }
 
-        # Check for special times first
-        special_match = self.special_times_pattern.search(text)
-        if special_match:
-            result['start_time'] = self.special_times[special_match.group().lower()]
+        # Try Duckling first
+        duckling_result = self._parse_time_with_duckling(text)
+        if duckling_result['start_time'] or duckling_result['end_time']:
+            result.update(duckling_result)
+        else:
+            # Fallback to manual parsing
+            logger.info("Falling back to manual time parsing")
+            manual_result = self._parse_time_fallback(text)
+            result.update(manual_result)
 
-        # Process time patterns
-        for pattern in self.compiled_time_patterns:
-            matches = pattern.finditer(text)
-            for match in matches:
-                # Skip if part of a date
-                if self._is_part_of_date(text, match.start(), match.end()):
-                    continue
-
-                groups = match.groupdict()
-                
-                # Handle explicit time ranges
-                if all(key in groups for key in ['start_hour', 'end_hour']):
-                    range_result = self._handle_range(
-                        groups.get('start_hour', ''),
-                        groups.get('end_hour', ''),
-                        groups.get('start_meridian', ''),
-                        groups.get('end_meridian', ''),
-                        groups.get('start_minute', '0'),
-                        groups.get('end_minute', '0')
-                    )
-                    if range_result:
-                        result.update(range_result)
-                        return result
-                
-                # Handle single time
-                time = self._parse_time_match(match)
-                if time:
-                    if not result['start_time']:
-                        result['start_time'] = time
-                    elif not result['end_time']:
-                        result['end_time'] = time
-
-        # Process duration if we have start time but no end time
-        if result['start_time'] and not result['end_time']:
-            duration_minutes = self._extract_duration(text)
-            if duration_minutes:
-                try:
-                    start_dt = datetime.strptime(result['start_time'], '%H:%M')
-                    end_dt = start_dt + timedelta(minutes=duration_minutes)
-                    result['end_time'] = end_dt.strftime('%H:%M')
-                except ValueError:
-                    pass
-
-
-
+        # Determine if this should be a day marking
         is_day_marking = not result.get('start_time') and not result.get('end_time')
-        # Check for day marking if no time was found
-        print(is_day_marking)
-        print("BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB")
-        result['day_marking_title'] = is_day_marking
+        if is_day_marking:
+            result['day_marking_title'] = self._generate_day_marking_title(text)
+        else:
+            result['day_marking_title'] = None
+
+        return result
+
+    def _parse_time_with_duckling(self, text: str) -> Dict[str, Optional[str]]:
+        """Parse time using Duckling service"""
+        result = {'start_time': None, 'end_time': None}
+        
+        try:
+            entities = self._call_duckling(text, ['time'])
             
+            for entity in entities:
+                if entity.get('dim') == 'time':
+                    value = entity.get('value', {})
+                    
+                    if 'value' in value:
+                        # Single time point
+                        dt = datetime.fromisoformat(value['value'].replace('Z', '+00:00')).replace(tzinfo=None)
+                        time_str = dt.strftime('%H:%M')
+                        if not result['start_time']:
+                            result['start_time'] = time_str
+                        elif not result['end_time']:
+                            result['end_time'] = time_str
+                    
+                    elif 'from' in value and 'to' in value:
+                        # Time interval
+                        start_dt = datetime.fromisoformat(value['from']['value'].replace('Z', '+00:00')).replace(tzinfo=None)
+                        end_dt = datetime.fromisoformat(value['to']['value'].replace('Z', '+00:00')).replace(tzinfo=None)
+                        
+                        result['start_time'] = start_dt.strftime('%H:%M')
+                        result['end_time'] = end_dt.strftime('%H:%M')
+                        break  # We found a range, no need to continue
+                        
+        except Exception as e:
+            logger.error(f"Error parsing time with Duckling: {e}")
             
         return result
 
+    def _parse_time_fallback(self, text: str) -> Dict[str, Optional[str]]:
+        """Fallback time parsing using regex patterns"""
+        result = {'start_time': None, 'end_time': None}
         
-    def _is_part_of_date(self, text: str, start_pos: int, end_pos: int) -> bool:
-        """Check if the matched text is part of a date"""
-        try:
-            for pattern in self.compiled_date_patterns:
-                for match in pattern.finditer(text):
-                    if start_pos >= match.start() and end_pos <= match.end():
-                        return True
-            return False
-        except (TypeError, AttributeError):
-            return False
-
-    def _parse_time_match(self, match: re.Match) -> Optional[str]:
-        """Parse a time match and return in 24-hour format"""
-        try:
-            groups = match.groupdict()
-            if not groups or 'hour' not in groups:
-                return None
+        # Time patterns for fallback
+        time_patterns = [
+            r'(?P<hour>\d{1,2})(?::(?P<minute>\d{2}))?\s*(?P<meridian>am|pm|a\.m\.|p\.m\.)\b',
+            r'(?P<hour>2[0-3]|[01]\d)(?::(?P<minute>[0-5]\d))\b',
+            r'(?P<start_hour>\d{1,2})(?::(?P<start_minute>\d{2}))?\s*(?P<start_meridian>am|pm|a\.m\.|p\.m\.)?'
+            r'\s*(?:to|until|-|–)\s*(?P<end_hour>\d{1,2})(?::(?P<end_minute>\d{2}))?\s*(?P<end_meridian>am|pm|a\.m\.|p\.m\.)?'
+        ]
+        
+        for pattern in time_patterns:
+            match = re.search(pattern, text, re.IGNORECASE)
+            if match:
+                groups = match.groupdict()
                 
-            hour_str = groups.get('hour')
+                # Handle time ranges
+                if 'start_hour' in groups and 'end_hour' in groups:
+                    start_time = self._convert_to_24h(
+                        groups.get('start_hour'),
+                        groups.get('start_minute', '0'),
+                        groups.get('start_meridian', '')
+                    )
+                    end_time = self._convert_to_24h(
+                        groups.get('end_hour'),
+                        groups.get('end_minute', '0'),
+                        groups.get('end_meridian', '')
+                    )
+                    
+                    if start_time and end_time:
+                        result['start_time'] = start_time
+                        result['end_time'] = end_time
+                        break
+                
+                # Handle single time
+                elif 'hour' in groups:
+                    time_str = self._convert_to_24h(
+                        groups.get('hour'),
+                        groups.get('minute', '0'),
+                        groups.get('meridian', '')
+                    )
+                    if time_str:
+                        result['start_time'] = time_str
+                        break
+                        
+        return result
+
+    def _convert_to_24h(self, hour_str: str, minute_str: str, meridian: str) -> Optional[str]:
+        """Convert time components to 24-hour format"""
+        try:
             if not hour_str:
                 return None
+                
+            hour = int(hour_str)
+            minute = int(minute_str or '0')
+            meridian = meridian.lower().replace('.', '')
             
-            # Convert word numbers to digits
-            if isinstance(hour_str, str) and hour_str.lower() in self.number_words:
-                hour = self.number_words[hour_str.lower()]
-            else:
-                try:
-                    hour = int(hour_str)
-                except (ValueError, TypeError):
-                    return None
-                
-            # Safely convert minute with default
-            try:
-                minute = int(groups.get('minute', '0') or '0')
-            except (ValueError, TypeError):
-                minute = 0
-                
-            meridian = (groups.get('meridian') or '').lower().replace('.', '')
-
-            # Handle special cases
-            if meridian in ['noon', 'midnight']:
-                return '12:00' if meridian == 'noon' else '00:00'
-
-            # Convert to 24-hour format
-            if meridian:
-                if meridian.startswith('p') and hour != 12:
-                    hour += 12
-                elif meridian.startswith('a') and hour == 12:
-                    hour = 0
-
-            # Validate time
+            if meridian.startswith('p') and hour != 12:
+                hour += 12
+            elif meridian.startswith('a') and hour == 12:
+                hour = 0
+            
             if not (0 <= hour <= 23 and 0 <= minute <= 59):
                 return None
-
+                
             return f"{hour:02d}:{minute:02d}"
-
-        except (ValueError, AttributeError, TypeError):
+            
+        except (ValueError, TypeError):
             return None
 
-    def _extract_duration(self, text: str) -> Optional[int]:
-        """Extract duration from text and return total minutes"""
-        try:
-            # Check special durations first
-            for special, minutes in self.special_durations.items():
-                if special in text.lower():
-                    return minutes
-
-            # Process duration patterns
-            for pattern in self.compiled_duration_patterns:
-                match = pattern.search(text)
-                if match:
-                    groups = match.groupdict()
-                    total_minutes = 0
-                    
-                    # Handle hours
-                    if groups.get('hours'):
-                        hours_str = groups['hours']
-                        if hours_str.isdigit():
-                            hours = float(hours_str)
-                        else:
-                            hours = self.number_words.get(hours_str.lower(), 0)
-                        total_minutes += int(hours * 60)
-                    
-                    # Handle minutes
-                    if groups.get('minutes'):
-                        try:
-                            minutes = int(groups['minutes'])
-                            total_minutes += minutes
-                        except (ValueError, TypeError):
-                            pass
-                    
-                    # Handle fractions
-                    if groups.get('fraction'):
-                        fraction = groups['fraction'].lower()
-                        if fraction == 'half':
-                            total_minutes += 30
-                        elif fraction == 'quarter':
-                            total_minutes += 15
-                    
-                    return total_minutes
-
-            return None
-        except (ValueError, AttributeError, TypeError):
-            return None
-
-    def _handle_range(self, start_hour_str: str, end_hour_str: str, 
-                     start_meridian: str, end_meridian: str,
-                     start_minute_str: str = '0', end_minute_str: str = '0') -> Optional[Dict[str, str]]:
-        """Handle time ranges with enhanced meridian handling and None checks"""
-        try:
-            # Early validation of inputs
-            if not all(isinstance(x, str) for x in [start_hour_str, end_hour_str]):
-                return None
-                
-            # Convert word numbers if necessary
-            if start_hour_str.lower() in self.number_words:
-                start_hour = self.number_words[start_hour_str.lower()]
-            else:
-                try:
-                    start_hour = int(start_hour_str)
-                except (ValueError, TypeError):
-                    return None
-                
-            if end_hour_str.lower() in self.number_words:
-                end_hour = self.number_words[end_hour_str.lower()]
-            else:
-                try:
-                    end_hour = int(end_hour_str)
-                except (ValueError, TypeError):
-                    return None
-            
-            # Safely convert minutes with defaults
-            try:
-                start_minute = int(start_minute_str or '0')
-                end_minute = int(end_minute_str or '0')
-            except (ValueError, TypeError):
-                start_minute = 0
-                end_minute = 0
-            
-            # Process meridians with None handling
-            start_meridian = (start_meridian or '').lower().replace('.', '')
-            end_meridian = (end_meridian or '').lower().replace('.', '')
-            
-            # Convert start time to 24-hour format
-            if start_meridian.startswith('p'):
-                if start_hour != 12:
-                    start_hour += 12
-            elif start_meridian.startswith('a'):
-                if start_hour == 12:
-                    start_hour = 0
-                    
-            # Convert end time to 24-hour format
-            if end_meridian.startswith('p'):
-                if end_hour != 12:
-                    end_hour += 12
-            elif end_meridian.startswith('a'):
-                if end_hour == 12:
-                    end_hour = 0
-            
-            # Handle cross-meridian ranges (e.g., 11pm-1am)
-            if not end_meridian and start_meridian:
-                if start_hour > end_hour:
-                    if start_meridian.startswith('p'):
-                        end_hour += 12
-                else:
-                    if start_meridian.startswith('p'):
-                        end_hour += 12
-                    elif start_meridian.startswith('a'):
-                        end_hour = end_hour % 12
-            
-            # Final validation
-            if not (0 <= start_hour <= 23 and 0 <= end_hour <= 23 and
-                   0 <= start_minute <= 59 and 0 <= end_minute <= 59):
-                return None
-            
-            return {
-                'start_time': f"{start_hour:02d}:{start_minute:02d}",
-                'end_time': f"{end_hour:02d}:{end_minute:02d}"
-            }
-            
-        except (ValueError, AttributeError, TypeError):
-            return None
+    def _generate_day_marking_title(self, text: str) -> Optional[str]:
+        """Generate a day marking title based on text content"""
+        text_lower = text.lower()
         
+        # Check for event indicators
+        for pattern, label in self.compiled_event_indicators.items():
+            if pattern.search(text_lower):
+                # Check for subject context
+                for subj_pattern, subj_label in self.compiled_subject_patterns.items():
+                    if subj_pattern.search(text_lower):
+                        return f"{subj_label} {label}"
+                return label
+        
+        # Check for subject patterns alone
+        for pattern, label in self.compiled_subject_patterns.items():
+            if pattern.search(text_lower):
+                return label
+        
+        # If no specific patterns found, return a generic title based on content
+        if len(text.split()) <= 3:
+            return text.title()
+        
+        return "Event"
+
+    def is_duckling_available(self) -> bool:
+        """Check if Duckling service is available"""
+        try:
+            response = requests.get(f"{self.duckling_url}/parse", timeout=2)
+            return response.status_code in [200, 400]  # 400 is expected for GET without params
+        except requests.exceptions.RequestException:
+            return False
+
+    def get_status(self) -> Dict[str, Any]:
+        """Get parser status and configuration"""
+        return {
+            'duckling_url': self.duckling_url,
+            'duckling_available': self.is_duckling_available(),
+            'reference_time': self.reference_time.isoformat(),
+            'fallback_enabled': True
+        }
+
+
+# Compatibility classes to maintain the same interface
+class DateHandler:
+    """Compatibility wrapper for the enhanced parser"""
+    
+    def __init__(self, duckling_url: str = "http://127.0.0.1:8080"):
+        self.parser = DucklingDateTimeParser(duckling_url)
+    
+    def parse_date(self, text: str) -> Optional[datetime]:
+        return self.parser.parse_date(text)
+
+
+
+
+class TimeParser:
+    """Compatibility wrapper for the enhanced parser"""
+    
+    def __init__(self, duckling_url: str = "http://localhost:8080"):
+        self.parser = DucklingDateTimeParser(duckling_url)
+    
+    def parse_time(self, text: str) -> Dict[str, Optional[str]]:
+        return self.parser.parse_time(text)
 class ScheduleSpellChecker:
     def __init__(self):
         # Load spaCy model for basic tokenization and lemmatization
@@ -2156,3 +2024,4 @@ def get_csrf_token(request):
     response = HttpResponse()
     response['X-CSRFToken'] = get_token(request)
     return response
+

@@ -27,6 +27,36 @@ CSRF_TRUSTED_ORIGINS = [
     "https://127.0.0.1:3000",
 ]
 
+
+#DUCKLING STUFF
+DUCKLING_URL = os.environ.get('DUCKLING_URL', 'http://127.0.0.1:8080')
+
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'handlers': {
+        'file': {
+            'level': 'INFO',
+            'class': 'logging.FileHandler',
+            'filename': 'duckling_parser.log',
+        },
+        'console': {
+            'level': 'INFO',
+            'class': 'logging.StreamHandler',
+        },
+    },
+    'loggers': {
+        'duckling_parser': {
+            'handlers': ['file', 'console'],
+            'level': 'INFO',
+            'propagate': True,
+        },
+    },
+}
+#DUCKLING STUFF
+
+
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
     "http://127.0.0.1:8000",
