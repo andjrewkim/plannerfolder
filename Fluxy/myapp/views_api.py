@@ -16,6 +16,9 @@ class CalendarEventCreate(APIView):
             # Format the datetime properly
             date = request.data.get('date')
             
+
+                
+                
             # Handle start and end times - they might be None for marking events
             start_time = None
             end_time = None
@@ -26,6 +29,18 @@ class CalendarEventCreate(APIView):
             if request.data.get('end_time'):
                 end_time = datetime.strptime(request.data.get('end_time'), '%H:%M').time()
                 
+                
+            if request.data.get('start_time'):
+                start_time = datetime.strptime(request.data.get('start_time'), '%H:%M').time()
+
+            if request.data.get('end_time'):
+                end_time = datetime.strptime(request.data.get('end_time'), '%H:%M').time()
+
+            # Check for full-day range and set to None if so
+            if start_time == "00:00" and end_time == "23:59":
+                start_time = None
+                end_time = None
+    
             day_marking_title = request.data.get('day_marking_title')
             
             # Use the type from the extracted data
@@ -48,7 +63,7 @@ class CalendarEventCreate(APIView):
                 'color': request.data.get('color', "#000")
             }
             
-            serializer = CalendarEventSerializer(data=request.data, context={'request': request})
+            serializer = CalendarEventSerializer(data=event_data, context={'request': request})
             if serializer.is_valid():
                 # The serializer's create method will handle user assignment
                 event = serializer.save()
