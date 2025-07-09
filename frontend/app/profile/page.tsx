@@ -12,6 +12,41 @@ import {
 } from 'lucide-react';
 import { authAPI } from '../../lib/auth';
 
+// Standalone SignOutButton component
+const SignOutButton: React.FC = () => {
+  console.log('=== SIGN OUT CLICKED ===');
+  
+  const router = useRouter();
+  const [isLoading, setIsLoading] = useState(false);
+  
+  const handleSignOut = async () => {
+    setIsLoading(true);
+    try {
+      await authAPI.logout();
+      router.push('/userlogin');
+    } catch (error) {
+      console.error('Sign out error:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  
+  return (
+    <button
+      onClick={handleSignOut}
+      disabled={isLoading}
+      className="px-4 py-2 rounded-md bg-blue-600 text-white hover:bg-blue-700"
+    >
+      {isLoading ? 'Signing out...' : (
+        <div className="flex items-center">
+          <LogOut className="h-4 w-4 mr-2" />
+          Sign Out
+        </div>
+      )}
+    </button>
+  );
+};
+
 const ProfileSection: React.FC = () => {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
@@ -107,6 +142,12 @@ const ProfileSection: React.FC = () => {
                   </button>
                 </div>
                 <p className="text-xs text-gray-500 mt-1">Choose a strong password that you haven't used elsewhere.</p>
+              </div>
+
+              {/* Added the standalone SignOutButton component here */}
+              <div className="pt-6 border-t border-gray-200">
+                <label className="block text-sm font-medium text-gray-700 mb-2">Quick Actions</label>
+                <SignOutButton />
               </div>
             </div>
           </div>
