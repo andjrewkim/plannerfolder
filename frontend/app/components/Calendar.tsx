@@ -1,5 +1,3 @@
-
-
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   DateSelectArg,
@@ -12,6 +10,7 @@ import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin from "@fullcalendar/interaction";
+import { RRule } from 'rrule';
 import EventModal from './EventModal';
 import DayMarkingHighlighter from './DayMarkingHIghlighter';
 import { authAPI } from '../../lib/auth';
@@ -53,7 +52,7 @@ interface ModalPosition {
 
 interface CalendarProps {
   onEventChange?: () => void;
-  onViewChange?: (newView: string) => void; // Add onViewChange prop
+  onViewChange?: (newView: string) => void;
 }
 
 const Calendar: React.FC<CalendarProps> = ({ onEventChange, onViewChange }) => {
@@ -76,6 +75,71 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange, onViewChange }) => {
     currentEventsRef.current = currentEvents;
   }, [currentEvents]);
 
+  // Helper function to expand recurring events
+  const expandRecurringEvents = (events: EventDetails[]): EventDetails[] => {
+    const expandedEvents: EventDetails[] = [];
+    const today = new Date();
+    const futureLimit = new Date(today.getFullYear() + 2, today.getMonth(), today.getDate()); // 2 years ahead
+
+    events.forEach(event => {
+      if (event.recurrence_pattern && event.recurrence_pattern.trim() !== '') {
+        try {
+          // Parse the RRule with the original event date as the starting point
+          const baseDate = new Date(event.date);
+          
+          // Create RRule with DTSTART set to the original event date
+          const ruleString = event.recurrence_pattern.includes('DTSTART') 
+            ? event.recurrence_pattern 
+            : `DTSTART=${baseDate.toISOString().split('T')[0].replace(/-/g, '')}\n${event.recurrence_pattern}`;
+          
+          const rule = RRule.fromString(ruleString);
+          
+          // Generate occurrences starting from the original event date
+          const occurrences = rule.between(
+            new Date(Math.min(baseDate.getTime(), today.getTime() - 30 * 24 * 60 * 60 * 1000)), // Start from original date or 30 days ago, whichever is earlier
+            futureLimit,
+            true
+          );
+
+          // Always include the original event date if it's not already in occurrences
+          const originalDateString = baseDate.toISOString().split('T')[0];
+          const hasOriginalDate = occurrences.some(occ => 
+            occ.toISOString().split('T')[0] === originalDateString
+          );
+
+          if (!hasOriginalDate) {
+            occurrences.unshift(baseDate);
+          }
+
+          occurrences.forEach((occurrence, index) => {
+            const eventDate = new Date(occurrence);
+            
+            // Create a new event instance for each occurrence
+            expandedEvents.push({
+              ...event,
+              id: `${event.id}_${index}`, // Unique ID for each occurrence
+              eventId: event.id, // Keep original ID for editing
+              date: eventDate.toISOString().split('T')[0],
+              // Preserve original times if they exist
+              start_time: event.start_time,
+              end_time: event.end_time
+            });
+          });
+        } catch (error) {
+          console.error('Error parsing RRule:', event.recurrence_pattern, error);
+          // Fall back to single event if RRule parsing fails
+          expandedEvents.push(event);
+        }
+      } else {
+        // Non-recurring event
+        expandedEvents.push(event);
+      }
+    });
+
+    return expandedEvents;
+  };
+
+
   const fetchEvents = useCallback(async () => {
     if (!shouldFetch.current) return;
     shouldFetch.current = false;
@@ -85,8 +149,12 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange, onViewChange }) => {
       if (!response.ok) throw new Error('Failed to fetch events');
 
       const data: EventDetails[] = await response.json();
+      
+      // Expand recurring events
+      const expandedEvents = expandRecurringEvents(data);
+      
       // Process all events, including day markings
-      const formattedEvents = data.map((event: EventDetails) => ({
+      const formattedEvents = expandedEvents.map((event: EventDetails) => ({
         id: String(event.id),
         title: event.day_marking_title || event.event_name,
         start: formatToISOString(event.date, event.start_time),
@@ -94,6 +162,7 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange, onViewChange }) => {
         backgroundColor: event.color,
         borderColor: event.color,
         extendedProps: {
+          originalId: event.eventId || event.id, // Store original ID for editing
           location: event.location,
           virtual: event.virtual,
           urgency: event.urgency,
@@ -110,27 +179,23 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange, onViewChange }) => {
       setCurrentEvents(formattedEvents as unknown as EventApi[]);
     } catch (err) {
       console.error('Error fetching events:', err);
-      // Use the setError function directly instead of from dependency
       setError(err instanceof Error ? err.message : 'An unexpected error occurred');
     }
-  }, []); // ← Remove setError from dependencies
+  }, []);
 
-  // Alternative approach - use useEffect with empty dependency array
   useEffect(() => {
     fetchEvents();
-  }, []); // ← Only run once on mount
-
+  }, []);
 
   const refreshEvents = useCallback(() => {
     shouldFetch.current = true;
     fetchEvents();
     setRefreshTrigger(prev => prev + 1);
-  }, []);
+  }, [fetchEvents]);
 
   const formatToISOString = (date: string, time: string | null): string => {
-    if (!date) return new Date().toISOString(); // Default to current date/time if no date
+    if (!date) return new Date().toISOString();
 
-    // ✅ Create date in local timezone instead of UTC
     const [year, month, day] = date.split('-');
     const dateObj = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
 
@@ -198,6 +263,9 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange, onViewChange }) => {
     const startDate = new Date(event.start!);
     const endDate = event.end ? new Date(event.end) : startDate;
 
+    // Use originalId for recurring events
+    const eventId = event.extendedProps.originalId || event.id;
+
     const updatedEvent = {
       event_name: event.title,
       date: startDate.toISOString().split('T')[0],
@@ -222,7 +290,7 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange, onViewChange }) => {
       color: event.backgroundColor || '#3788d8'
     };
 
-    authAPI.authenticatedFetch(`http://127.0.0.1:8000/api/events/${event.id}/`, {
+    authAPI.authenticatedFetch(`http://127.0.0.1:8000/api/events/${eventId}/`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
@@ -248,14 +316,12 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange, onViewChange }) => {
   const handleDateSelect = useCallback((selectInfo: DateSelectArg) => {
     const startDate = selectInfo.start;
 
-    // Calculate position of modal based on the cell element
     const rect = selectInfo.jsEvent?.target ? (selectInfo.jsEvent.target as Element).getBoundingClientRect() : null;
 
     if (rect) {
       const viewportWidth = window.innerWidth;
-      const modalWidth = 400; // Approximate modal width
+      const modalWidth = 400;
 
-      // Position modal to the right of the day cell if there's room, otherwise to the left
       let x = rect.right + 10;
       if (rect.right + modalWidth + 20 > viewportWidth) {
         x = Math.max(10, rect.left - modalWidth - 10);
@@ -292,9 +358,8 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange, onViewChange }) => {
       color: '#3788d8'
     });
     setIsModalOpen(true);
-  }, [refreshEvents]);
+  }, []);
 
-  // Delete event function shared across components
   const handleDeleteEvent = async (eventId: string): Promise<boolean> => {
     try {
       setIsLoading(true);
@@ -362,7 +427,7 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange, onViewChange }) => {
             }
           });
         }
-      }, 300); // Delay before showing the popup
+      }, 300);
     };
 
     const handleMouseLeave = () => {
@@ -377,7 +442,7 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange, onViewChange }) => {
         if (!isHoveringPopup) {
           setHoveredDay(null);
         }
-      }, 100); // Delay before hiding the popup
+      }, 100);
     };
 
     cell.addEventListener('mouseenter', handleMouseEnter);
@@ -399,7 +464,6 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange, onViewChange }) => {
     }
   };
 
-  // Handler for when day markings are loaded
   const handleDayMarkingsLoaded = useCallback((markings: EventSourceInput) => {
     setDayMarkings(markings);
   }, []);
@@ -413,7 +477,6 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange, onViewChange }) => {
     const [updatedMarking, setUpdatedMarking] = useState<{ id: string; day_marking_title: string; urgency: string } | null>(null);
     const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
 
-    // Identify day markings and regular events
     const dayMarkings = info.events.filter(event =>
       event.extendedProps && event.extendedProps.event_type === 'marking'
     );
@@ -436,21 +499,18 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange, onViewChange }) => {
       if (!updatedMarking) return;
 
       try {
-        // Get the original event to preserve other properties
         const originalEvent = info.events.find(e => e.id === event.id);
         if (!originalEvent) return;
 
-        // Prepare the update data, preserving the original fields
         const updatedData: EventDetails = {
-          // Preserve the original event properties
-          event_name: updatedMarking.day_marking_title, // Use the updated title
+          event_name: updatedMarking.day_marking_title,
           date: new Date(originalEvent.start!).toISOString().split('T')[0],
           start_time: null,
           end_time: null,
           location: originalEvent.extendedProps?.location || '',
           virtual: originalEvent.extendedProps?.virtual || false,
           notes: originalEvent.extendedProps?.notes || '',
-          event_type: 'marking', // Ensure it stays as a marking
+          event_type: 'marking',
           category: originalEvent.extendedProps?.category || '',
           subcategories: originalEvent.extendedProps?.subcategories || '',
           recurrence_pattern: originalEvent.extendedProps?.recurrence_pattern || '',
@@ -459,7 +519,10 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange, onViewChange }) => {
           color: originalEvent.backgroundColor || '#3788d8'
         };
 
-        const response = await authAPI.authenticatedFetch(`http://127.0.0.1:8000/api/events/${event.id}/`, {
+        // Use originalId for recurring events
+        const eventId = originalEvent.extendedProps?.originalId || event.id;
+
+        const response = await authAPI.authenticatedFetch(`http://127.0.0.1:8000/api/events/${eventId}/`, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
@@ -494,13 +557,17 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange, onViewChange }) => {
     };
 
     const confirmDelete = async (eventId: string) => {
-      const success = await handleDeleteEvent(eventId);
+      // Find the event to get originalId for recurring events
+      const event = info.events.find(e => e.id === eventId);
+      const actualEventId = event?.extendedProps?.originalId || eventId;
+      
+      const success = await handleDeleteEvent(actualEventId);
       if (success) {
         setDeleteConfirmId(null);
       }
     };
 
-return (
+    return (
       <div
         className="popup-details fixed z-50 bg-white shadow-lg rounded-lg p-4 border border-gray-200"
         style={{
@@ -527,7 +594,6 @@ return (
           })}
         </h3>
 
-        {/* Day Markings Section */}
         {dayMarkings.length > 0 && (
           <div className="mb-3">
             <h4 className="text-sm font-semibold text-gray-600 mb-1">Day Markings</h4>
@@ -627,7 +693,6 @@ return (
           </div>
         )}
 
-        {/* Regular Events Section */}
         {regularEvents.length > 0 && (
           <div>
             <h4 className="text-sm font-semibold text-gray-600 mb-1">Events</h4>
@@ -664,7 +729,6 @@ return (
     );
   };
 
-  // Combine regular events and day markings for the calendar
   const allEvents = [
     ...(currentEvents || []).map(event => ({
       id: event.id,
@@ -680,12 +744,9 @@ return (
 
   return (
     <div className="flex">
-      {/* Empty sidebar spacer */}
       <div className="w-[320px] bg-gray-100">
-        {/* You can put sidebar content here or leave empty */}
       </div>
 
-      {/* Main calendar content */}
       <div className="flex-1">
         <DayMarkingHighlighter
           onMarkingsLoaded={handleDayMarkingsLoaded}
@@ -711,7 +772,6 @@ return (
           events={allEvents}
           select={handleDateSelect}
           eventClick={(clickInfo: EventClickArg) => {
-            // Skip opening modal for day markings
             if (clickInfo.event.extendedProps?.event_type === 'marking') {
               return;
             }
@@ -720,13 +780,11 @@ return (
             const startDate = new Date(event.start!);
             const endDate = event.end ? new Date(event.end) : startDate;
 
-            // Calculate position of modal based on the event element
             const eventEl = clickInfo.el;
             const rect = eventEl.getBoundingClientRect();
             const viewportWidth = window.innerWidth;
-            const modalWidth = 400; // Approximate modal width
+            const modalWidth = 400;
 
-            // Position modal to the right of the event if there's room, otherwise to the left
             let x = rect.right + 10;
             if (rect.right + modalWidth + 20 > viewportWidth) {
               x = Math.max(10, rect.left - modalWidth - 10);
@@ -738,7 +796,7 @@ return (
             });
 
             setSelectedEvent({
-              eventId: event.id,
+              eventId: event.extendedProps?.originalId || event.id,
               event_name: event.title,
               date: startDate.toISOString().split('T')[0],
               start_time: startDate.toLocaleTimeString('en-US', {
@@ -771,7 +829,7 @@ return (
           dayCellDidMount={handleDayCellDidMount}
           viewDidMount={(viewInfo) => {
             if (onViewChange) {
-              onViewChange(viewInfo.view.type); // Call onViewChange when the view changes
+              onViewChange(viewInfo.view.type);
             }
           }}
         />

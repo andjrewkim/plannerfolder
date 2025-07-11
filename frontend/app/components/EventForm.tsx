@@ -1,17 +1,9 @@
 import React, { useState } from 'react';
 import { createEvent } from '../services/apiService';
 import { Clock, Calendar, MapPin, Tag, Repeat } from 'lucide-react';
-import { authAPI } from '../../lib/auth'; // Import the auth service
+import { authAPI } from '../../lib/auth';
+import { RRule } from 'rrule';
 import '../styles/eventform.css';
-
-export interface RecurrencePattern {
-  type: 'none' | 'daily' | 'weekly' | 'monthly' | 'yearly';
-  interval: number;
-  day?: number;
-  days_of_week?: number[];
-  end_date?: string;
-  count?: number;
-}
 
 export interface EventData {
   id?: string;
@@ -21,7 +13,7 @@ export interface EventData {
   end_time: string;
   location: string;
   event_type: string;
-  recurrence_pattern: RecurrencePattern;
+  recurrence_pattern: string; // Now stores RRule string
   color: string;
   is_all_day: boolean;
   day_marking_title?: string;
@@ -39,6 +31,176 @@ const EventForm: React.FC<EventFormProps> = ({ setResult, setError }) => {
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [parsedEventData, setParsedEventData] = useState<EventData | null>(null);
   const [editedEventData, setEditedEventData] = useState<EventData | null>(null);
+
+  // Helper function to parse RRule string into a readable format
+  const parseRRuleString = (rruleString: string): RRule | null => {
+    try {
+      if (!rruleString || rruleString.trim() === '') return null;
+      return RRule.fromString(rruleString);
+    } catch (error) {
+      console.error('Error parsing RRule:', error);
+      return null;
+    }
+  };
+
+  // Helper function to convert simple recurrence options to RRule strings
+  const convertToRRuleString = (option: string): string => {
+    const baseDate = new Date();
+    
+    switch (option) {
+      case 'none':
+        return '';
+      case 'daily':
+        return 'FREQ=DAILY;INTERVAL=1';
+      case 'every_other_day':
+        return 'FREQ=DAILY;INTERVAL=2';
+      case 'weekdays':
+        return 'FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR';
+      case 'weekends':
+        return 'FREQ=WEEKLY;BYDAY=SA,SU';
+      case 'weekly':
+        return 'FREQ=WEEKLY;INTERVAL=1';
+      case 'every_other_week':
+        return 'FREQ=WEEKLY;INTERVAL=2';
+      case 'monthly':
+        return 'FREQ=MONTHLY;INTERVAL=1';
+      case 'yearly':
+        return 'FREQ=YEARLY;INTERVAL=1';
+      default:
+        return '';
+    }
+  };
+
+  // Helper function to convert RRule string back to simple option for display
+  const convertRRuleToSimpleOption = (rruleString: string): string => {
+    if (!rruleString || rruleString.trim() === '') return 'none';
+    
+    try {
+      const rrule = RRule.fromString(rruleString);
+      const options = rrule.options;
+      
+      if (options.freq === RRule.DAILY) {
+        if (options.interval === 1) return 'daily';
+        if (options.interval === 2) return 'every_other_day';
+      }
+      
+      if (options.freq === RRule.WEEKLY) {
+        // Check for weekdays pattern
+        if (options.byweekday && options.byweekday.length === 5) {
+          const weekdayNumbers = options.byweekday.map(day => 
+            typeof day === 'number' ? day : day.weekday
+          ).sort();
+          if (JSON.stringify(weekdayNumbers) === JSON.stringify([0, 1, 2, 3, 4])) {
+            return 'weekdays';
+          }
+        }
+        
+        // Check for weekends pattern
+        if (options.byweekday && options.byweekday.length === 2) {
+          const weekendNumbers = options.byweekday.map(day => 
+            typeof day === 'number' ? day : day.weekday
+          ).sort();
+          if (JSON.stringify(weekendNumbers) === JSON.stringify([5, 6])) {
+            return 'weekends';
+          }
+        }
+        
+        if (options.interval === 1) return 'weekly';
+        if (options.interval === 2) return 'every_other_week';
+      }
+      
+      if (options.freq === RRule.MONTHLY && options.interval === 1) return 'monthly';
+      if (options.freq === RRule.YEARLY && options.interval === 1) return 'yearly';
+      
+      return 'none';
+    } catch (error) {
+      console.error('Error converting RRule to simple option:', error);
+      return 'none';
+    }
+  };
+
+  // Helper function to get additional details for recurrence (e.g., specific days)
+  const getRecurrenceDetails = (rruleString: string): string => {
+    if (!rruleString || rruleString.trim() === '') return '';
+    
+    try {
+      const rrule = RRule.fromString(rruleString);
+      const options = rrule.options;
+      
+      if (options.freq === RRule.WEEKLY && options.byweekday && options.byweekday.length === 1) {
+        const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+        const dayIndex = typeof options.byweekday[0] === 'number' ? options.byweekday[0] : options.byweekday[0].weekday;
+        return `(${dayNames[dayIndex]})`;
+      }
+      
+      if (options.freq === RRule.MONTHLY && options.bymonthday && options.bymonthday.length === 1) {
+        const day = options.bymonthday[0];
+        const suffix = day === 1 ? 'st' : day === 2 ? 'nd' : day === 3 ? 'rd' : 'th';
+        return `(${day}${suffix})`;
+      }
+      
+      return '';
+    } catch (error) {
+      console.error('Error getting recurrence details:', error);
+      return '';
+    }
+  };
+
+  // Helper function to format RRule string for display
+  const formatRRuleText = (rruleString: string): string => {
+    if (!rruleString || rruleString.trim() === '') return 'Doesn\'t repeat';
+    
+    try {
+      const rrule = RRule.fromString(rruleString);
+      const options = rrule.options;
+      
+      if (options.freq === RRule.DAILY) {
+        if (options.interval === 1) return 'Every day';
+        if (options.interval === 2) return 'Every other day';
+        return `Every ${options.interval} days`;
+      }
+      
+      if (options.freq === RRule.WEEKLY) {
+        // Check for weekdays pattern
+        if (options.byweekday && options.byweekday.length === 5) {
+          const weekdayNumbers = options.byweekday.map(day => 
+            typeof day === 'number' ? day : day.weekday
+          ).sort();
+          if (JSON.stringify(weekdayNumbers) === JSON.stringify([0, 1, 2, 3, 4])) {
+            return 'Weekdays only (Mon-Fri)';
+          }
+        }
+        
+        // Check for weekends pattern
+        if (options.byweekday && options.byweekday.length === 2) {
+          const weekendNumbers = options.byweekday.map(day => 
+            typeof day === 'number' ? day : day.weekday
+          ).sort();
+          if (JSON.stringify(weekendNumbers) === JSON.stringify([5, 6])) {
+            return 'Weekends only (Sat-Sun)';
+          }
+        }
+        
+        if (options.interval === 1) return 'Every week';
+        if (options.interval === 2) return 'Every other week';
+        return `Every ${options.interval} weeks`;
+      }
+      
+      if (options.freq === RRule.MONTHLY) {
+        return 'Every month';
+      }
+      
+      if (options.freq === RRule.YEARLY) {
+        return 'Every year';
+      }
+      
+      // For complex rules, show the actual RRule string
+      return rrule.toText();
+    } catch (error) {
+      console.error('Error formatting RRule:', error);
+      return 'Custom recurrence pattern';
+    }
+  };
 
   const handleInitialSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -60,10 +222,10 @@ const EventForm: React.FC<EventFormProps> = ({ setResult, setError }) => {
 
       const data = await response.json();
       
-      // Process recurrence pattern
-      const processedRecurrence =
+      // Process recurrence pattern - now expecting RRule string
+      const processedRecurrence = 
         !data.recurrence_pattern || data.recurrence_pattern === ''
-          ? { type: 'none', interval: 1, day: [] }
+          ? ''
           : data.recurrence_pattern;
       
       // Add is_all_day field if it doesn't exist
@@ -85,7 +247,7 @@ const EventForm: React.FC<EventFormProps> = ({ setResult, setError }) => {
       
       setParsedEventData(processedData);
       setEditedEventData(processedData);
-      setIsModalVisible(true); // Remove the delay that was causing animation issues
+      setIsModalVisible(true);
       setError(null);
       setIsError(false);
     } catch (err) {
@@ -180,75 +342,17 @@ const EventForm: React.FC<EventFormProps> = ({ setResult, setError }) => {
   const handleSimpleRecurrenceChange = (value: string) => {
     if (!editedEventData) return;
     
-    let recurrencePattern: RecurrencePattern;
-    
-    switch (value) {
-      case 'none':
-        recurrencePattern = { type: 'none', interval: 1 };
-        break;
-      case 'daily':
-        recurrencePattern = { type: 'daily', interval: 1 };
-        break;
-      case 'every_other_day':
-        recurrencePattern = { type: 'daily', interval: 2 };
-        break;
-      case 'weekdays':
-        recurrencePattern = { type: 'weekly', interval: 1, days_of_week: [1, 2, 3, 4, 5] }; // Mon-Fri
-        break;
-      case 'weekends':
-        recurrencePattern = { type: 'weekly', interval: 1, days_of_week: [0, 6] }; // Sat-Sun
-        break;
-      case 'weekly':
-        recurrencePattern = { type: 'weekly', interval: 1 };
-        break;
-      case 'every_other_week':
-        recurrencePattern = { type: 'weekly', interval: 2 };
-        break;
-      case 'monthly':
-        recurrencePattern = { type: 'monthly', interval: 1 };
-        break;
-      case 'yearly':
-        recurrencePattern = { type: 'yearly', interval: 1 };
-        break;
-      default:
-        recurrencePattern = { type: 'none', interval: 1 };
-    }
+    const rruleString = convertToRRuleString(value);
     
     setEditedEventData({
       ...editedEventData,
-      recurrence_pattern: recurrencePattern
+      recurrence_pattern: rruleString
     });
   };
 
   const getRecurrenceDisplayValue = (): string => {
     if (!editedEventData?.recurrence_pattern) return 'none';
-    
-    const pattern = editedEventData.recurrence_pattern;
-    
-    if (pattern.type === 'none') return 'none';
-    
-    if (pattern.type === 'daily') {
-      if (pattern.interval === 1) return 'daily';
-      if (pattern.interval === 2) return 'every_other_day';
-    }
-    
-    if (pattern.type === 'weekly') {
-      if (pattern.days_of_week && pattern.days_of_week.length === 5 && 
-          pattern.days_of_week.includes(1) && pattern.days_of_week.includes(5)) {
-        return 'weekdays';
-      }
-      if (pattern.days_of_week && pattern.days_of_week.length === 2 && 
-          pattern.days_of_week.includes(0) && pattern.days_of_week.includes(6)) {
-        return 'weekends';
-      }
-      if (pattern.interval === 1) return 'weekly';
-      if (pattern.interval === 2) return 'every_other_week';
-    }
-    
-    if (pattern.type === 'monthly' && pattern.interval === 1) return 'monthly';
-    if (pattern.type === 'yearly' && pattern.interval === 1) return 'yearly';
-    
-    return 'none';
+    return convertRRuleToSimpleOption(editedEventData.recurrence_pattern);
   };
 
   const handleEventTypeChange = (newType: 'event' | 'task') => {
@@ -261,6 +365,7 @@ const EventForm: React.FC<EventFormProps> = ({ setResult, setError }) => {
         updatedData.location = '';
         updatedData.is_all_day = false;
         updatedData.day_marking_title = '';
+        updatedData.recurrence_pattern = ''; // Tasks don't have recurrence
       }
       // If switching to event, ensure we have end_time
       else if (newType === 'event') {
@@ -291,35 +396,6 @@ const EventForm: React.FC<EventFormProps> = ({ setResult, setError }) => {
       }
       
       setEditedEventData(updatedData);
-    }
-  };
-
-  const formatRecurrenceText = (pattern: RecurrencePattern): string => {
-    if (!pattern || pattern.type === 'none') return 'Doesn\'t repeat';
-    
-    switch (pattern.type) {
-      case 'daily':
-        if (pattern.interval === 1) return 'Every day';
-        if (pattern.interval === 2) return 'Every other day';
-        return `Every ${pattern.interval} days`;
-      case 'weekly':
-        if (pattern.days_of_week && pattern.days_of_week.length === 5 && 
-            pattern.days_of_week.includes(1) && pattern.days_of_week.includes(5)) {
-          return 'Weekdays only (Mon-Fri)';
-        }
-        if (pattern.days_of_week && pattern.days_of_week.length === 2 && 
-            pattern.days_of_week.includes(0) && pattern.days_of_week.includes(6)) {
-          return 'Weekends only (Sat-Sun)';
-        }
-        if (pattern.interval === 1) return 'Every week';
-        if (pattern.interval === 2) return 'Every other week';
-        return `Every ${pattern.interval} weeks`;
-      case 'monthly':
-        return 'Every month';
-      case 'yearly':
-        return 'Every year';
-      default:
-        return 'Doesn\'t repeat';
     }
   };
 
@@ -465,21 +541,24 @@ const EventForm: React.FC<EventFormProps> = ({ setResult, setError }) => {
                 <div className="detail-row recurrence-section">
                   <Repeat className="icon" />
                   <div className="recurrence-controls">
-                    <select
-                      value={getRecurrenceDisplayValue()}
-                      onChange={(e) => handleSimpleRecurrenceChange(e.target.value)}
-                      className="detail-input"
-                    >
-                      <option value="none">Doesn't repeat</option>
-                      <option value="daily">Every day</option>
-                      <option value="every_other_day">Every other day</option>
-                      <option value="weekdays">Weekdays only (Mon-Fri)</option>
-                      <option value="weekends">Weekends only (Sat-Sun)</option>
-                      <option value="weekly">Every week</option>
-                      <option value="every_other_week">Every other week</option>
-                      <option value="monthly">Every month</option>
-                      <option value="yearly">Every year</option>
-                    </select>
+                    <div className="recurrence-input-group">
+                      <select
+                        value={getRecurrenceDisplayValue()}
+                        onChange={(e) => handleSimpleRecurrenceChange(e.target.value)}
+                        className="detail-input"
+                      >
+                        <option value="none">Doesn't repeat</option>
+                        <option value="daily">Every day</option>
+                        <option value="every_other_day">Every other day</option>
+                        <option value="weekdays">Weekdays only (Mon-Fri)</option>
+                        <option value="weekends">Weekends only (Sat-Sun)</option>
+                        <option value="weekly">Every week</option>
+                        <option value="every_other_week">Every other week</option>
+                        <option value="monthly">Every month</option>
+                        <option value="yearly">Every year</option>
+                      </select>
+
+                    </div>
                   </div>
                 </div>
               )}

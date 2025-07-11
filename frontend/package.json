@@ -38,6 +38,7 @@
     "next": "^15.1.4",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
+    "rrule": "^2.8.1",
     "shadcn-ui": "^0.9.4",
     "tailwind-merge": "^2.6.0",
     "tailwindcss-animate": "^1.0.7"

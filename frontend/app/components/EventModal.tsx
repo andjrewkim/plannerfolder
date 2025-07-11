@@ -116,6 +116,7 @@ const EventModal: React.FC<EventModalProps> = ({
   // Early return if not open or no selected event
   if (!isOpen || !selectedEvent) return null;
   
+  // Simplified recurrence options - removed individual days
   const recurrenceOptions = [
     { value: "", label: "No recurrence" },
     { value: "daily", label: "Daily" },
@@ -125,13 +126,6 @@ const EventModal: React.FC<EventModalProps> = ({
     { value: "yearly", label: "Yearly" },
     { value: "weekdays", label: "Every weekday" },
     { value: "weekends", label: "Every weekend" },
-    { value: "monday", label: "Every Monday" },
-    { value: "tuesday", label: "Every Tuesday" },
-    { value: "wednesday", label: "Every Wednesday" },
-    { value: "thursday", label: "Every Thursday" },
-    { value: "friday", label: "Every Friday" },
-    { value: "saturday", label: "Every Saturday" },
-    { value: "sunday", label: "Every Sunday" },
     { value: "custom", label: "Custom" }
   ];
 
@@ -153,15 +147,12 @@ const EventModal: React.FC<EventModalProps> = ({
     if (rrule.startsWith("FREQ=WEEKLY;BYDAY=")) {
       const days = rrule.split("BYDAY=")[1];
       if (days.split(",").length === 1) {
-        const day = days.toLowerCase();
-        const dayMap: { [key: string]: string } = {
-          'mo': 'monday', 'tu': 'tuesday', 'we': 'wednesday',
-          'th': 'thursday', 'fr': 'friday', 'sa': 'saturday', 'su': 'sunday'
-        };
-        return dayMap[day] || "custom";
+        // Single day weekly recurrence - just return "weekly"
+        return "weekly";
       }
       return "custom";
     }
+    if (rrule.startsWith("FREQ=WEEKLY;INTERVAL=2")) return "biweekly";
     if (rrule.startsWith("FREQ=MONTHLY")) return "monthly";
     if (rrule.startsWith("FREQ=YEARLY")) return "yearly";
     
@@ -194,20 +185,6 @@ const EventModal: React.FC<EventModalProps> = ({
         return `FREQ=MONTHLY;BYMONTHDAY=${eventDateObj.getDate()}`;
       case "yearly":
         return `FREQ=YEARLY;BYMONTH=${eventDateObj.getMonth() + 1};BYMONTHDAY=${eventDateObj.getDate()}`;
-      case "monday":
-        return "FREQ=WEEKLY;BYDAY=MO";
-      case "tuesday":
-        return "FREQ=WEEKLY;BYDAY=TU";
-      case "wednesday":
-        return "FREQ=WEEKLY;BYDAY=WE";
-      case "thursday":
-        return "FREQ=WEEKLY;BYDAY=TH";
-      case "friday":
-        return "FREQ=WEEKLY;BYDAY=FR";
-      case "saturday":
-        return "FREQ=WEEKLY;BYDAY=SA";
-      case "sunday":
-        return "FREQ=WEEKLY;BYDAY=SU";
       default:
         return "";
     }
@@ -246,8 +223,13 @@ const EventModal: React.FC<EventModalProps> = ({
         const dayList = days.split(",").map(day => dayMapping[day] || day).join(", ");
         return `Every ${dayList}`;
       } else {
-        return `Every ${dayMapping[days] || days}`;
+        return `Weekly on ${dayMapping[days] || days}`;
       }
+    }
+    
+    if (rrule.startsWith("FREQ=WEEKLY;INTERVAL=2")) {
+      const days = rrule.split("BYDAY=")[1];
+      return `Bi-weekly on ${dayMapping[days] || days}`;
     }
     
     if (rrule.startsWith("FREQ=MONTHLY")) {
@@ -410,8 +392,8 @@ const EventModal: React.FC<EventModalProps> = ({
                 </div>
                 <div className="custom-recurrence-help">
                   <small>
-                    Examples: "daily", "weekdays", "every Monday", "every Monday and Wednesday", 
-                    "monthly", "yearly", "every 2 weeks"
+                    Examples: "daily", "weekdays", "weekly", "biweekly", 
+                    "monthly", "yearly"
                   </small>
                 </div>
               </div>

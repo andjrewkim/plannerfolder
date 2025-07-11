@@ -1497,21 +1497,7 @@ class AdvancedScheduleExtractor:
             'color': '#3788d8'
         }
         
-        # Test different recurrence patterns
-        test_cases = [
-            "daily",
-            "weekdays",
-            "weekends", 
-            "every Monday and Wednesday",
-            "monthly",
-            "yearly",
-            "every Tuesday",
-            "none"
-        ]
-        
-        for recurrence in test_cases:
-            updated = update_event_recurrence(event, recurrence)
-            print(f"Input: '{recurrence}' -> RRULE: '{updated['recurrence_pattern']}'")
+
         
         def _standardize_time_format(self, time):
             """Standardize time format to HH:MM in 24-hour format"""
@@ -1842,11 +1828,7 @@ class AdvancedScheduleExtractor:
             'subcategories': []
         }
             
-        return {
-            'category': None,
-            'confidence': 0,
-            'subcategories': []
-        }
+    
 
     def _extract_event_name(self, text):
         """
@@ -2119,8 +2101,10 @@ class AdvancedScheduleExtractor:
         # Extract urgency
         result['urgency'] = self._determine_urgency(text)
 
-        # Extract recurrence pattern
-        result['recurrence_pattern'] = self._extract_recurrence(text)
+        # Extract recurrence pattern\
+        converter = self.RecurrenceToRRULE()
+        result['recurrence_pattern'] = converter.convert_to_rrule(text, result['date'])
+
 
         # Clean and validate results
         return self._validate_and_clean_results(result)
