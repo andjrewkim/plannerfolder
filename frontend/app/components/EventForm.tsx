@@ -61,7 +61,10 @@ const EventForm: React.FC<EventFormProps> = ({ setResult, setError }) => {
       const data = await response.json();
       
       // Process recurrence pattern
-      const processedRecurrence = data.recurrence_pattern || { type: 'none', interval: 1 };
+      const processedRecurrence =
+        !data.recurrence_pattern || data.recurrence_pattern === ''
+          ? { type: 'none', interval: 1, day: [] }
+          : data.recurrence_pattern;
       
       // Add is_all_day field if it doesn't exist
       const processedData = {

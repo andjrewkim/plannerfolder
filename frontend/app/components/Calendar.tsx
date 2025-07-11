@@ -130,7 +130,9 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange, onViewChange }) => {
   const formatToISOString = (date: string, time: string | null): string => {
     if (!date) return new Date().toISOString(); // Default to current date/time if no date
 
-    const dateObj = new Date(date);
+    // ✅ Create date in local timezone instead of UTC
+    const [year, month, day] = date.split('-');
+    const dateObj = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
 
     if (time) {
       const [hours, minutes] = time.split(':');

@@ -6,7 +6,7 @@ import json
 
 
 class CalendarEventSerializer(serializers.ModelSerializer):
-    recurrence_pattern = serializers.JSONField(required=False, allow_null=True)
+    recurrence_pattern = serializers.CharField(required=False, allow_null=True, allow_blank=True)
     user = serializers.PrimaryKeyRelatedField(read_only=True)
     location = serializers.CharField(required=False, allow_null=True, allow_blank=True)
     virtual = serializers.BooleanField(required=False)
@@ -63,6 +63,9 @@ class CalendarEventSerializer(serializers.ModelSerializer):
 
     def to_internal_value(self, data):
         """Transform incoming data to match serializer field names"""
+        print(f"DEBUG - Raw incoming data: {data}")
+        print(f"DEBUG - Data type: {type(data)}")
+        
         # Handle QueryDict by converting to regular dict and extracting single values
         if hasattr(data, 'getlist'):
             # This is a QueryDict, extract the actual values
@@ -86,20 +89,44 @@ class CalendarEventSerializer(serializers.ModelSerializer):
         if 'type' in data:
             data['event_type'] = str(data.pop('type')) if data['type'] is not None else None
         
-        # Handle subcategories properly - it should be a list of strings
+        # Handle subcategories properly - fix character parsing issue
         if 'subcategories' in data:
             subcats = data['subcategories']
-            if subcats is None or subcats == [] or subcats == [[]]:
+            if subcats is None or subcats == '':
                 data['subcategories'] = []
+            elif isinstance(subcats, str):
+                # Try to parse as JSON first, then fall back to comma-separated
+                try:
+                    parsed = json.loads(subcats)
+                    if isinstance(parsed, list):
+                        data['subcategories'] = [str(item).strip() for item in parsed if item is not None and str(item).strip()]
+                    else:
+                        data['subcategories'] = []
+                except (json.JSONDecodeError, TypeError):
+                    # Handle comma-separated strings
+                    data['subcategories'] = [s.strip() for s in subcats.split(',') if s.strip()]
             elif isinstance(subcats, list):
-                # If it's a list containing lists (like [[]]), flatten it
-                if len(subcats) == 1 and isinstance(subcats[0], list):
-                    data['subcategories'] = subcats[0]  # Extract the inner list
+                # Check if it's a list of characters (parsing issue)
+                if len(subcats) > 0 and all(len(str(item)) == 1 for item in subcats):
+                    # This looks like a string that was parsed as individual characters
+                    # Join them back and try to parse as JSON
+                    joined = ''.join(subcats)
+                    try:
+                        parsed = json.loads(joined)
+                        if isinstance(parsed, list):
+                            data['subcategories'] = [str(item).strip() for item in parsed if item is not None and str(item).strip()]
+                        else:
+                            data['subcategories'] = []
+                    except (json.JSONDecodeError, TypeError):
+                        data['subcategories'] = []
                 else:
-                    # Filter out any non-string values and convert to strings
+                    # Handle normal list processing
                     cleaned_subcats = []
                     for item in subcats:
-                        if item is not None and str(item).strip():
+                        if isinstance(item, list):
+                            # Flatten nested lists
+                            cleaned_subcats.extend([str(subitem).strip() for subitem in item if subitem is not None and str(subitem).strip()])
+                        elif item is not None and str(item).strip():
                             cleaned_subcats.append(str(item).strip())
                     data['subcategories'] = cleaned_subcats
             else:
@@ -107,10 +134,18 @@ class CalendarEventSerializer(serializers.ModelSerializer):
         else:
             data['subcategories'] = []
         
-        # Handle recurrence_pattern - be explicit about None
+        # Handle recurrence_pattern - keep as iCal format string
         if 'recurrence_pattern' in data:
-            if data['recurrence_pattern'] is None:
-                data.pop('recurrence_pattern', None)  # Remove it entirely if None
+            recurrence = data['recurrence_pattern']
+            if recurrence == 'null' or recurrence is None or recurrence == '':
+                data['recurrence_pattern'] = None
+            elif isinstance(recurrence, str):
+                # Keep the original iCal format string as-is
+                data['recurrence_pattern'] = recurrence.strip()
+                print(f"DEBUG - Keeping iCal format: {recurrence}")
+            else:
+                # If it's not a string, convert to string or set to None
+                data['recurrence_pattern'] = str(recurrence) if recurrence else None
         
         # Clean up any fields that shouldn't be in the serializer
         fields_to_remove = ['deadline', 'confidence_scores', 'input_text']
@@ -118,28 +153,62 @@ class CalendarEventSerializer(serializers.ModelSerializer):
             data.pop(field, None)
         
         print(f"DEBUG - Final data before validation: {data}")
-        return super().to_internal_value(data)
+        
+        try:
+            result = super().to_internal_value(data)
+            print(f"DEBUG - Validation passed: {result}")
+            return result
+        except Exception as e:
+            print(f"DEBUG - Validation failed: {e}")
+            print(f"DEBUG - Exception type: {type(e)}")
+            raise
 
     def validate_recurrence_pattern(self, value):
-        if value is None:
-            return value
-
+        # If the value is None, return None (no recurrence)
+        if value is None or value == '' or value == 'null':
+            return None
+        
         try:
-            if isinstance(value, str):
-                value = json.loads(value)
-
-            required_fields = ['type', 'interval', 'day']
-            if not all(field in value for field in required_fields):
-                raise ValidationError(f"Recurrence pattern must contain {', '.join(required_fields)}")
-
+            # Convert to string and strip whitespace
+            if not isinstance(value, str):
+                value = str(value)
+            
+            value = value.strip()
+            
+            # Handle special case of "null" string
+            if value.lower() == 'null' or value == '':
+                return None
+            
+            # Validate iCal format - should start with FREQ=
+            if not value.startswith('FREQ='):
+                raise ValidationError("Recurrence pattern must be in iCal format starting with 'FREQ='")
+            
+            # Basic validation of frequency values
+            freq_part = value.split(';')[0].replace('FREQ=', '').upper()
+            valid_frequencies = ['DAILY', 'WEEKLY', 'MONTHLY', 'YEARLY']
+            
+            if freq_part not in valid_frequencies:
+                raise ValidationError(f"Invalid frequency. Must be one of: {', '.join(valid_frequencies)}")
+            
+            print(f"DEBUG - Validated iCal recurrence pattern: {value}")
             return value
 
-        except json.JSONDecodeError:
-            raise ValidationError("Invalid JSON format for recurrence pattern")
-        except KeyError as e:
-            raise ValidationError(f"Missing required field: {str(e)}")
         except Exception as e:
+            if isinstance(e, ValidationError):
+                raise
             raise ValidationError(f"Invalid recurrence pattern: {str(e)}")
+
+    def validate(self, data):
+        """Add overall validation with debug info"""
+        print(f"DEBUG - Final validation of data: {data}")
+        try:
+            result = super().validate(data)
+            print(f"DEBUG - Overall validation passed")
+            return result
+        except Exception as e:
+            print(f"DEBUG - Overall validation error: {e}")
+            print(f"DEBUG - Error details: {str(e)}")
+            raise
 
 
 class TodoTaskSerializer(serializers.ModelSerializer):

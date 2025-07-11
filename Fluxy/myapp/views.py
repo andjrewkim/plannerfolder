@@ -1291,164 +1291,247 @@ class AdvancedScheduleExtractor:
                 return match
         return None
 
-    def _find_weekday(self, text: str) -> Optional[str]:
-        """Find weekday mentioned in the text."""
-        for day, variations in self.recurrence_patterns['weekly']['days'].items():
-            for variation in variations:
-                if variation in text.lower():
-                    return day
-        return None
 
-    def _extract_recurrence(self, text: str) -> Optional[Dict[str, Any]]:
-        """Extract recurrence pattern from the text."""
-        text = text.lower().strip()
-        
-        # Check daily patterns with intervals
-        match = self._match_pattern_list(text, self.recurrence_patterns['daily']['intervals'])
-        if match:
-            interval = int(match.group(1))
-            return {'type': 'daily', 'interval': interval, 'day': 1}
-        
-        # Check daily patterns
-        for pattern in self.recurrence_patterns['daily']['exact'] + self.recurrence_patterns['daily']['variations']:
-            if pattern in text:
-                return {'type': 'daily', 'interval': 1, 'day': 1}
-
-        # Check weekly patterns with specific days
-        weekday = self._find_weekday(text)
-        if weekday:
-            match = self._match_pattern_list(text, self.recurrence_patterns['weekly']['day_patterns'])
-            if match:
-                # Use the default day from weekday
-                return {'type': 'weekly', 'interval': 1, 'day': weekday}
-
-        # Check weekly patterns with intervals
-        match = self._match_pattern_list(text, self.recurrence_patterns['weekly']['intervals'])
-        if match:
-            interval = int(match.group(1))
-            # Default to Monday (1) if no specific day mentioned
-            return {'type': 'weekly', 'interval': interval, 'day': 'monday'}
-
-        # Check weekly patterns without specific days
-        for pattern in self.recurrence_patterns['weekly']['exact'] + self.recurrence_patterns['weekly']['variations']:
-            if pattern in text:
-                # Default to Monday (1) if no specific day mentioned
-                return {'type': 'weekly', 'interval': 1, 'day': 'monday'}
-
-        # Check monthly patterns with intervals
-        match = self._match_pattern_list(text, self.recurrence_patterns['monthly']['intervals'])
-        if match:
-            interval = int(match.group(1))
-            # Default to 1st day of month
-            return {'type': 'monthly', 'interval': interval, 'day': 1}
-
-        # Check monthly patterns with specific dates
-        match = self._match_pattern_list(text, self.recurrence_patterns['monthly']['specific_date'])
-        if match:
-            day = int(match.group(1))
-            if 1 <= day <= 31:
-                return {'type': 'monthly', 'interval': 1, 'day': day}
-
-        # Check monthly patterns with relative dates
-        match = self._match_pattern_list(text, self.recurrence_patterns['monthly']['relative_date'])
-        if match:
-            position = self.relative_numbers.get(match.group(1))
-            if position:
-                # Still need a default day (1st)
-                return {'type': 'monthly', 'interval': 1, 'day': 1, 'relative_position': position}
-
-        # Check basic monthly patterns
-        for pattern in self.recurrence_patterns['monthly']['exact'] + self.recurrence_patterns['monthly']['variations']:
-            if pattern in text:
-                # Default to 1st day of month
-                return {'type': 'monthly', 'interval': 1, 'day': 1}
-
-        # Check yearly patterns with intervals
-        match = self._match_pattern_list(text, self.recurrence_patterns['yearly']['intervals'])
-        if match:
-            interval = int(match.group(1))
-            # Default to January 1st
-            return {'type': 'yearly', 'interval': interval, 'month': 1, 'day': 1}
-
-        # Check yearly patterns with specific dates
-        match = self._match_pattern_list(text, self.recurrence_patterns['yearly']['specific_date'])
-        if match:
-            month = self.month_names.get(match.group(1).lower())
-            day = int(match.group(2))
-            if month and 1 <= day <= 31:
-                return {'type': 'yearly', 'interval': 1, 'month': month, 'day': day}
-
-        # Check basic yearly patterns
-        for pattern in self.recurrence_patterns['yearly']['exact'] + self.recurrence_patterns['yearly']['variations']:
-            if pattern in text:
-                # Default to January 1st
-                return {'type': 'yearly', 'interval': 1, 'month': 1, 'day': 1}
-
-        # Check relative intervals (every other day, etc.)
-        match = self._match_pattern_list(text, self.recurrence_patterns['custom']['relative'])
-        if match:
-            unit = match.group(1)
-            if unit == 'day':
-                return {'type': 'daily', 'interval': 2, 'day': 1}
-            elif unit == 'week':
-                return {'type': 'weekly', 'interval': 2, 'day': 'monday'}
-            elif unit == 'month':
-                return {'type': 'monthly', 'interval': 2, 'day': 1}
-            elif unit == 'year':
-                return {'type': 'yearly', 'interval': 2, 'month': 1, 'day': 1}
-
-        return None
-
-    def parse(self, text: str) -> Dict[str, Any]:
-        """
-        Parse text and return recurrence pattern.
-        Returns None if no pattern is found.
-        """
-        result = self._extract_recurrence(text)
-        if result:
-            result['original_text'] = text
-            return result
-        return {'type': 'unknown', 'original_text': text}
-
-    def validate_pattern(self, pattern: Dict[str, Any]) -> bool:
-        """Validate the extracted pattern."""
-        if not pattern or pattern['type'] == 'unknown':
-            return False
+    class RecurrenceToRRULE:
+        def __init__(self):
+            # Day abbreviations for RRULE format
+            self.day_mapping = {
+                'monday': 'MO',
+                'tuesday': 'TU', 
+                'wednesday': 'WE',
+                'thursday': 'TH',
+                'friday': 'FR',
+                'saturday': 'SA',
+                'sunday': 'SU'
+            }
             
-        if 'interval' not in pattern or pattern['interval'] < 1:
-            return False
+            # Month number mapping
+            self.month_mapping = {
+                'january': 1, 'jan': 1,
+                'february': 2, 'feb': 2,
+                'march': 3, 'mar': 3,
+                'april': 4, 'apr': 4,
+                'may': 5,
+                'june': 6, 'jun': 6,
+                'july': 7, 'jul': 7,
+                'august': 8, 'aug': 8,
+                'september': 9, 'sep': 9,
+                'october': 10, 'oct': 10,
+                'november': 11, 'nov': 11,
+                'december': 12, 'dec': 12
+            }
             
-        # Make sure 'day' is present for all pattern types
-        if 'day' not in pattern:
-            return False
+            # Weekday patterns
+            self.weekday_patterns = [
+                r'weekdays?',
+                r'monday\s+(?:to|through|thru)\s+friday',
+                r'monday\s*-\s*friday',
+                r'mon\s*-\s*fri',
+                r'business\s+days?',
+                r'work\s+days?'
+            ]
             
-        if pattern['type'] == 'monthly' and not (1 <= pattern['day'] <= 31):
-            return False
-                
-        if 'month' in pattern and not (1 <= pattern['month'] <= 12):
-            return False
-            
-        return True
+            # Weekend patterns
+            self.weekend_patterns = [
+                r'weekends?',
+                r'saturday\s+(?:and|&)\s+sunday',
+                r'sat\s+(?:and|&)\s+sun',
+                r'saturday\s*-\s*sunday',
+                r'sat\s*-\s*sun'
+            ]
     
-    def _standardize_time_format(self, time):
-        """Standardize time format to HH:MM in 24-hour format"""
-        if isinstance(time, str):
-            # If already in HH:MM format, return as is
-            if re.match(r'^\d{2}:\d{2}$', time):
-                return time
+        def _extract_days_from_text(self, text: str) -> List[str]:
+            """Extract specific days mentioned in the text."""
+            days = []
+            text_lower = text.lower()
+            
+            for day, abbrev in self.day_mapping.items():
+                # Check for full day names and common abbreviations
+                patterns = [
+                    day,
+                    day[:3],  # First 3 letters (mon, tue, etc.)
+                    day[:2] if day not in ['tuesday', 'thursday'] else day[:2] + 'e?s?'  # Handle tue/tues, thu/thurs
+                ]
                 
-            # Try to parse the time string
-            try:
-                parsed_time = datetime.strptime(time, '%I:%M %p')
-                return parsed_time.strftime('%H:%M')
-            except ValueError:
+                for pattern in patterns:
+                    if re.search(r'\b' + pattern + r's?\b', text_lower):
+                        if abbrev not in days:
+                            days.append(abbrev)
+                        break
+            
+            return days
+    
+        def _extract_monthly_day(self, text: str, event_date: str) -> Optional[int]:
+            """Extract specific day of month from text or use event date."""
+            text_lower = text.lower()
+            
+            # Look for specific day mentions like "6th", "15th", etc.
+            day_pattern = r'\b(\d{1,2})(?:st|nd|rd|th)?\b'
+            matches = re.findall(day_pattern, text_lower)
+            
+            if matches:
+                for match in matches:
+                    day = int(match)
+                    if 1 <= day <= 31:
+                        return day
+            
+            # If no specific day mentioned, use the day from the event date
+            event_day = datetime.strptime(event_date, '%Y-%m-%d').day
+            return event_day
+    
+        def _extract_yearly_date(self, text: str, event_date: str) -> tuple:
+            """Extract month and day for yearly recurrence."""
+            text_lower = text.lower()
+            
+            # Look for month mentions
+            month = None
+            for month_name, month_num in self.month_mapping.items():
+                if month_name in text_lower:
+                    month = month_num
+                    break
+            
+            # Look for day mentions
+            day = None
+            day_pattern = r'\b(\d{1,2})(?:st|nd|rd|th)?\b'
+            matches = re.findall(day_pattern, text_lower)
+            
+            if matches:
+                for match in matches:
+                    day_val = int(match)
+                    if 1 <= day_val <= 31:
+                        day = day_val
+                        break
+            
+            # If no specific month/day mentioned, use the event date
+            event_datetime = datetime.strptime(event_date, '%Y-%m-%d')
+            if month is None:
+                month = event_datetime.month
+            if day is None:
+                day = event_datetime.day
+                
+            return month, day
+    
+        def convert_to_rrule(self, recurrence_input: str, event_date: str) -> str:
+            """Convert human-readable recurrence to RRULE format."""
+            if not recurrence_input or recurrence_input.lower().strip() in ['none', 'no', 'never']:
+                return ""
+            
+            text = recurrence_input.lower().strip()
+            
+            # Daily patterns
+            if re.search(r'\bdaily\b|\bevery\s+day\b|\beach\s+day\b', text):
+                return "FREQ=DAILY"
+            
+            # Weekdays pattern
+            for pattern in self.weekday_patterns:
+                if re.search(pattern, text):
+                    return "FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR"
+            
+            # Weekend pattern
+            for pattern in self.weekend_patterns:
+                if re.search(pattern, text):
+                    return "FREQ=WEEKLY;BYDAY=SA,SU"
+            
+            # Weekly with specific days
+            if re.search(r'\bweekly\b|\bevery\s+week\b|\beach\s+week\b', text) or \
+            re.search(r'\b(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b', text):
+                
+                days = self._extract_days_from_text(text)
+                if days:
+                    return f"FREQ=WEEKLY;BYDAY={','.join(sorted(days))}"
+                else:
+                    # Default to weekly on the same day as the event
+                    event_datetime = datetime.strptime(event_date, '%Y-%m-%d')
+                    weekday = event_datetime.strftime('%A').lower()
+                    return f"FREQ=WEEKLY;BYDAY={self.day_mapping[weekday]}"
+            
+            # Monthly patterns
+            if re.search(r'\bmonthly\b|\bevery\s+month\b|\beach\s+month\b', text):
+                day = self._extract_monthly_day(text, event_date)
+                return f"FREQ=MONTHLY;BYMONTHDAY={day}"
+            
+            # Yearly patterns
+            if re.search(r'\byearly\b|\bevery\s+year\b|\beach\s+year\b|\bannually\b', text):
+                month, day = self._extract_yearly_date(text, event_date)
+                return f"FREQ=YEARLY;BYMONTH={month};BYMONTHDAY={day}"
+            
+            # Check for specific day mentions without "weekly" keyword
+            days = self._extract_days_from_text(text)
+            if days:
+                return f"FREQ=WEEKLY;BYDAY={','.join(sorted(days))}"
+            
+            # Default: no recurrence
+            return ""
+
+    def update_event_recurrence(event_dict: Dict[str, Any], recurrence_input: str) -> Dict[str, Any]:
+        """Update event dictionary with RRULE recurrence pattern."""
+        converter = AdvancedScheduleExtractor.RecurrenceToRRULE()
+        
+        # Create a copy of the event dictionary
+        updated_event = event_dict.copy()
+        
+        # Convert the recurrence input to RRULE format
+        rrule = converter.convert_to_rrule(recurrence_input, event_dict['date'])
+        
+        # Update the recurrence_pattern field
+        updated_event['recurrence_pattern'] = rrule
+        
+        return updated_event
+
+    # Example usage:
+    if __name__ == "__main__":
+        # Sample event dictionary
+        event = {
+            'event_name': 'Example Event',
+            'date': '2025-07-06',
+            'start_time': '09:00',
+            'end_time': '10:00',
+            'location': 'Office',
+            'virtual': False,
+            'urgency': 'low',
+            'notes': '',
+            'event_type': 'event',
+            'category': '',
+            'subcategories': [],
+            'recurrence_pattern': '',
+            'color': '#3788d8'
+        }
+        
+        # Test different recurrence patterns
+        test_cases = [
+            "daily",
+            "weekdays",
+            "weekends", 
+            "every Monday and Wednesday",
+            "monthly",
+            "yearly",
+            "every Tuesday",
+            "none"
+        ]
+        
+        for recurrence in test_cases:
+            updated = update_event_recurrence(event, recurrence)
+            print(f"Input: '{recurrence}' -> RRULE: '{updated['recurrence_pattern']}'")
+        
+        def _standardize_time_format(self, time):
+            """Standardize time format to HH:MM in 24-hour format"""
+            if isinstance(time, str):
+                # If already in HH:MM format, return as is
+                if re.match(r'^\d{2}:\d{2}$', time):
+                    return time
+                    
+                # Try to parse the time string
                 try:
-                    parsed_time = datetime.strptime(time, '%H:%M')
+                    parsed_time = datetime.strptime(time, '%I:%M %p')
                     return parsed_time.strftime('%H:%M')
                 except ValueError:
-                    return None
-        
-        return None
+                    try:
+                        parsed_time = datetime.strptime(time, '%H:%M')
+                        return parsed_time.strftime('%H:%M')
+                    except ValueError:
+                        return None
+            
+            return None
 
 
         

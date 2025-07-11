@@ -44,7 +44,20 @@ const EventModal: React.FC<EventModalProps> = ({
 }) => {
   const modalRef = useRef<HTMLDivElement>(null);
   const [finalPosition, setFinalPosition] = useState<React.CSSProperties>({});
-    
+  const [showCustomRecurrence, setShowCustomRecurrence] = useState(false);
+  const [customRecurrenceInput, setCustomRecurrenceInput] = useState('');
+  
+  // Day mapping for custom recurrence
+  const dayMapping: { [key: string]: string } = {
+    'MO': 'Monday',
+    'TU': 'Tuesday', 
+    'WE': 'Wednesday',
+    'TH': 'Thursday',
+    'FR': 'Friday',
+    'SA': 'Saturday',
+    'SU': 'Sunday'
+  };
+  
   useEffect(() => {
     if (isOpen) {
       document.body.classList.add('modal-open');
@@ -111,14 +124,168 @@ const EventModal: React.FC<EventModalProps> = ({
     { value: "monthly", label: "Monthly" },
     { value: "yearly", label: "Yearly" },
     { value: "weekdays", label: "Every weekday" },
+    { value: "weekends", label: "Every weekend" },
+    { value: "monday", label: "Every Monday" },
+    { value: "tuesday", label: "Every Tuesday" },
+    { value: "wednesday", label: "Every Wednesday" },
+    { value: "thursday", label: "Every Thursday" },
+    { value: "friday", label: "Every Friday" },
+    { value: "saturday", label: "Every Saturday" },
+    { value: "sunday", label: "Every Sunday" },
     { value: "custom", label: "Custom" }
   ];
 
   const handleClose = () => {
     // Make sure to remove the modal-open class when closing manually
     document.body.classList.remove('modal-open');
+    setShowCustomRecurrence(false);
+    setCustomRecurrenceInput('');
     onClose();
   };
+
+  // Convert RRULE back to human-readable format for display
+  const rruleToHumanReadable = (rrule: string): string => {
+    if (!rrule) return "";
+    
+    if (rrule === "FREQ=DAILY") return "daily";
+    if (rrule === "FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR") return "weekdays";
+    if (rrule === "FREQ=WEEKLY;BYDAY=SA,SU") return "weekends";
+    if (rrule.startsWith("FREQ=WEEKLY;BYDAY=")) {
+      const days = rrule.split("BYDAY=")[1];
+      if (days.split(",").length === 1) {
+        const day = days.toLowerCase();
+        const dayMap: { [key: string]: string } = {
+          'mo': 'monday', 'tu': 'tuesday', 'we': 'wednesday',
+          'th': 'thursday', 'fr': 'friday', 'sa': 'saturday', 'su': 'sunday'
+        };
+        return dayMap[day] || "custom";
+      }
+      return "custom";
+    }
+    if (rrule.startsWith("FREQ=MONTHLY")) return "monthly";
+    if (rrule.startsWith("FREQ=YEARLY")) return "yearly";
+    
+    return "custom";
+  };
+
+  // Convert human-readable to RRULE
+  const humanReadableToRRULE = (input: string, eventDate: string): string => {
+    if (!input || input === "") return "";
+    
+    const text = input.toLowerCase().trim();
+    const eventDateObj = new Date(eventDate);
+    
+    switch (text) {
+      case "daily":
+        return "FREQ=DAILY";
+      case "weekdays":
+        return "FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR";
+      case "weekends":
+        return "FREQ=WEEKLY;BYDAY=SA,SU";
+      case "weekly":
+        // Use the day of the week from the event date
+        const dayAbbrevs = ['SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA'];
+        const eventDay = dayAbbrevs[eventDateObj.getDay()];
+        return `FREQ=WEEKLY;BYDAY=${eventDay}`;
+      case "biweekly":
+        const biweeklyDay = ['SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA'][eventDateObj.getDay()];
+        return `FREQ=WEEKLY;INTERVAL=2;BYDAY=${biweeklyDay}`;
+      case "monthly":
+        return `FREQ=MONTHLY;BYMONTHDAY=${eventDateObj.getDate()}`;
+      case "yearly":
+        return `FREQ=YEARLY;BYMONTH=${eventDateObj.getMonth() + 1};BYMONTHDAY=${eventDateObj.getDate()}`;
+      case "monday":
+        return "FREQ=WEEKLY;BYDAY=MO";
+      case "tuesday":
+        return "FREQ=WEEKLY;BYDAY=TU";
+      case "wednesday":
+        return "FREQ=WEEKLY;BYDAY=WE";
+      case "thursday":
+        return "FREQ=WEEKLY;BYDAY=TH";
+      case "friday":
+        return "FREQ=WEEKLY;BYDAY=FR";
+      case "saturday":
+        return "FREQ=WEEKLY;BYDAY=SA";
+      case "sunday":
+        return "FREQ=WEEKLY;BYDAY=SU";
+      default:
+        return "";
+    }
+  };
+
+  // Handle recurrence pattern change
+  const handleRecurrenceChange = (value: string) => {
+    if (value === "custom") {
+      setShowCustomRecurrence(true);
+      setCustomRecurrenceInput(selectedEvent.recurrence_pattern || '');
+    } else {
+      setShowCustomRecurrence(false);
+      const rrule = humanReadableToRRULE(value, selectedEvent.date);
+      onChange('recurrence_pattern', rrule);
+    }
+  };
+
+  // Handle custom recurrence input
+  const handleCustomRecurrenceSubmit = () => {
+    const rrule = humanReadableToRRULE(customRecurrenceInput, selectedEvent.date);
+    onChange('recurrence_pattern', rrule);
+    setShowCustomRecurrence(false);
+  };
+
+  // Parse RRULE for display
+  const parseRRULEForDisplay = (rrule: string): string => {
+    if (!rrule) return "No recurrence";
+    
+    if (rrule === "FREQ=DAILY") return "Daily";
+    if (rrule === "FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR") return "Every weekday";
+    if (rrule === "FREQ=WEEKLY;BYDAY=SA,SU") return "Every weekend";
+    
+    if (rrule.startsWith("FREQ=WEEKLY;BYDAY=")) {
+      const days = rrule.split("BYDAY=")[1];
+      if (days.includes(",")) {
+        const dayList = days.split(",").map(day => dayMapping[day] || day).join(", ");
+        return `Every ${dayList}`;
+      } else {
+        return `Every ${dayMapping[days] || days}`;
+      }
+    }
+    
+    if (rrule.startsWith("FREQ=MONTHLY")) {
+      const dayMatch = rrule.match(/BYMONTHDAY=(\d+)/);
+      if (dayMatch) {
+        return `Monthly on the ${dayMatch[1]}${getOrdinalSuffix(parseInt(dayMatch[1]))}`;
+      }
+      return "Monthly";
+    }
+    
+    if (rrule.startsWith("FREQ=YEARLY")) {
+      const monthMatch = rrule.match(/BYMONTH=(\d+)/);
+      const dayMatch = rrule.match(/BYMONTHDAY=(\d+)/);
+      if (monthMatch && dayMatch) {
+        const monthNames = ["", "January", "February", "March", "April", "May", "June",
+                           "July", "August", "September", "October", "November", "December"];
+        const month = monthNames[parseInt(monthMatch[1])];
+        const day = parseInt(dayMatch[1]);
+        return `Yearly on ${month} ${day}${getOrdinalSuffix(day)}`;
+      }
+      return "Yearly";
+    }
+    
+    return rrule; // Show raw RRULE for complex patterns
+  };
+
+  // Helper function for ordinal suffixes
+  const getOrdinalSuffix = (day: number): string => {
+    if (day >= 11 && day <= 13) return "th";
+    switch (day % 10) {
+      case 1: return "st";
+      case 2: return "nd";
+      case 3: return "rd";
+      default: return "th";
+    }
+  };
+
+  const currentRecurrenceValue = rruleToHumanReadable(selectedEvent.recurrence_pattern);
 
   return (
     <div className="modal-overlay">
@@ -191,8 +358,8 @@ const EventModal: React.FC<EventModalProps> = ({
             <div className="form-grid-full">
               <label className="form-label">Recurrence</label>
               <select
-                value={selectedEvent.recurrence_pattern}
-                onChange={(e) => onChange('recurrence_pattern', e.target.value)}
+                value={showCustomRecurrence ? "custom" : currentRecurrenceValue}
+                onChange={(e) => handleRecurrenceChange(e.target.value)}
                 className="modal-select"
               >
                 {recurrenceOptions.map(option => (
@@ -201,7 +368,54 @@ const EventModal: React.FC<EventModalProps> = ({
                   </option>
                 ))}
               </select>
+              
+              {/* Show current recurrence pattern */}
+              {selectedEvent.recurrence_pattern && !showCustomRecurrence && (
+                <div className="recurrence-display">
+                  <small>Current: {parseRRULEForDisplay(selectedEvent.recurrence_pattern)}</small>
+                </div>
+              )}
             </div>
+
+            {/* Custom recurrence input */}
+            {showCustomRecurrence && (
+              <div className="form-grid-full">
+                <label className="form-label">Custom Recurrence</label>
+                <div className="custom-recurrence-container">
+                  <input
+                    type="text"
+                    value={customRecurrenceInput}
+                    onChange={(e) => setCustomRecurrenceInput(e.target.value)}
+                    className="modal-input"
+                    placeholder="e.g., 'every Monday and Wednesday', 'every 2 weeks', 'monthly on the 15th'"
+                  />
+                  <div className="custom-recurrence-buttons">
+                    <button
+                      type="button"
+                      onClick={handleCustomRecurrenceSubmit}
+                      className="modal-button modal-button-save"
+                      style={{ fontSize: '12px', padding: '4px 8px' }}
+                    >
+                      Apply
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setShowCustomRecurrence(false)}
+                      className="modal-button modal-button-close"
+                      style={{ fontSize: '12px', padding: '4px 8px' }}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+                <div className="custom-recurrence-help">
+                  <small>
+                    Examples: "daily", "weekdays", "every Monday", "every Monday and Wednesday", 
+                    "monthly", "yearly", "every 2 weeks"
+                  </small>
+                </div>
+              </div>
+            )}
 
             <div>
               <label className="form-label">Event Type</label>
