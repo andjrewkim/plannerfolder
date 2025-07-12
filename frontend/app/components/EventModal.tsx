@@ -45,7 +45,8 @@ const EventModal: React.FC<EventModalProps> = ({
   const modalRef = useRef<HTMLDivElement>(null);
   const [finalPosition, setFinalPosition] = useState<React.CSSProperties>({});
   const [showCustomRecurrence, setShowCustomRecurrence] = useState(false);
-  const [customRecurrenceInput, setCustomRecurrenceInput] = useState('');
+  const [selectedWeeklyDays, setSelectedWeeklyDays] = useState<string[]>([]);
+  const [customInterval, setCustomInterval] = useState<number>(1);
   
   // Day mapping for custom recurrence
   const dayMapping: { [key: string]: string } = {
@@ -56,6 +57,32 @@ const EventModal: React.FC<EventModalProps> = ({
     'FR': 'Friday',
     'SA': 'Saturday',
     'SU': 'Sunday'
+  };
+
+  const dayOptions = [
+    { value: 'MO', label: 'Mon' },
+    { value: 'TU', label: 'Tue' },
+    { value: 'WE', label: 'Wed' },
+    { value: 'TH', label: 'Thu' },
+    { value: 'FR', label: 'Fri' },
+    { value: 'SA', label: 'Sat' },
+    { value: 'SU', label: 'Sun' }
+  ];
+
+  // Utility function to get day of week from date string (YYYY-MM-DD)
+  const getDayOfWeekFromDateString = (dateString: string): string => {
+    // Parse the date string directly without creating a Date object to avoid timezone issues
+    const [year, month, day] = dateString.split('-').map(Number);
+    // Create date in local timezone
+    const date = new Date(year, month - 1, day);
+    const dayAbbrevs = ['SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA'];
+    return dayAbbrevs[date.getDay()];
+  };
+
+  // Utility function to get day and month from date string
+  const getDayAndMonthFromDateString = (dateString: string): { day: number, month: number } => {
+    const [year, month, day] = dateString.split('-').map(Number);
+    return { day, month };
   };
   
   useEffect(() => {
@@ -116,7 +143,7 @@ const EventModal: React.FC<EventModalProps> = ({
   // Early return if not open or no selected event
   if (!isOpen || !selectedEvent) return null;
   
-  // Simplified recurrence options - removed individual days
+  // Simplified recurrence options
   const recurrenceOptions = [
     { value: "", label: "No recurrence" },
     { value: "daily", label: "Daily" },
@@ -133,7 +160,8 @@ const EventModal: React.FC<EventModalProps> = ({
     // Make sure to remove the modal-open class when closing manually
     document.body.classList.remove('modal-open');
     setShowCustomRecurrence(false);
-    setCustomRecurrenceInput('');
+    setSelectedWeeklyDays([]);
+    setCustomInterval(1);
     onClose();
   };
 
@@ -146,25 +174,33 @@ const EventModal: React.FC<EventModalProps> = ({
     if (rrule === "FREQ=WEEKLY;BYDAY=SA,SU") return "weekends";
     if (rrule.startsWith("FREQ=WEEKLY;BYDAY=")) {
       const days = rrule.split("BYDAY=")[1];
-      if (days.split(",").length === 1) {
-        // Single day weekly recurrence - just return "weekly"
+      const dayList = days.split(",");
+      
+      // Check if it's a single day weekly recurrence
+      if (dayList.length === 1) {
         return "weekly";
       }
+      
+      // Check if it's weekdays or weekends
+      if (dayList.sort().join(",") === "MO,TU,WE,TH,FR") return "weekdays";
+      if (dayList.sort().join(",") === "SA,SU") return "weekends";
+      
+      // Otherwise it's a custom selection
       return "custom";
     }
     if (rrule.startsWith("FREQ=WEEKLY;INTERVAL=2")) return "biweekly";
     if (rrule.startsWith("FREQ=MONTHLY")) return "monthly";
     if (rrule.startsWith("FREQ=YEARLY")) return "yearly";
+    if (rrule.startsWith("FREQ=WEEKLY") && !rrule.includes("BYDAY=")) return "weekly";
     
     return "custom";
   };
 
-  // Convert human-readable to RRULE
+  // Convert human-readable to RRULE - FIXED VERSION
   const humanReadableToRRULE = (input: string, eventDate: string): string => {
     if (!input || input === "") return "";
     
     const text = input.toLowerCase().trim();
-    const eventDateObj = new Date(eventDate);
     
     switch (text) {
       case "daily":
@@ -174,17 +210,21 @@ const EventModal: React.FC<EventModalProps> = ({
       case "weekends":
         return "FREQ=WEEKLY;BYDAY=SA,SU";
       case "weekly":
-        // Use the day of the week from the event date
-        const dayAbbrevs = ['SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA'];
-        const eventDay = dayAbbrevs[eventDateObj.getDay()];
+        // Use the day of the week from the event date - FIXED
+        const eventDay = getDayOfWeekFromDateString(eventDate);
         return `FREQ=WEEKLY;BYDAY=${eventDay}`;
       case "biweekly":
-        const biweeklyDay = ['SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA'][eventDateObj.getDay()];
+        // Use the day of the week from the event date - FIXED
+        const biweeklyDay = getDayOfWeekFromDateString(eventDate);
         return `FREQ=WEEKLY;INTERVAL=2;BYDAY=${biweeklyDay}`;
       case "monthly":
-        return `FREQ=MONTHLY;BYMONTHDAY=${eventDateObj.getDate()}`;
+        // Use the day of the month from the event date - FIXED
+        const { day } = getDayAndMonthFromDateString(eventDate);
+        return `FREQ=MONTHLY;BYMONTHDAY=${day}`;
       case "yearly":
-        return `FREQ=YEARLY;BYMONTH=${eventDateObj.getMonth() + 1};BYMONTHDAY=${eventDateObj.getDate()}`;
+        // Use the day and month from the event date - FIXED
+        const { day: yearlyDay, month: yearlyMonth } = getDayAndMonthFromDateString(eventDate);
+        return `FREQ=YEARLY;BYMONTH=${yearlyMonth};BYMONTHDAY=${yearlyDay}`;
       default:
         return "";
     }
@@ -194,7 +234,25 @@ const EventModal: React.FC<EventModalProps> = ({
   const handleRecurrenceChange = (value: string) => {
     if (value === "custom") {
       setShowCustomRecurrence(true);
-      setCustomRecurrenceInput(selectedEvent.recurrence_pattern || '');
+      
+      // Pre-populate with current selected days if they exist
+      if (selectedEvent.recurrence_pattern && selectedEvent.recurrence_pattern.includes("BYDAY=")) {
+        const daysPart = selectedEvent.recurrence_pattern.split("BYDAY=")[1];
+        const days = daysPart.split(";")[0]; // Handle case where there might be more parameters after BYDAY
+        setSelectedWeeklyDays(days.split(","));
+      } else {
+        setSelectedWeeklyDays([]);
+      }
+      
+      // Extract interval if it exists
+      if (selectedEvent.recurrence_pattern && selectedEvent.recurrence_pattern.includes("INTERVAL=")) {
+        const interval = selectedEvent.recurrence_pattern.match(/INTERVAL=(\d+)/);
+        if (interval) {
+          setCustomInterval(parseInt(interval[1]));
+        }
+      } else {
+        setCustomInterval(1);
+      }
     } else {
       setShowCustomRecurrence(false);
       const rrule = humanReadableToRRULE(value, selectedEvent.date);
@@ -202,14 +260,31 @@ const EventModal: React.FC<EventModalProps> = ({
     }
   };
 
-  // Handle custom recurrence input
-  const handleCustomRecurrenceSubmit = () => {
-    const rrule = humanReadableToRRULE(customRecurrenceInput, selectedEvent.date);
-    onChange('recurrence_pattern', rrule);
+  // Handle weekly days selection
+  const handleWeeklyDayToggle = (day: string) => {
+    setSelectedWeeklyDays(prev => {
+      if (prev.includes(day)) {
+        return prev.filter(d => d !== day);
+      } else {
+        return [...prev, day];
+      }
+    });
+  };
+
+  // Apply custom recurrence
+  const handleCustomRecurrenceApply = () => {
+    if (selectedWeeklyDays.length > 0) {
+      let rrule = "FREQ=WEEKLY";
+      if (customInterval > 1) {
+        rrule += `;INTERVAL=${customInterval}`;
+      }
+      rrule += `;BYDAY=${selectedWeeklyDays.join(",")}`;
+      onChange('recurrence_pattern', rrule);
+    }
     setShowCustomRecurrence(false);
   };
 
-  // Parse RRULE for display
+  // Parse RRULE for display - IMPROVED VERSION
   const parseRRULEForDisplay = (rrule: string): string => {
     if (!rrule) return "No recurrence";
     
@@ -218,18 +293,29 @@ const EventModal: React.FC<EventModalProps> = ({
     if (rrule === "FREQ=WEEKLY;BYDAY=SA,SU") return "Every weekend";
     
     if (rrule.startsWith("FREQ=WEEKLY;BYDAY=")) {
-      const days = rrule.split("BYDAY=")[1];
-      if (days.includes(",")) {
-        const dayList = days.split(",").map(day => dayMapping[day] || day).join(", ");
-        return `Every ${dayList}`;
+      const daysPart = rrule.split("BYDAY=")[1];
+      const days = daysPart.split(";")[0]; // Handle additional parameters
+      const dayList = days.split(",");
+      
+      if (dayList.length === 1) {
+        return `Weekly on ${dayMapping[dayList[0]] || dayList[0]}`;
       } else {
-        return `Weekly on ${dayMapping[days] || days}`;
+        const dayNames = dayList.map(day => dayMapping[day] || day).join(", ");
+        return `Weekly on ${dayNames}`;
       }
     }
     
-    if (rrule.startsWith("FREQ=WEEKLY;INTERVAL=2")) {
-      const days = rrule.split("BYDAY=")[1];
-      return `Bi-weekly on ${dayMapping[days] || days}`;
+    if (rrule.includes("FREQ=WEEKLY;INTERVAL=2")) {
+      const daysPart = rrule.split("BYDAY=")[1];
+      const days = daysPart ? daysPart.split(";")[0] : "";
+      if (days) {
+        return `Bi-weekly on ${dayMapping[days] || days}`;
+      }
+      return "Bi-weekly";
+    }
+    
+    if (rrule.startsWith("FREQ=WEEKLY") && !rrule.includes("BYDAY=")) {
+      return "Weekly";
     }
     
     if (rrule.startsWith("FREQ=MONTHLY")) {
@@ -253,7 +339,25 @@ const EventModal: React.FC<EventModalProps> = ({
       return "Yearly";
     }
     
-    return rrule; // Show raw RRULE for complex patterns
+    // Handle complex custom patterns
+    if (rrule.includes("FREQ=WEEKLY") && rrule.includes("BYDAY=")) {
+      const intervalMatch = rrule.match(/INTERVAL=(\d+)/);
+      const interval = intervalMatch ? parseInt(intervalMatch[1]) : 1;
+      
+      const daysPart = rrule.split("BYDAY=")[1];
+      const days = daysPart.split(";")[0];
+      const dayList = days.split(",");
+      
+      const dayNames = dayList.map(day => dayMapping[day] || day).join(", ");
+      
+      if (interval === 1) {
+        return `Weekly on ${dayNames}`;
+      } else {
+        return `Every ${interval} weeks on ${dayNames}`;
+      }
+    }
+    
+    return rrule; // Show raw RRULE for very complex patterns
   };
 
   // Helper function for ordinal suffixes
@@ -359,42 +463,59 @@ const EventModal: React.FC<EventModalProps> = ({
               )}
             </div>
 
-            {/* Custom recurrence input */}
+            {/* Custom recurrence selector */}
             {showCustomRecurrence && (
               <div className="form-grid-full">
-                <label className="form-label">Custom Recurrence</label>
-                <div className="custom-recurrence-container">
+                <label className="form-label">Repeat every</label>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
                   <input
-                    type="text"
-                    value={customRecurrenceInput}
-                    onChange={(e) => setCustomRecurrenceInput(e.target.value)}
-                    className="modal-input"
-                    placeholder="e.g., 'every Monday and Wednesday', 'every 2 weeks', 'monthly on the 15th'"
+                    type="number"
+                    min="1"
+                    max="52"
+                    value={customInterval}
+                    onChange={(e) => setCustomInterval(parseInt(e.target.value) || 1)}
+                    style={{ width: '60px', padding: '5px' }}
                   />
-                  <div className="custom-recurrence-buttons">
-                    <button
-                      type="button"
-                      onClick={handleCustomRecurrenceSubmit}
-                      className="modal-button modal-button-save"
-                      style={{ fontSize: '12px', padding: '4px 8px' }}
-                    >
-                      Apply
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setShowCustomRecurrence(false)}
-                      className="modal-button modal-button-close"
-                      style={{ fontSize: '12px', padding: '4px 8px' }}
-                    >
-                      Cancel
-                    </button>
-                  </div>
+                  <span>weeks on:</span>
                 </div>
-                <div className="custom-recurrence-help">
-                  <small>
-                    Examples: "daily", "weekdays", "weekly", "biweekly", 
-                    "monthly", "yearly"
-                  </small>
+                <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap', marginBottom: '10px' }}>
+                  {dayOptions.map(day => (
+                    <button
+                      key={day.value}
+                      type="button"
+                      onClick={() => handleWeeklyDayToggle(day.value)}
+                      style={{
+                        padding: '8px 12px',
+                        border: '1px solid #ddd',
+                        borderRadius: '4px',
+                        backgroundColor: selectedWeeklyDays.includes(day.value) ? '#007bff' : '#fff',
+                        color: selectedWeeklyDays.includes(day.value) ? '#fff' : '#000',
+                        cursor: 'pointer',
+                        fontSize: '12px'
+                      }}
+                    >
+                      {day.label}
+                    </button>
+                  ))}
+                </div>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button
+                    type="button"
+                    onClick={handleCustomRecurrenceApply}
+                    className="modal-button modal-button-save"
+                    style={{ fontSize: '12px', padding: '4px 8px' }}
+                    disabled={selectedWeeklyDays.length === 0}
+                  >
+                    Apply
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowCustomRecurrence(false)}
+                    className="modal-button modal-button-close"
+                    style={{ fontSize: '12px', padding: '4px 8px' }}
+                  >
+                    Cancel
+                  </button>
                 </div>
               </div>
             )}

@@ -1,3 +1,37 @@
+.weekly-days-container {
+  margin-top: 8px;
+}
+
+.weekly-days-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.day-checkbox-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+
+.day-label {
+  font-size: 14px;
+  user-select: none;
+}
+
+.weekly-days-buttons {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.weekly-days-help {
+  margin-top: 8px;
+  color: #666;
+}
+
 /* Base modal styles */
 .modal-open {
   overflow: hidden;
@@ -517,3 +551,5 @@
     grid-template-columns: 1fr;
   }
 }
+
+
