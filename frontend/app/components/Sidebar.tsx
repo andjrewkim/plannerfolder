@@ -26,7 +26,12 @@ const Sidebar: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [deletingTasks, setDeletingTasks] = useState<number[]>([]);
   
-  // New state for task creation
+  // State for regular task creation
+  const [isAddingTask, setIsAddingTask] = useState(false);
+  const [newTaskText, setNewTaskText] = useState('');
+  const taskInputRef = useRef<HTMLInputElement>(null);
+  
+  // State for long-term task creation
   const [isAddingLongTerm, setIsAddingLongTerm] = useState(false);
   const [newLongTermText, setNewLongTermText] = useState('');
   const newTaskInputRef = useRef<HTMLInputElement>(null);
@@ -62,10 +67,27 @@ const Sidebar: React.FC = () => {
 
   // Focus input when adding a new task
   useEffect(() => {
+    if (isAddingTask && taskInputRef.current) {
+      taskInputRef.current.focus();
+    }
+  }, [isAddingTask]);
+
+  // Focus input when adding a new long-term task
+  useEffect(() => {
     if (isAddingLongTerm && newTaskInputRef.current) {
       newTaskInputRef.current.focus();
     }
   }, [isAddingLongTerm]);
+
+  // Handle click on tasks area to initiate task creation
+  const handleTaskAreaClick = (e: React.MouseEvent) => {
+    // Only activate if clicking directly on the section content (not on task items)
+    if ((e.target as HTMLElement).className === 'section-content' || 
+        (e.target as HTMLElement).className === 'empty-state' ||
+        (e.target as HTMLElement).className === 'clickable-area') {
+      setIsAddingTask(true);
+    }
+  };
 
   // Handle click on long-term tasks area to initiate task creation
   const handleLongTermAreaClick = (e: React.MouseEvent) => {
@@ -191,7 +213,7 @@ const Sidebar: React.FC = () => {
     }
   }, [resetDailyTasks]);
 
-  // Fetch today's events function using authAPI
+  // Updated fetchTodayEvents function with better date handling
   const fetchTodayEvents = useCallback(async () => {
     try {
       // Check if user is authenticated first
@@ -211,15 +233,24 @@ const Sidebar: React.FC = () => {
       }
       
       const data = await response.json();
+      
+      // Get today's date in local timezone (YYYY-MM-DD format)
       const today = new Date();
-      const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-      const todayEnd = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1);
-
+      const todayString = today.getFullYear() + '-' + 
+                        String(today.getMonth() + 1).padStart(2, '0') + '-' + 
+                        String(today.getDate()).padStart(2, '0');
+      
+      console.log('Today string:', todayString); // Debug log
+      console.log('Events data:', data); // Debug log
+      
       const filteredEvents = data.filter((event: APIEvent) => {
-        const eventDate = new Date(event.date);
-        return eventDate >= todayStart && eventDate < todayEnd;
+        // Extract just the date part from the event date
+        const eventDateString = event.date.split('T')[0];
+        console.log('Event date string:', eventDateString, 'vs today:', todayString); // Debug log
+        return eventDateString === todayString;
       });
 
+      console.log('Filtered events:', filteredEvents); // Debug log
       setTodayEvents(filteredEvents);
       setError(null);
     } catch (error) {
@@ -227,6 +258,55 @@ const Sidebar: React.FC = () => {
       setError('Failed to load events');
     }
   }, []);
+
+  // Handle regular task creation using authAPI
+  const handleCreateTask = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!newTaskText.trim()) {
+      return; // Don't create empty tasks
+    }
+    
+    try {
+      // Check if user is authenticated first
+      if (!authAPI.isAuthenticated()) {
+        setError('Please log in to create tasks');
+        return;
+      }
+
+      const response = await authAPI.authenticatedFetch('http://127.0.0.1:8000/api/tasks/', {
+        method: 'POST',
+        body: JSON.stringify({
+          event: newTaskText,
+          date: null // Regular tasks have no date
+        })
+      });
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          setError('Please log in to create tasks');
+          return;
+        }
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      // Reset form
+      setNewTaskText('');
+      setIsAddingTask(false);
+      
+      // Refresh tasks
+      await fetchTasks();
+    } catch (error) {
+      console.error('Error creating task:', error);
+      setError('Failed to create task');
+    }
+  };
+
+  // Cancel regular task creation
+  const handleCancelTask = () => {
+    setIsAddingTask(false);
+    setNewTaskText('');
+  };
 
   // Handle long term goal creation using authAPI
   const handleCreateLongTerm = async (e: React.FormEvent) => {
@@ -273,7 +353,7 @@ const Sidebar: React.FC = () => {
     }
   };
 
-  // Cancel task creation
+  // Cancel long-term task creation
   const handleCancelLongTerm = () => {
     setIsAddingLongTerm(false);
     setNewLongTermText('');
@@ -491,8 +571,32 @@ const Sidebar: React.FC = () => {
           }}
         >
           <h3 className="section-title">Tasks</h3>
-          <div className="section-content">
-            {tasks.length > 0 ? (
+          <div 
+            className="section-content clickable-area"
+            onClick={handleTaskAreaClick}
+          >
+            {isAddingTask ? (
+              <form onSubmit={handleCreateTask} className="task-form">
+                <input
+                  type="text"
+                  ref={taskInputRef}
+                  value={newTaskText}
+                  onChange={(e) => setNewTaskText(e.target.value)}
+                  placeholder="Enter new task..."
+                  className="task-input"
+                />
+                <div className="task-form-buttons">
+                  <button type="submit" className="btn btn-save">Save</button>
+                  <button 
+                    type="button" 
+                    className="btn btn-cancel"
+                    onClick={handleCancelTask}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </form>
+            ) : tasks.length > 0 ? (
               <ul className="task-list">
                 {tasks.map((task) => (
                   <li 
@@ -511,7 +615,7 @@ const Sidebar: React.FC = () => {
                 ))}
               </ul>
             ) : (
-              <div className="empty-state">No tasks</div>
+              <div className="empty-state">Click here to add tasks</div>
             )}
           </div>
           <div 

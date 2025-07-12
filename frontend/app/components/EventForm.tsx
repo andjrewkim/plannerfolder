@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { createEvent } from '../services/apiService';
 import { Clock, Calendar, MapPin, Tag, Repeat } from 'lucide-react';
 import { authAPI } from '../../lib/auth';
@@ -17,6 +17,7 @@ export interface EventData {
   color: string;
   is_all_day: boolean;
   day_marking_title?: string;
+  type?: string; // Backend field
 }
 
 interface EventFormProps {
@@ -31,6 +32,13 @@ const EventForm: React.FC<EventFormProps> = ({ setResult, setError }) => {
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [parsedEventData, setParsedEventData] = useState<EventData | null>(null);
   const [editedEventData, setEditedEventData] = useState<EventData | null>(null);
+  const [isTaskToday, setIsTaskToday] = useState(false);
+
+  // Helper function to get today's date in YYYY-MM-DD format
+  const getTodayDate = (): string => {
+    const today = new Date();
+    return today.toISOString().split('T')[0];
+  };
 
   // Helper function to parse RRule string into a readable format
   const parseRRuleString = (rruleString: string): RRule | null => {
@@ -228,22 +236,35 @@ const EventForm: React.FC<EventFormProps> = ({ setResult, setError }) => {
           ? ''
           : data.recurrence_pattern;
       
+      // Determine if this is a task based on the parsed data
+      const isTask = data.type === 'task' || data.event_type === 'task';
+      
       // Add is_all_day field if it doesn't exist
       const processedData = {
         ...data,
         is_all_day: !data.start_time || !data.end_time || false,
         recurrence_pattern: processedRecurrence,
-        event_type: 'event' // Always default to event initially, user can switch to task if needed
+        event_type: isTask ? 'task' : (data.event_type || 'event') // Set event_type based on parsed data
       };
       
       // If there's no time specified, set default values
       if (!processedData.start_time) processedData.start_time = "00:00";
-      if (!processedData.end_time) processedData.end_time = "23:59";
+      if (!processedData.end_time && !isTask) processedData.end_time = "23:59";
+      
+      // For tasks, if no end time is specified, leave it empty (user can set it)
+      if (isTask && !processedData.end_time) {
+        processedData.end_time = "";
+      }
       
       // Format the date properly to match yyyy-MM-dd
       if (processedData.date && processedData.date.includes('T')) {
         processedData.date = processedData.date.split('T')[0];
       }
+      
+      // Check if task date is today
+      const todayDate = getTodayDate();
+      const taskIsToday = processedData.date === todayDate;
+      setIsTaskToday(taskIsToday);
       
       setParsedEventData(processedData);
       setEditedEventData(processedData);
@@ -270,12 +291,14 @@ const EventForm: React.FC<EventFormProps> = ({ setResult, setError }) => {
         
         // Handle different event types
         if (editedEventData.event_type === 'task') {
-          // Tasks don't need end_time or location
-          if (!formattedData.start_time) {
-            formattedData.start_time = "00:00";
+          // For tasks, set start_time to "00:00" and use end_time as the actual time
+          formattedData.start_time = "00:00";
+          // If no end time specified, set it to "00:00"
+          if (!formattedData.end_time) {
+            formattedData.end_time = "00:00";
           }
-          formattedData.end_time = formattedData.start_time; // Set end time same as start for tasks
           formattedData.type = 'task'; // Send as 'type' not 'event_type'
+          formattedData.location = ''; // Tasks don't have location
         } else if (editedEventData.event_type === 'event') {
           // Regular events
           formattedData.type = 'event'; // Send as 'type' not 'event_type'
@@ -311,6 +334,7 @@ const EventForm: React.FC<EventFormProps> = ({ setResult, setError }) => {
         setIsModalVisible(false);
         setParsedEventData(null);
         setEditedEventData(null);
+        setIsTaskToday(false);
       } catch (err) {
         console.error(err);
         setError('Failed to save event. Please try again.');
@@ -324,6 +348,7 @@ const EventForm: React.FC<EventFormProps> = ({ setResult, setError }) => {
     setIsModalVisible(false);
     setParsedEventData(null);
     setEditedEventData(null);
+    setIsTaskToday(false);
   };
 
   const handleEdit = (field: keyof EventData, value: string | boolean) => {
@@ -359,13 +384,13 @@ const EventForm: React.FC<EventFormProps> = ({ setResult, setError }) => {
     if (editedEventData) {
       const updatedData = { ...editedEventData, event_type: newType };
       
-      // If switching to task, clear end_time and location, set sensible defaults
+      // If switching to task, clear location, set sensible defaults
       if (newType === 'task') {
-        updatedData.end_time = '';
         updatedData.location = '';
         updatedData.is_all_day = false;
         updatedData.day_marking_title = '';
         updatedData.recurrence_pattern = ''; // Tasks don't have recurrence
+        // Keep existing end_time if it exists, otherwise leave empty
       }
       // If switching to event, ensure we have end_time
       else if (newType === 'event') {
@@ -394,6 +419,20 @@ const EventForm: React.FC<EventFormProps> = ({ setResult, setError }) => {
         updatedData.day_marking_title = '';
         updatedData.event_type = 'event';
       }
+      
+      setEditedEventData(updatedData);
+    }
+  };
+
+  const handleTaskTodayToggle = () => {
+    if (editedEventData) {
+      const newValue = !isTaskToday;
+      setIsTaskToday(newValue);
+      
+      const updatedData = { 
+        ...editedEventData, 
+        date: newValue ? getTodayDate() : editedEventData.date
+      };
       
       setEditedEventData(updatedData);
     }
@@ -458,16 +497,49 @@ const EventForm: React.FC<EventFormProps> = ({ setResult, setError }) => {
                 />
               </div>
 
-              {/* Show date for both events and tasks */}
-              <div className="detail-row">
-                <Calendar className="icon" />
-                <input
-                  type="date"
-                  value={editedEventData?.date || ''}
-                  onChange={(e) => handleEdit('date', e.target.value)}
-                  className="detail-input"
-                />
-              </div>
+              {/* Date and Today checkbox for tasks */}
+              {editedEventData?.event_type === 'task' && (
+                <>
+                  <div className="detail-row task-today-toggle">
+                    <label className="checkbox-container">
+                      <input
+                        type="checkbox"
+                        checked={isTaskToday}
+                        onChange={handleTaskTodayToggle}
+                      />
+                      <span className="custom-checkbox"></span>
+                      Today task
+                    </label>
+                  </div>
+                  
+                    
+                  {!isTaskToday && (
+                    <div className="detail-row">
+                      IN DEVELOPMENT
+                      <Calendar className="icon" />
+                      <input
+                        type="date"
+                        value={editedEventData?.date || ''}
+                        onChange={(e) => handleEdit('date', e.target.value)}
+                        className="detail-input"
+                      />
+                    </div>
+                  )}
+                </>
+              )}
+
+              {/* Show date for events */}
+              {editedEventData?.event_type !== 'task' && (
+                <div className="detail-row">
+                  <Calendar className="icon" />
+                  <input
+                    type="date"
+                    value={editedEventData?.date || ''}
+                    onChange={(e) => handleEdit('date', e.target.value)}
+                    className="detail-input"
+                  />
+                </div>
+              )}
               
               {/* For Events: Show all-day toggle and full time controls */}
               {(editedEventData?.event_type === 'event' || editedEventData?.event_type === 'marking') && (
@@ -481,7 +553,7 @@ const EventForm: React.FC<EventFormProps> = ({ setResult, setError }) => {
                         onChange={toggleAllDayEvent}
                       />
                       <span className="custom-checkbox"></span>
-                      Mark as all-day event
+                      All-day event
                     </label>
                   </div>
 
@@ -513,28 +585,13 @@ const EventForm: React.FC<EventFormProps> = ({ setResult, setError }) => {
                       value={editedEventData?.location || ''}
                       onChange={(e) => handleEdit('location', e.target.value)}
                       className="detail-input"
-                      placeholder="Location"
+                      placeholder="Location (optional)"
                     />
                   </div>
                 </>
               )}
 
-              {/* For Tasks: Show optional start time only */}
-              {editedEventData?.event_type === 'task' && (
-                <div className="detail-row">
-                  <Clock className="icon" />
-                  <div className="task-time-input">
-                    <input
-                      type="time"
-                      value={editedEventData?.start_time || ''}
-                      onChange={(e) => handleEdit('start_time', e.target.value)}
-                      className="detail-input"
-                      placeholder="Start time (optional)"
-                    />
-                    <span className="time-help">Start time (optional)</span>
-                  </div>
-                </div>
-              )}
+              {/* For Tasks: No time input - tasks don't have specific times */}
 
               {/* Recurrence Pattern Section - ONLY for events */}
               {(editedEventData?.event_type === 'event' || editedEventData?.event_type === 'marking') && (
@@ -557,7 +614,6 @@ const EventForm: React.FC<EventFormProps> = ({ setResult, setError }) => {
                         <option value="monthly">Every month</option>
                         <option value="yearly">Every year</option>
                       </select>
-
                     </div>
                   </div>
                 </div>
@@ -570,7 +626,7 @@ const EventForm: React.FC<EventFormProps> = ({ setResult, setError }) => {
                 className="confirm-button"
                 disabled={isSubmitting}
               >
-                {isSubmitting ? 'Saving...' : 'Create Event'}
+                {isSubmitting ? 'Saving...' : `Create ${editedEventData?.event_type === 'task' ? 'Task' : 'Event'}`}
               </button>
               <button 
                 onClick={handleCancel} 

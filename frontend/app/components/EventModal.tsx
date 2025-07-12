@@ -70,13 +70,33 @@ const EventModal: React.FC<EventModalProps> = ({
   ];
 
   // Utility function to get day of week from date string (YYYY-MM-DD)
+  // Replace the existing getDayOfWeekFromDateString function with this one:
+
   const getDayOfWeekFromDateString = (dateString: string): string => {
-    // Parse the date string directly without creating a Date object to avoid timezone issues
+    // Use a more reliable method that doesn't create a Date object
     const [year, month, day] = dateString.split('-').map(Number);
-    // Create date in local timezone
-    const date = new Date(year, month - 1, day);
-    const dayAbbrevs = ['SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA'];
-    return dayAbbrevs[date.getDay()];
+    
+    // Zeller's congruence algorithm to calculate day of week
+    // This avoids all timezone issues
+    let q = day;
+    let m = month;
+    let y = year;
+    
+    // Adjust for Zeller's congruence (January and February are counted as months 13 and 14 of the previous year)
+    if (m < 3) {
+      m += 12;
+      y -= 1;
+    }
+    
+    const k = y % 100;
+    const j = Math.floor(y / 100);
+    
+    // Zeller's formula
+    const h = (q + Math.floor((13 * (m + 1)) / 5) + k + Math.floor(k / 4) + Math.floor(j / 4) - 2 * j) % 7;
+    
+    // Convert to our day abbreviation format
+    const dayAbbrevs = ['SA', 'SU', 'MO', 'TU', 'WE', 'TH', 'FR'];
+    return dayAbbrevs[h];
   };
 
   // Utility function to get day and month from date string

@@ -268,7 +268,8 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange, onViewChange }) => {
 
     const updatedEvent = {
       event_name: event.title,
-      date: startDate.toISOString().split('T')[0],
+      date: `${startDate.getFullYear()}-${String(startDate.getMonth() + 1).padStart(2, '0')}-${String(startDate.getDate()).padStart(2, '0')}`,
+
       start_time: startDate.toLocaleTimeString('en-US', {
         hour12: false,
         hour: '2-digit',
@@ -336,7 +337,7 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange, onViewChange }) => {
     setSelectedEvent({
       eventId: '',
       event_name: '',
-      date: startDate.toISOString().split('T')[0],
+      date: `${startDate.getFullYear()}-${String(startDate.getMonth() + 1).padStart(2, '0')}-${String(startDate.getDate()).padStart(2, '0')}`,
       start_time: startDate.toLocaleTimeString('en-US', {
         hour12: false,
         hour: '2-digit',
@@ -798,7 +799,8 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange, onViewChange }) => {
             setSelectedEvent({
               eventId: event.extendedProps?.originalId || event.id,
               event_name: event.title,
-              date: startDate.toISOString().split('T')[0],
+              date: `${startDate.getFullYear()}-${String(startDate.getMonth() + 1).padStart(2, '0')}-${String(startDate.getDate()).padStart(2, '0')}`,
+
               start_time: startDate.toLocaleTimeString('en-US', {
                 hour12: false,
                 hour: '2-digit',
