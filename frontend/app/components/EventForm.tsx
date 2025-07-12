@@ -96,7 +96,9 @@ const EventForm: React.FC<EventFormProps> = ({ setResult, setError }) => {
         // Check for weekdays pattern
         if (options.byweekday && options.byweekday.length === 5) {
           const weekdayNumbers = options.byweekday.map(day => 
-            typeof day === 'number' ? day : day.weekday
+            typeof day === 'number'
+              ? day
+              : (typeof day === 'object' && 'weekday' in day ? (day as { weekday: number }).weekday : -1)
           ).sort();
           if (JSON.stringify(weekdayNumbers) === JSON.stringify([0, 1, 2, 3, 4])) {
             return 'weekdays';
@@ -106,7 +108,7 @@ const EventForm: React.FC<EventFormProps> = ({ setResult, setError }) => {
         // Check for weekends pattern
         if (options.byweekday && options.byweekday.length === 2) {
           const weekendNumbers = options.byweekday.map(day => 
-            typeof day === 'number' ? day : day.weekday
+            typeof day === 'number' ? day : (typeof day === 'object' && day !== null && 'weekday' in day ? (day as { weekday: number }).weekday : -1)
           ).sort();
           if (JSON.stringify(weekendNumbers) === JSON.stringify([5, 6])) {
             return 'weekends';
@@ -137,8 +139,19 @@ const EventForm: React.FC<EventFormProps> = ({ setResult, setError }) => {
       
       if (options.freq === RRule.WEEKLY && options.byweekday && options.byweekday.length === 1) {
         const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-        const dayIndex = typeof options.byweekday[0] === 'number' ? options.byweekday[0] : options.byweekday[0].weekday;
-        return `(${dayNames[dayIndex]})`;
+        let dayIndex: number;
+        if (typeof options.byweekday[0] === 'number') {
+          dayIndex = options.byweekday[0];
+        } else if (
+          typeof options.byweekday[0] === 'object' &&
+          options.byweekday[0] !== null &&
+          'weekday' in options.byweekday[0]
+        ) {
+          dayIndex = (options.byweekday[0] as { weekday: number }).weekday;
+        } else {
+          dayIndex = -1;
+        }
+        return dayIndex >= 0 && dayIndex < dayNames.length ? `(${dayNames[dayIndex]})` : '';
       }
       
       if (options.freq === RRule.MONTHLY && options.bymonthday && options.bymonthday.length === 1) {
@@ -172,7 +185,11 @@ const EventForm: React.FC<EventFormProps> = ({ setResult, setError }) => {
         // Check for weekdays pattern
         if (options.byweekday && options.byweekday.length === 5) {
           const weekdayNumbers = options.byweekday.map(day => 
-            typeof day === 'number' ? day : day.weekday
+            typeof day === 'number'
+              ? day
+              : (typeof day === 'object' && day !== null && 'weekday' in day
+                  ? (day as { weekday: number }).weekday
+                  : -1)
           ).sort();
           if (JSON.stringify(weekdayNumbers) === JSON.stringify([0, 1, 2, 3, 4])) {
             return 'Weekdays only (Mon-Fri)';
@@ -182,7 +199,11 @@ const EventForm: React.FC<EventFormProps> = ({ setResult, setError }) => {
         // Check for weekends pattern
         if (options.byweekday && options.byweekday.length === 2) {
           const weekendNumbers = options.byweekday.map(day => 
-            typeof day === 'number' ? day : day.weekday
+            typeof day === 'number'
+              ? day
+              : (typeof day === 'object' && day !== null && 'weekday' in day
+                  ? (day as { weekday: number }).weekday
+                  : -1)
           ).sort();
           if (JSON.stringify(weekendNumbers) === JSON.stringify([5, 6])) {
             return 'Weekends only (Sat-Sun)';

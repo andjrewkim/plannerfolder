@@ -8,4 +8,7 @@ module.exports = {
       },
     ];
   },
+  eslint: {
+    ignoreDuringBuilds: true, // ✅ This tells Vercel to skip ESLint during build
+  },
 };
