@@ -4,18 +4,13 @@ services:
     env: python
     plan: free
     buildCommand: |
+      cd Fluxy
       echo "Python Path:"
       python -c "import sys; print(sys.path)"
-      pip install --no-cache-dir -r requirements.txt
+      pip install --no-cache-dir -r ../requirements.txt
     startCommand: gunicorn Fluxy.wsgi:application --bind 0.0.0.0:$PORT
-
     envVars:
-      - key: PYTHONPATH
-        value: /opt/render/project/src
       - key: DJANGO_SETTINGS_MODULE
         value: Fluxy.settings
       - key: ALLOWED_HOSTS
         value: .onrender.com
-      - key: PORT
-        value: 10000
-
