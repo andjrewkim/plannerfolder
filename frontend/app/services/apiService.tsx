@@ -1,11 +1,11 @@
 import axios, { AxiosError, AxiosRequestConfig } from 'axios';
 import { authAPI } from '../../lib/auth'; // Import your existing auth service
 
-const API_URL = 'http://127.0.0.1:8000/api/schedule/';  // Django API endpoint
+const API_URL = 'NEXT_PUBLIC_API_URL/api/schedule/';  // Django API endpoint
 
 // Create an axios instance with default configuration
 const apiClient = axios.create({
-  baseURL: 'http://127.0.0.1:8000/api',
+  baseURL: 'NEXT_PUBLIC_API_URL/api',
   withCredentials: true, // Important for Django session auth
 });
 

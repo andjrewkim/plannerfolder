@@ -25,7 +25,7 @@ interface EventData {
 
 const DayMarkingHighlighter: React.FC<DayMarkingHighlighterProps> = ({
   onMarkingsLoaded,
-  apiEndpoint = 'http://127.0.0.1:8000/api/events/',
+  apiEndpoint = `${process.env.NEXT_PUBLIC_API_URL}/api/events/`,
   refreshTrigger
 }) => {
   // Keep state variables but avoid the linting errors by using them

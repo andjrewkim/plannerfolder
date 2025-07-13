@@ -108,7 +108,7 @@ const Sidebar: React.FC = () => {
         return;
       }
 
-      const response = await authAPI.authenticatedFetch('http://127.0.0.1:8000/api/tasks/');
+      const response = await authAPI.authenticatedFetch(`${process.env.NEXT_PUBLIC_API_URL}/api/tasks/`);
 
       if (!response.ok) {
         if (response.status === 401) {
@@ -151,7 +151,7 @@ const Sidebar: React.FC = () => {
       }
 
       // Get all current tasks first
-      const response = await authAPI.authenticatedFetch('http://127.0.0.1:8000/api/tasks/');
+      const response = await authAPI.authenticatedFetch(`${process.env.NEXT_PUBLIC_API_URL}/api/tasks/`);
 
       if (!response.ok) {
         if (response.status === 401) {
@@ -168,14 +168,14 @@ const Sidebar: React.FC = () => {
       
       // Delete all regular tasks
       for (const task of regularTasks) {
-        await authAPI.authenticatedFetch(`http://127.0.0.1:8000/api/tasks/${task.id}/`, {
+        await authAPI.authenticatedFetch(`${process.env.NEXT_PUBLIC_API_URL}/api/tasks/${task.id}/`, {
           method: 'DELETE'
         });
       }
 
       // Recreate all regular tasks
       for (const task of regularTasks) {
-        await authAPI.authenticatedFetch('http://127.0.0.1:8000/api/tasks/', {
+        await authAPI.authenticatedFetch(`${process.env.NEXT_PUBLIC_API_URL}/api/tasks/`, {
           method: 'POST',
           body: JSON.stringify({
             event: task.event,
@@ -222,7 +222,7 @@ const Sidebar: React.FC = () => {
         return;
       }
 
-      const response = await authAPI.authenticatedFetch('http://127.0.0.1:8000/api/events/');
+      const response = await authAPI.authenticatedFetch(`${process.env.NEXT_PUBLIC_API_URL}/api/events/`);
 
       if (!response.ok) {
         if (response.status === 401) {
@@ -274,7 +274,7 @@ const Sidebar: React.FC = () => {
         return;
       }
 
-      const response = await authAPI.authenticatedFetch('http://127.0.0.1:8000/api/tasks/', {
+      const response = await authAPI.authenticatedFetch(`${process.env.NEXT_PUBLIC_API_URL}/api/tasks/`, {
         method: 'POST',
         body: JSON.stringify({
           event: newTaskText,
@@ -325,7 +325,7 @@ const Sidebar: React.FC = () => {
 
       // For long-term goals, we'll use a special marker in the database
       // We'll set date to "longterm" string which our API can interpret
-      const response = await authAPI.authenticatedFetch('http://127.0.0.1:8000/api/tasks/', {
+      const response = await authAPI.authenticatedFetch(`${process.env.NEXT_PUBLIC_API_URL}/api/tasks/`, {
         method: 'POST',
         body: JSON.stringify({
           event: newLongTermText,
@@ -457,7 +457,7 @@ const Sidebar: React.FC = () => {
           return;
         }
 
-        const response = await authAPI.authenticatedFetch(`http://127.0.0.1:8000/api/tasks/${taskId}/`, {
+        const response = await authAPI.authenticatedFetch(`${process.env.NEXT_PUBLIC_API_URL}/api/tasks/${taskId}/`, {
           method: 'DELETE'
         });
 

@@ -145,7 +145,7 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange, onViewChange }) => {
     shouldFetch.current = false;
 
     try {
-      const response = await authAPI.authenticatedFetch('http://127.0.0.1:8000/api/events/');
+      const response = await authAPI.authenticatedFetch(`${process.env.NEXT_PUBLIC_API_URL}/api/events/`);
       if (!response.ok) throw new Error('Failed to fetch events');
 
       const data: EventDetails[] = await response.json();
@@ -230,8 +230,8 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange, onViewChange }) => {
 
     try {
       const url = selectedEvent.eventId
-        ? `http://127.0.0.1:8000/api/events/${selectedEvent.eventId}/`
-        : 'http://127.0.0.1:8000/api/events/';
+        ? `${process.env.NEXT_PUBLIC_API_URL}/api/events/${selectedEvent.eventId}/`
+        : `${process.env.NEXT_PUBLIC_API_URL}/api/events/`;
 
       const response = await authAPI.authenticatedFetch(url, {
         method: selectedEvent.eventId ? 'PUT' : 'POST',
@@ -291,7 +291,7 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange, onViewChange }) => {
       color: event.backgroundColor || '#3788d8'
     };
 
-    authAPI.authenticatedFetch(`http://127.0.0.1:8000/api/events/${eventId}/`, {
+    authAPI.authenticatedFetch(`${process.env.NEXT_PUBLIC_API_URL}/api/events/${eventId}/`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
@@ -364,7 +364,7 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange, onViewChange }) => {
   const handleDeleteEvent = async (eventId: string): Promise<boolean> => {
     try {
       setIsLoading(true);
-      const response = await authAPI.authenticatedFetch(`http://127.0.0.1:8000/api/events/${eventId}/`, {
+      const response = await authAPI.authenticatedFetch(`${process.env.NEXT_PUBLIC_API_URL}/api/events/${eventId}/`, {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
@@ -523,7 +523,7 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange, onViewChange }) => {
         // Use originalId for recurring events
         const eventId = originalEvent.extendedProps?.originalId || event.id;
 
-        const response = await authAPI.authenticatedFetch(`http://127.0.0.1:8000/api/events/${eventId}/`, {
+        const response = await authAPI.authenticatedFetch(`${process.env.NEXT_PUBLIC_API_URL}/api/events/${eventId}/`, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',

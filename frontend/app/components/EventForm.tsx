@@ -237,7 +237,7 @@ const EventForm: React.FC<EventFormProps> = ({ setResult, setError }) => {
     
     try {
       // Parse the event data only (not saving to backend yet)
-      const response = await authAPI.authenticatedFetch('http://127.0.0.1:8000/api/schedule/parse/', {
+      const response = await authAPI.authenticatedFetch(`${process.env.NEXT_PUBLIC_API_URL}/api/schedule/parse/`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -336,7 +336,7 @@ const EventForm: React.FC<EventFormProps> = ({ setResult, setError }) => {
         
         // Now save to backend using the original endpoint
         console.log('Sending event data to backend:', { input_text: inputText, ...formattedData });
-        const response = await authAPI.authenticatedFetch('http://127.0.0.1:8000/api/schedule/', {
+        const response = await authAPI.authenticatedFetch(`${process.env.NEXT_PUBLIC_API_URL}/api/schedule/`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
