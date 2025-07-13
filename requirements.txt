@@ -4,3 +4,4 @@ pytz==2024.2
 Requests==2.32.4
 spacy
 tqdm==4.67.1
+gunicorn
