@@ -8,7 +8,6 @@ import requests
 
 from tqdm import tqdm
 
-import spacy
 import dateparser
 from datetime import datetime, timedelta
 from typing import Dict, Optional, Any, List, Set
@@ -660,9 +659,6 @@ class TimeParser:
         
 class ScheduleSpellChecker:
     def __init__(self):
-        # Load spaCy model for basic tokenization and lemmatization
-        self.nlp = spacy.load("en_core_web_sm")
-        
         # Common schedule-related word variations and misspellings
         self.common_corrections = {
             # Time-related
@@ -797,30 +793,28 @@ class ScheduleSpellChecker:
         # Fix time patterns first
         text = self._fix_time_patterns(text)
         
-        # Tokenize the text using spaCy
-        doc = self.nlp(text)
+        # Tokenize the text using a simple split instead of spaCy
+        tokens = re.findall(r"\w+|[^\w\s]", text, re.UNICODE)
         
         # Process each token
         corrected_words = []
-        for token in doc:
+        for token in tokens:
             # Skip punctuation and whitespace
-            if token.is_punct or token.is_space:
-                corrected_words.append(token.text)
+            if re.match(r"^\W+$", token):
+                corrected_words.append(token)
                 continue
             
             # Fix common misspellings
-            corrected_word = self._fix_common_misspellings(token.text)
+            corrected_word = self._fix_common_misspellings(token)
             corrected_words.append(corrected_word)
         
         # Reconstruct the text while preserving spacing
         corrected_text = ""
-        for i, token in enumerate(doc):
-            if token.is_punct:
+        for i, token in enumerate(tokens):
+            if re.match(r"^\W+$", token):
                 corrected_text += corrected_words[i]
-            elif token.is_space:
-                corrected_text += token.text
             else:
-                if i > 0 and not doc[i-1].is_punct and not doc[i-1].is_space:
+                if i > 0 and not re.match(r"^\W+$", tokens[i-1]):
                     corrected_text += " "
                 corrected_text += corrected_words[i]
         
@@ -829,8 +823,7 @@ class ScheduleSpellChecker:
     
 class AdvancedScheduleExtractor:
     def __init__(self):
-        self.nlp = spacy.load("en_core_web_sm")
-        self.spell_checker = ScheduleSpellChecker()  # Add this line
+        self.spell_checker = ScheduleSpellChecker()
 
         
         # Comprehensive category hierarchy and relationships
@@ -1234,23 +1227,20 @@ class AdvancedScheduleExtractor:
 
 
 
-    def _extract_location(self, doc):
-        """Extract location information from the text using spaCy named entities"""
+    def _extract_location(self, doc_or_text):
+        """Extract location information from the text using simple heuristics"""
+        # Accept either a spaCy doc or a string
+        if isinstance(doc_or_text, str):
+            text = doc_or_text
+        else:
+            # If called with a spaCy doc, fallback to its text
+            text = getattr(doc_or_text, "text", "")
         locations = []
-        
-        # Extract named entities that are locations
-        for ent in doc.ents:
-            if ent.label_ in ['FAC', 'GPE', 'LOC', 'ORG']:
-                locations.append(ent.text)
-        
-        # Check for location keywords from category hierarchy
-        text_lower = doc.text.lower()
+        text_lower = text.lower()
         for category in self.category_hierarchy.values():
             for location in category['locations']:
                 if location in text_lower:
                     locations.append(location)
-        
-        # Return the first found location or None if no locations found
         return locations[0] if locations else None
 
     def _determine_urgency(self, text):
@@ -1536,7 +1526,6 @@ class AdvancedScheduleExtractor:
         """
         text_lower = text.lower()
         words = set(text_lower.split())
-        doc = self.nlp(text_lower)
         
         # Define comprehensive category patterns with required and excluded terms
         category_rules = {
@@ -1862,7 +1851,7 @@ class AdvancedScheduleExtractor:
         r'(?i)(baby sitting|childcare|family outing|family gathering|family dinner|parenting|playdate|birthday party|school event|school run|parent-teacher meeting|baby shower|family vacation|kids party|birthday celebration|family game night|parenting class|school pick-up|school drop-off)',
         r'(?i)(church|mass|temple|mosque|prayer|bible study|sabbath|spiritual gathering|meditation group|spiritual retreat|fasting|pilgrimage|holy day|religious service|spiritual cleansing|baptism|bar mitzvah|christening|ritual|satsang|yoga retreat|religious celebration|prayer group|faith meeting)',
         r'(?i)(volunteer|charity|donation|fundraising|food drive|community event|service project|nonprofit|volunteer work|charity event|outreach program|donation drive|blood donation|helping hand|community service|social cause|volunteering|group project|neighborhood meeting|donation pickup)',
-        r'(?i)(shopping|fashion|clothing|store visit|outlet|shopping spree|fashion show|mall trip|retail therapy|online shopping|wardrobe update|styling|shoe shopping|accessory shopping|jewelry shopping|makeup shopping|designer shopping|gift shopping|thrift store|second-hand shopping|vintage shopping|buying new clothes|fashion consultation)',
+        r'(?i)(shopping|fashion|clothing|store visit|outlet|shopping spree|retail therapy|online shopping|wardrobe update|styling|shoe shopping|accessory shopping|jewelry shopping|makeup shopping|designer shopping|gift shopping|thrift store|second-hand shopping|vintage shopping|buying new clothes|fashion consultation)',
         r'(?i)(coding|programming|hacking|gaming|tech meetup|hackathon|startup|software development|hardware building|AI project|machine learning|data science|tech conference|technology lecture|robotics|tech seminar|3d printing|gadget testing|app development|blockchain|cybersecurity|virtual reality demo|AR workshop|developer meetup)',
         r'(?i)(conference|workshop|meeting|event|session|presentation|discussion|webinar|seminar|forum|training|retreat|summit|exhibition|webcast|showcase|product launch|grand opening|press release|panel discussion|open house|expo|trade show|announcement|live demo|show and tell|lecture)',
         r'(?i)(therapy session|counseling|self-care|mental health day|personal retreat|yoga|journaling|meditation|mindfulness|relaxation|breathing exercises|positive thinking|therapy appointment|stress relief|mental health checkup|wellness session|personal development|self-improvement|emotional well-being)',
@@ -1952,15 +1941,6 @@ class AdvancedScheduleExtractor:
             name_parts.append(modifier)
         name_parts.append(activity)
         
-        # Get important context if spaCy is available
-        if hasattr(self, 'nlp'):
-            doc = self.nlp(cleaned_text)
-            for ent in doc.ents:
-                if ent.label_ in ['PERSON', 'ORG'] and \
-                ent.text.lower() not in [p.lower() for p in name_parts]:
-                    name_parts.append(ent.text)
-                    break
-        
         return format_name(name_parts)
    
    
@@ -2023,8 +2003,6 @@ class AdvancedScheduleExtractor:
     def extract_info(self, text: str) -> Dict[str, Any]:
         """Main extraction function with enhanced accuracy"""
         # Basic NLP processing
-        doc = self.nlp(text)
-        
         # Initialize TimeParser
         time_parser = TimeParser()
         date_handler = DateHandler()
@@ -2094,7 +2072,7 @@ class AdvancedScheduleExtractor:
 
         # Extract location if not virtual
         if not result['virtual']:
-            location_info = self._extract_location(doc)
+            location_info = self._extract_location(text)
             if location_info:
                 result['location'] = location_info
 
