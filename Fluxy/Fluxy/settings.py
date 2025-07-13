@@ -16,7 +16,7 @@ SECRET_KEY = 'django-insecure-o$6dky9m&k81lced^&l+93@g4bgsjh&&#6thp$_%w#63)@4@e&
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['fluxyfolder.vercel.app', '127.0.0.1', 'localhost']
+ALLOWED_HOSTS = ['fluxyfolder.vercel.app', '127.0.0.1', 'localhost', "https://flux-backend-ggea.onrender.com"]
 
 # CSRF and CORS settings
 CSRF_COOKIE_NAME = "csrftoken"
@@ -25,6 +25,7 @@ CSRF_TRUSTED_ORIGINS = [
     'http://localhost:3000',
     'https://fluxyfolder.vercel.app',
     "https://127.0.0.1:3000",
+    "https://flux-backend-ggea.onrender.com"
 ]
 
 
@@ -44,7 +45,7 @@ LOGGING = {
         'console': {
             'level': 'INFO',
             'class': 'logging.StreamHandler',
-        },
+        }, 
     },
     'loggers': {
         'duckling_parser': {
@@ -64,6 +65,7 @@ CORS_ALLOWED_ORIGINS = [
     "https://fluxyfolder.vercel.app",
     "https://flux-qcj2.onrender.com",
     "https://127.0.0.1:3000",
+    "https://flux-backend-ggea.onrender.com"
 ]
 
 CORS_ALLOW_METHODS = [

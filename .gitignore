@@ -54,8 +54,11 @@ yarn-debug.log*
 yarn-error.log*
 
 # Local env files
-.env
+.env*
 .env.local
+
+!.env.api
+
 .env.development.local
 .env.test.local
 .env.production.local
