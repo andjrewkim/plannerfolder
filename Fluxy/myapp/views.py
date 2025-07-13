@@ -2192,16 +2192,12 @@ def home(request):
     events = CalendarEvent.objects.all()
     tasks = TodoTask.objects.all()
     
-    return render(request, 'home.html', {
-        'form': form,
-        'result': result,
-        'events': events,
-    })
+    return JsonResponse({'status': 'success'})
 
 
 
 # views.py
-from django.http import HttpResponse
+from django.http import HttpResponse, JsonResponse
 from django.middleware.csrf import get_token
 
 def get_csrf_token(request):
