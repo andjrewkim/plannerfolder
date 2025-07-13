@@ -54,9 +54,10 @@ export default function CalendarSettings() {
   };
 
   return (
-    <div className="app-container">
-      {/* Header removed */}
-      
+  <div className="app-container">
+    {/* Spacer div to replace header */}
+    <div style={{ height: '100px' }}></div>
+
       <div className="main-container">
         <nav className="sidebar">
           <div className="nav-group">

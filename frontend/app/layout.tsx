@@ -35,7 +35,8 @@ const RootLayout: React.FC<RootLayoutProps> = ({ children }) => {
   const pathname = usePathname();
   
   // Define paths where navbar should always be visible
-  const alwaysVisiblePaths = ['/settings'];
+  const alwaysVisiblePaths = ['/settings', '/profile'];
+
   const shouldAlwaysShow = alwaysVisiblePaths.includes(pathname);
 
   // Check authentication status
@@ -161,7 +162,7 @@ const RootLayout: React.FC<RootLayoutProps> = ({ children }) => {
                 display: 'flex',
 
 
-                fontWeight: '550',
+                fontWeight: '200',
                 borderRadius: '4px',
                 transition: 'background-color 0.2s ease',
               }}>
