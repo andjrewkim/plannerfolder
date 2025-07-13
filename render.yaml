@@ -5,8 +5,8 @@ services:
     plan: free
 
     buildCommand: |
+      pip install --no-cache-dir -r requirements.txt
       cd Fluxy
-      pip install --no-cache-dir -r ../requirements.txt
       python manage.py collectstatic --noinput
 
     startCommand: cd Fluxy && gunicorn Fluxy.wsgi:application --bind 0.0.0.0:$PORT
