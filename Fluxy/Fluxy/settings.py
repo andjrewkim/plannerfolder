@@ -63,7 +63,6 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
     "http://127.0.0.1:3000",
     "https://fluxyfolder.vercel.app",
-    "https://flux-qcj2.onrender.com",  # if this is another valid frontend
 ]
 
 CORS_ALLOW_METHODS = [
