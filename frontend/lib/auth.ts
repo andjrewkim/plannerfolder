@@ -1,7 +1,7 @@
 // lib/auth.ts
 import { User, LoginCredentials, RegisterData, AuthResponse } from '../types/auth';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000/api';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL
 
 class AuthService {
   private getAuthHeaders(): Record<string, string> {
@@ -16,7 +16,7 @@ class AuthService {
 
   async login(credentials: LoginCredentials): Promise<AuthResponse> {
     try {
-      const response = await fetch(`${API_BASE_URL}/login/`, {
+      const response = await fetch(`${API_BASE_URL}/api/login/`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -50,7 +50,7 @@ class AuthService {
     try {
       console.log('Registering user:', userData);
       
-      const response = await fetch(`${API_BASE_URL}/register/`, {
+      const response = await fetch(`${API_BASE_URL}/api/register/`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -82,7 +82,7 @@ class AuthService {
       
       console.log('Sending logout request...');
       
-      const response = await fetch(`${API_BASE_URL}/logout/`, {
+      const response = await fetch(`${API_BASE_URL}/api/logout/`, {
         method: 'POST',
         headers: headers,
         credentials: 'include', // ← THIS IS CRITICAL - sends cookies
@@ -104,7 +104,7 @@ class AuthService {
   // ADD THIS METHOD - This is what you're missing!
   async checkAuthStatus(): Promise<boolean> {
     try {
-      const response = await fetch(`${API_BASE_URL}/check-login/`, {
+      const response = await fetch(`${API_BASE_URL}/api/check-login/`, {
         method: 'GET',
         headers: this.getAuthHeaders(), // ← This includes the Authorization header with token
         credentials: 'include',
