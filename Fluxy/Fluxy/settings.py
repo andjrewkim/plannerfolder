@@ -4,6 +4,8 @@ import os
 
 PORT = os.getenv('PORT', 8080)
 
+import dj_database_url
+
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -161,6 +163,15 @@ TEMPLATES = [
     },
 ]
 
+DATABASES = {
+    'default': dj_database_url.config(
+        default=os.environ.get('DATABASE_URL'),
+        conn_max_age=600,  # optional: for persistent connections
+    )
+}
+
+
+"""
 # Database
 DATABASES = {
     'default': {
@@ -172,6 +183,7 @@ DATABASES = {
         'PORT': '5432',
     }
 }
+"""
 
 # Password validation
 AUTH_PASSWORD_VALIDATORS = [
