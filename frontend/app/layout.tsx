@@ -32,29 +32,43 @@ const RootLayout: React.FC<RootLayoutProps> = ({ children }) => {
   const [visible, setVisible] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoadingAuth, setIsLoadingAuth] = useState(true);
+  const [authError, setAuthError] = useState(false);
   const pathname = usePathname();
   
   // Define paths where navbar should always be visible
   const alwaysVisiblePaths = ['/settings', '/profile'];
+  // Define auth-related paths that shouldn't trigger auth checks
+  const authPaths = ['/userlogin', '/signup', '/login'];
 
   const shouldAlwaysShow = alwaysVisiblePaths.includes(pathname);
+  const isAuthPage = authPaths.includes(pathname);
 
   // Check authentication status
   useEffect(() => {
+    // Don't check auth on auth-related pages to prevent redirect loops
+    if (isAuthPage) {
+      setIsLoadingAuth(false);
+      setIsAuthenticated(false);
+      setAuthError(false);
+      return;
+    }
+
     const checkAuth = async () => {
       try {
+        setAuthError(false);
         const isAuth = await authAPI.checkAuthStatus();
         setIsAuthenticated(isAuth);
       } catch (error) {
         console.error('Error checking auth status:', error);
         setIsAuthenticated(false);
+        setAuthError(true);
       } finally {
         setIsLoadingAuth(false);
       }
     };
 
     checkAuth();
-  }, [pathname]); // Re-check on path change
+  }, [pathname, isAuthPage]);
 
   useEffect(() => {
     // If we're on a path where navbar should always be visible, 
@@ -81,6 +95,72 @@ const RootLayout: React.FC<RootLayoutProps> = ({ children }) => {
       window.removeEventListener('mousemove', handleMouseMove);
     };
   }, [pathname, shouldAlwaysShow]);
+
+  const renderAuthButton = () => {
+    // Always show "Log In" on auth pages
+    if (isAuthPage) {
+      return (
+        <Link href="/userlogin" className="login-button" style={{
+          display: 'flex',
+          alignItems: 'center',
+          padding: '8px 16px',
+          fontWeight: '200',
+          borderRadius: '4px',
+          transition: 'background-color 0.2s ease',
+          textDecoration: 'none',
+          color: 'inherit',
+        }}>
+          Log In
+        </Link>
+      );
+    }
+
+    // Show loading state while checking auth (but not for too long)
+    if (isLoadingAuth) {
+      return (
+        <div className="profile-button" style={{ 
+          display: 'flex', 
+          alignItems: 'center', 
+          justifyContent: 'center',
+          minWidth: '60px',
+          padding: '8px 16px',
+        }}>
+          <span style={{ fontSize: '12px', color: '#666' }}>...</span>
+        </div>
+      );
+    }
+
+    // If there's an auth error (backend down), still show login button
+    if (authError || !isAuthenticated) {
+      return (
+        <Link href="/userlogin" className="login-button" style={{
+          display: 'flex',
+          alignItems: 'center',
+          padding: '8px 16px',
+          fontWeight: '200',
+          borderRadius: '4px',
+          transition: 'background-color 0.2s ease',
+          textDecoration: 'none',
+          color: 'inherit',
+        }}>
+          Log In
+        </Link>
+      );
+    }
+
+    // Show profile button when authenticated
+    return (
+      <Link href="/profile" className="profile-button">
+        <Image
+          src="/images/usericon.png"
+          alt="Profile"
+          width={24}
+          height={24}
+          className="nav-icon"
+        />
+      </Link>
+    );
+  };
 
   return (
     <html lang="en">
@@ -112,7 +192,6 @@ const RootLayout: React.FC<RootLayoutProps> = ({ children }) => {
                 width={24}
                 height={24}
                 className="nav-icon"
-                
               />
             </Link>
             <Link href="/" className="home-button">
@@ -135,40 +214,7 @@ const RootLayout: React.FC<RootLayoutProps> = ({ children }) => {
             </Link>
             
             {/* Conditional Profile/Login Button */}
-            {isLoadingAuth ? (
-              // Show loading state while checking auth
-              <div className="profile-button" style={{ 
-                display: 'flex', 
-                alignItems: 'center', 
-                justifyContent: 'center',
-                minWidth: '60px'
-              }}>
-                <span style={{ fontSize: '12px', color: '#666' }}>...</span>
-              </div>
-            ) : isAuthenticated ? (
-              // Show profile button when authenticated
-              <Link href="/profile" className="profile-button">
-                <Image
-                  src="/images/usericon.png"
-                  alt="Profile"
-                  width={24}
-                  height={24}
-                  className="nav-icon"
-                />
-              </Link>
-            ) : (
-              // Show "Log In" text when not authenticated
-              <Link href="/userlogin" className="login-button" style={{
-                display: 'flex',
-
-
-                fontWeight: '200',
-                borderRadius: '4px',
-                transition: 'background-color 0.2s ease',
-              }}>
-                Log In
-              </Link>
-            )}
+            {renderAuthButton()}
           </div>
         </nav>
 

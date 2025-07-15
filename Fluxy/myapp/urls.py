@@ -10,7 +10,7 @@ from myapp.views_user import login_user
 from myapp.views_logout import logout_view
 from myapp.views_check_login import check_login
 from .view_dispatcher import ScheduleInputDispatcher, ScheduleInputParser  # Import the missing views
-
+from myapp.views_llm_text import llm_text
 
 urlpatterns = [
     path('', views.home, name='home'),  # Home page route
@@ -29,4 +29,8 @@ urlpatterns = [
     
     path('api/schedule/', ScheduleInputDispatcher.as_view(), name='schedule-dispatcher'),
     path('api/schedule/parse/', ScheduleInputParser.as_view(), name='schedule-parser'),
+    #path('parse/', views.parse_time, name='parse_time'),
+    
+    path('api/llm-text/', llm_text, name='llm_text'),  # Endpoint for LLM chat text
 ]
+ 
