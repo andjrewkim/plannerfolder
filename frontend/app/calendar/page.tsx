@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import Calendar from '../components/Calendar';
 import Sidebar from '../components/Sidebar';
 import EventForm from '../components/EventForm';
+import LLMChat from '../components/LLMChat';
 import '../globals.css';
 import { ThemeProvider } from '../services/themeContext';
 
@@ -55,6 +56,9 @@ const Page = () => {
           />
           <p className="current-view">Current View: {view}</p> {/* Display the current view */}
         </div>
+
+        {/* LLM Chat Component - floating and draggable */}
+        <LLMChat />
       </div>
     </ThemeProvider>
   );

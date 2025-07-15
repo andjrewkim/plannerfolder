@@ -585,28 +585,7 @@ const Sidebar: React.FC = () => {
             className="section-content clickable-area"
             onClick={handleTaskAreaClick}
           >
-            {isAddingTask ? (
-              <form onSubmit={handleCreateTask} className="task-form">
-                <input
-                  type="text"
-                  ref={taskInputRef}
-                  value={newTaskText}
-                  onChange={(e) => setNewTaskText(e.target.value)}
-                  placeholder="Enter new task..."
-                  className="task-input"
-                />
-                <div className="task-form-buttons">
-                  <button type="submit" className="btn btn-save">Save</button>
-                  <button 
-                    type="button" 
-                    className="btn btn-cancel"
-                    onClick={handleCancelTask}
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </form>
-            ) : tasks.length > 0 ? (
+            {tasks.length > 0 && (
               <ul className="task-list">
                 {tasks.map((task) => (
                   <li 
@@ -624,10 +603,8 @@ const Sidebar: React.FC = () => {
                   </li>
                 ))}
               </ul>
-            ) : (
-              <div className="empty-state">Click here to add tasks</div>
             )}
-            {isAddingTask && tasks.length > 0 && (
+            {isAddingTask ? (
               <form onSubmit={handleCreateTask} className="task-form">
                 <input
                   type="text"
@@ -644,10 +621,12 @@ const Sidebar: React.FC = () => {
                     className="btn btn-cancel"
                     onClick={handleCancelTask}
                   >
-                    Cancel
+                    Close
                   </button>
                 </div>
               </form>
+            ) : (
+              <div className="empty-state">Click here to add tasks</div>
             )}
           </div>
           <div 
@@ -670,28 +649,7 @@ const Sidebar: React.FC = () => {
             className="section-content clickable-area"
             onClick={handleLongTermAreaClick}
           >
-            {isAddingLongTerm ? (
-              <form onSubmit={handleCreateLongTerm} className="task-form">
-                <input
-                  type="text"
-                  ref={newTaskInputRef}
-                  value={newLongTermText}
-                  onChange={(e) => setNewLongTermText(e.target.value)}
-                  placeholder="Enter new long-term goal..."
-                  className="task-input"
-                />
-                <div className="task-form-buttons">
-                  <button type="submit" className="btn btn-save">Save</button>
-                  <button 
-                    type="button" 
-                    className="btn btn-cancel"
-                    onClick={handleCancelLongTerm}
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </form>
-            ) : longTermTasks.length > 0 ? (
+            {longTermTasks.length > 0 && (
               <ul className="task-list">
                 {longTermTasks.map((task) => (
                   <li 
@@ -709,10 +667,8 @@ const Sidebar: React.FC = () => {
                   </li>
                 ))}
               </ul>
-            ) : (
-              <div className="empty-state">Click here to add long-term goals</div>
             )}
-            {isAddingLongTerm && longTermTasks.length > 0 && (
+            {isAddingLongTerm ? (
               <form onSubmit={handleCreateLongTerm} className="task-form">
                 <input
                   type="text"
@@ -729,10 +685,12 @@ const Sidebar: React.FC = () => {
                     className="btn btn-cancel"
                     onClick={handleCancelLongTerm}
                   >
-                    Cancel
+                    Close
                   </button>
                 </div>
               </form>
+            ) : (
+              <div className="empty-state">Click here to add long-term goals</div>
             )}
           </div>
           <div 
