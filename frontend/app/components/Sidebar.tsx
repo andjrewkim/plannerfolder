@@ -290,12 +290,17 @@ const Sidebar: React.FC = () => {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
       
-      // Reset form
+      // Reset only the text, keep the form open
       setNewTaskText('');
-      setIsAddingTask(false);
+      // Don't set isAddingTask to false - keep the form open
       
       // Refresh tasks
       await fetchTasks();
+      
+      // Refocus the input for continuous adding
+      if (taskInputRef.current) {
+        taskInputRef.current.focus();
+      }
     } catch (error) {
       console.error('Error creating task:', error);
       setError('Failed to create task');
@@ -341,12 +346,17 @@ const Sidebar: React.FC = () => {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
       
-      // Reset form
+      // Reset only the text, keep the form open
       setNewLongTermText('');
-      setIsAddingLongTerm(false);
+      // Don't set isAddingLongTerm to false - keep the form open
       
       // Refresh tasks
       await fetchTasks();
+      
+      // Refocus the input for continuous adding
+      if (newTaskInputRef.current) {
+        newTaskInputRef.current.focus();
+      }
     } catch (error) {
       console.error('Error creating long-term goal:', error);
       setError('Failed to create long-term goal');
@@ -617,6 +627,28 @@ const Sidebar: React.FC = () => {
             ) : (
               <div className="empty-state">Click here to add tasks</div>
             )}
+            {isAddingTask && tasks.length > 0 && (
+              <form onSubmit={handleCreateTask} className="task-form">
+                <input
+                  type="text"
+                  ref={taskInputRef}
+                  value={newTaskText}
+                  onChange={(e) => setNewTaskText(e.target.value)}
+                  placeholder="Enter new task..."
+                  className="task-input"
+                />
+                <div className="task-form-buttons">
+                  <button type="submit" className="btn btn-save">Save</button>
+                  <button 
+                    type="button" 
+                    className="btn btn-cancel"
+                    onClick={handleCancelTask}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </form>
+            )}
           </div>
           <div 
             className={`resize-handle ${activeSection === 'tasks' ? 'active' : ''}`}
@@ -679,6 +711,28 @@ const Sidebar: React.FC = () => {
               </ul>
             ) : (
               <div className="empty-state">Click here to add long-term goals</div>
+            )}
+            {isAddingLongTerm && longTermTasks.length > 0 && (
+              <form onSubmit={handleCreateLongTerm} className="task-form">
+                <input
+                  type="text"
+                  ref={newTaskInputRef}
+                  value={newLongTermText}
+                  onChange={(e) => setNewLongTermText(e.target.value)}
+                  placeholder="Enter new long-term goal..."
+                  className="task-input"
+                />
+                <div className="task-form-buttons">
+                  <button type="submit" className="btn btn-save">Save</button>
+                  <button 
+                    type="button" 
+                    className="btn btn-cancel"
+                    onClick={handleCancelLongTerm}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </form>
             )}
           </div>
           <div 
