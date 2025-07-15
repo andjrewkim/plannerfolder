@@ -3,15 +3,18 @@ import os
 from dotenv import load_dotenv
 
 load_dotenv(os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env'))
-
-
-import os
-
 PORT = os.getenv('PORT', 8080)
 
 import dj_database_url
-
 from pathlib import Path
+
+
+
+from dotenv import load_dotenv
+load_dotenv()  # Load from .env file
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-1.5-flash")
+
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -131,7 +134,7 @@ INSTALLED_APPS = [
     'corsheaders',
     'rest_framework',
     'rest_framework.authtoken',  # This is CRUCIAL for token authentication
-    'myapp',
+    'myapp.apps.YourAppConfig',     
     'whitenoise.runserver_nostatic',
 ]
 
