@@ -180,7 +180,7 @@ Rules:
 - Use format: YYYY-MM-DD for dates, HH:MM for times
 - Multiple events: separate CHANGE: lines
 - When moving date, keep time the same unless specified
-- If user asks to schedule outside this week, mention you can only see this week's events
+- If user asks to schedule outside this week, mention you can only see the next 7 days
 
 Examples:
 User: "Move meeting to 2pm"

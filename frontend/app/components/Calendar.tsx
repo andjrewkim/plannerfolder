@@ -64,44 +64,59 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange, onViewChange }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [, setError] = useState<string | null>(null);
   const [hoveredDay, setHoveredDay] = useState<DayHoverInfo | null>(null);
-  const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [currentView, setCurrentView] = useState('dayGridMonth');
+  const [currentDate, setCurrentDate] = useState<Date | null>(null);
   const calendarRef = useRef<FullCalendar | null>(null);
-  const shouldFetch = useRef(true);
   const currentEventsRef = useRef(currentEvents);
   const hoverTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const [hasInitialized, setHasInitialized] = useState(false);
 
   // Update the ref whenever currentEvents changes
   useEffect(() => {
     currentEventsRef.current = currentEvents;
   }, [currentEvents]);
 
+  // Initialize view from localStorage only once
+  useEffect(() => {
+    if (typeof window !== 'undefined' && !hasInitialized) {
+      const savedView = localStorage.getItem('calendar-view');
+      if (savedView) {
+        setCurrentView(savedView);
+      }
+    }
+  }, [hasInitialized]);
+
+  // Save view to localStorage whenever it changes
+  useEffect(() => {
+    if (typeof window !== 'undefined' && hasInitialized) {
+      localStorage.setItem('calendar-view', currentView);
+      if (onViewChange) onViewChange(currentView);
+    }
+  }, [currentView, onViewChange, hasInitialized]);
+
   // Helper function to expand recurring events
   const expandRecurringEvents = (events: EventDetails[]): EventDetails[] => {
     const expandedEvents: EventDetails[] = [];
     const today = new Date();
-    const futureLimit = new Date(today.getFullYear() + 2, today.getMonth(), today.getDate()); // 2 years ahead
+    const futureLimit = new Date(today.getFullYear() + 2, today.getMonth(), today.getDate());
 
     events.forEach(event => {
       if (event.recurrence_pattern && event.recurrence_pattern.trim() !== '') {
         try {
-          // Parse the RRule with the original event date as the starting point
           const baseDate = new Date(event.date);
           
-          // Create RRule with DTSTART set to the original event date
           const ruleString = event.recurrence_pattern.includes('DTSTART') 
             ? event.recurrence_pattern 
             : `DTSTART=${baseDate.toISOString().split('T')[0].replace(/-/g, '')}\n${event.recurrence_pattern}`;
           
           const rule = RRule.fromString(ruleString);
           
-          // Generate occurrences starting from the original event date
           const occurrences = rule.between(
-            new Date(Math.min(baseDate.getTime(), today.getTime() - 30 * 24 * 60 * 60 * 1000)), // Start from original date or 30 days ago, whichever is earlier
+            new Date(Math.min(baseDate.getTime(), today.getTime() - 30 * 24 * 60 * 60 * 1000)),
             futureLimit,
             true
           );
 
-          // Always include the original event date if it's not already in occurrences
           const originalDateString = baseDate.toISOString().split('T')[0];
           const hasOriginalDate = occurrences.some(occ => 
             occ.toISOString().split('T')[0] === originalDateString
@@ -114,24 +129,20 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange, onViewChange }) => {
           occurrences.forEach((occurrence, index) => {
             const eventDate = new Date(occurrence);
             
-            // Create a new event instance for each occurrence
             expandedEvents.push({
               ...event,
-              id: `${event.id}_${index}`, // Unique ID for each occurrence
-              eventId: event.id, // Keep original ID for editing
+              id: `${event.id}_${index}`,
+              eventId: event.id,
               date: eventDate.toISOString().split('T')[0],
-              // Preserve original times if they exist
               start_time: event.start_time,
               end_time: event.end_time
             });
           });
         } catch (error) {
           console.error('Error parsing RRule:', event.recurrence_pattern, error);
-          // Fall back to single event if RRule parsing fails
           expandedEvents.push(event);
         }
       } else {
-        // Non-recurring event
         expandedEvents.push(event);
       }
     });
@@ -139,21 +150,25 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange, onViewChange }) => {
     return expandedEvents;
   };
 
-
-  const fetchEvents = useCallback(async () => {
-    if (!shouldFetch.current) return;
-    shouldFetch.current = false;
-
+  const fetchEvents = useCallback(async (preserveView: boolean = false) => {
     try {
+      // Save current view state before fetching
+      const calendar = calendarRef.current;
+      let savedView = currentView;
+      let savedDate = currentDate;
+      
+      if (preserveView && calendar) {
+        const calendarApi = calendar.getApi();
+        savedView = calendarApi.view.type;
+        savedDate = calendarApi.getDate();
+      }
+
       const response = await authAPI.authenticatedFetch(`${process.env.NEXT_PUBLIC_API_URL}/api/events/`);
       if (!response.ok) throw new Error('Failed to fetch events');
 
       const data: EventDetails[] = await response.json();
-      
-      // Expand recurring events
       const expandedEvents = expandRecurringEvents(data);
       
-      // Process all events, including day markings
       const formattedEvents = expandedEvents.map((event: EventDetails) => ({
         id: String(event.id),
         title: event.day_marking_title || event.event_name,
@@ -162,7 +177,7 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange, onViewChange }) => {
         backgroundColor: event.color,
         borderColor: event.color,
         extendedProps: {
-          originalId: event.eventId || event.id, // Store original ID for editing
+          originalId: event.eventId || event.id,
           location: event.location,
           virtual: event.virtual,
           urgency: event.urgency,
@@ -177,21 +192,26 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange, onViewChange }) => {
       }));
 
       setCurrentEvents(formattedEvents as unknown as EventApi[]);
+      
+      // Restore view state after events are loaded
+      if (preserveView && calendar && savedDate) {
+        setTimeout(() => {
+          const calendarApi = calendar.getApi();
+          calendarApi.changeView(savedView);
+          calendarApi.gotoDate(savedDate);
+        }, 0);
+      }
+      
+      setHasInitialized(true);
     } catch (err) {
       console.error('Error fetching events:', err);
       setError(err instanceof Error ? err.message : 'An unexpected error occurred');
     }
-  }, []);
+  }, [currentView, currentDate]);
 
   useEffect(() => {
-    fetchEvents();
+    fetchEvents(false);
   }, []);
-
-  const refreshEvents = useCallback(() => {
-    shouldFetch.current = true;
-    fetchEvents();
-    setRefreshTrigger(prev => prev + 1);
-  }, [fetchEvents]);
 
   const formatToISOString = (date: string, time: string | null): string => {
     if (!date) return new Date().toISOString();
@@ -206,6 +226,74 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange, onViewChange }) => {
 
     return dateObj.toISOString();
   };
+
+  // Update a single event in the events array without full refresh
+  const updateEventInPlace = useCallback((updatedEventData: any, eventId: string) => {
+    setCurrentEvents(prevEvents => {
+      return prevEvents.map(event => {
+        if (event.id === eventId || event.extendedProps?.originalId === eventId) {
+          return {
+            ...event,
+            title: updatedEventData.day_marking_title || updatedEventData.event_name,
+            start: formatToISOString(updatedEventData.date, updatedEventData.start_time),
+            end: formatToISOString(updatedEventData.date, updatedEventData.end_time),
+            backgroundColor: updatedEventData.color,
+            borderColor: updatedEventData.color,
+            extendedProps: {
+              ...event.extendedProps,
+              location: updatedEventData.location,
+              virtual: updatedEventData.virtual,
+              urgency: updatedEventData.urgency,
+              notes: updatedEventData.notes,
+              event_type: updatedEventData.event_type,
+              category: updatedEventData.category,
+              subcategories: updatedEventData.subcategories,
+              recurrence_pattern: updatedEventData.recurrence_pattern,
+              isDayMarking: updatedEventData.event_type === 'marking',
+              day_marking_title: updatedEventData.day_marking_title
+            }
+          };
+        }
+        return event;
+      });
+    });
+  }, []);
+
+  // Add a new event to the events array without full refresh
+  const addEventInPlace = useCallback((newEventData: any, newEventId: string) => {
+    const newEvent = {
+      id: newEventId,
+      title: newEventData.day_marking_title || newEventData.event_name,
+      start: formatToISOString(newEventData.date, newEventData.start_time),
+      end: formatToISOString(newEventData.date, newEventData.end_time),
+      backgroundColor: newEventData.color,
+      borderColor: newEventData.color,
+      extendedProps: {
+        originalId: newEventId,
+        location: newEventData.location,
+        virtual: newEventData.virtual,
+        urgency: newEventData.urgency,
+        notes: newEventData.notes,
+        event_type: newEventData.event_type,
+        category: newEventData.category,
+        subcategories: newEventData.subcategories,
+        recurrence_pattern: newEventData.recurrence_pattern,
+        isDayMarking: newEventData.event_type === 'marking',
+        day_marking_title: newEventData.day_marking_title
+      }
+    };
+
+    setCurrentEvents(prevEvents => [...prevEvents, newEvent as unknown as EventApi]);
+  }, []);
+
+  // Remove an event from the events array without full refresh
+  const removeEventInPlace = useCallback((eventId: string) => {
+    setCurrentEvents(prevEvents => 
+      prevEvents.filter(event => 
+        event.id !== eventId && event.extendedProps?.originalId !== eventId
+      )
+    );
+  }, []);
 
   const handleEventSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -225,7 +313,8 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange, onViewChange }) => {
       category: selectedEvent.category,
       subcategories: selectedEvent.subcategories,
       recurrence_pattern: selectedEvent.recurrence_pattern,
-      color: selectedEvent.color
+      color: selectedEvent.color,
+      day_marking_title: selectedEvent.day_marking_title
     };
 
     try {
@@ -242,8 +331,21 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange, onViewChange }) => {
       });
 
       if (response.ok) {
+        const responseData = await response.json();
+        
+        // Check if this is a recurring event - if so, do a full refresh
+        if (selectedEvent.recurrence_pattern && selectedEvent.recurrence_pattern.trim() !== '') {
+          await fetchEvents(true); // Preserve view for recurring events
+        } else {
+          // For non-recurring events, update in place
+          if (selectedEvent.eventId) {
+            updateEventInPlace(formattedEvent, selectedEvent.eventId);
+          } else {
+            addEventInPlace(formattedEvent, responseData.id);
+          }
+        }
+        
         setIsModalOpen(false);
-        refreshEvents();
         if (onEventChange) onEventChange();
         setError(null);
       } else {
@@ -263,13 +365,11 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange, onViewChange }) => {
     const startDate = new Date(event.start!);
     const endDate = event.end ? new Date(event.end) : startDate;
 
-    // Use originalId for recurring events
     const eventId = event.extendedProps.originalId || event.id;
 
     const updatedEvent = {
       event_name: event.title,
       date: `${startDate.getFullYear()}-${String(startDate.getMonth() + 1).padStart(2, '0')}-${String(startDate.getDate()).padStart(2, '0')}`,
-
       start_time: startDate.toLocaleTimeString('en-US', {
         hour12: false,
         hour: '2-digit',
@@ -288,9 +388,14 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange, onViewChange }) => {
       category: event.extendedProps.category || '',
       subcategories: event.extendedProps.subcategories || '',
       recurrence_pattern: event.extendedProps.recurrence_pattern || '',
-      color: event.backgroundColor || '#3788d8'
+      color: event.backgroundColor || '#3788d8',
+      day_marking_title: event.extendedProps.day_marking_title
     };
 
+    // Update the event in place immediately for better UX
+    updateEventInPlace(updatedEvent, eventId);
+
+    // Then sync with backend
     authAPI.authenticatedFetch(`${process.env.NEXT_PUBLIC_API_URL}/api/events/${eventId}/`, {
       method: 'PUT',
       headers: {
@@ -300,10 +405,10 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange, onViewChange }) => {
     })
       .then(response => {
         if (!response.ok) {
+          // Revert the UI change if backend fails
           dropInfo.revert();
           throw new Error('Failed to update event');
         }
-        refreshEvents();
         if (onEventChange) onEventChange();
       })
       .catch(err => {
@@ -312,7 +417,7 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange, onViewChange }) => {
         dropInfo.revert();
         setError('Failed to update event position');
       });
-  }, [onEventChange, refreshEvents]);
+  }, [onEventChange, updateEventInPlace]);
 
   const handleDateSelect = useCallback((selectInfo: DateSelectArg) => {
     const startDate = selectInfo.start;
@@ -364,6 +469,12 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange, onViewChange }) => {
   const handleDeleteEvent = async (eventId: string): Promise<boolean> => {
     try {
       setIsLoading(true);
+      
+      // Find the event to check if it's recurring
+      const eventToDelete = currentEvents.find(event => 
+        event.id === eventId || event.extendedProps?.originalId === eventId
+      );
+      
       const response = await authAPI.authenticatedFetch(`${process.env.NEXT_PUBLIC_API_URL}/api/events/${eventId}/`, {
         method: 'DELETE',
         headers: {
@@ -372,7 +483,16 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange, onViewChange }) => {
       });
 
       if (response.ok) {
-        refreshEvents();
+        // Check if this was a recurring event
+        if (eventToDelete?.extendedProps?.recurrence_pattern && 
+            eventToDelete.extendedProps.recurrence_pattern.trim() !== '') {
+          // For recurring events, do a full refresh to update all occurrences
+          await fetchEvents(true);
+        } else {
+          // For non-recurring events, remove from UI immediately
+          removeEventInPlace(eventId);
+        }
+        
         if (onEventChange) onEventChange();
         setError(null);
         return true;
@@ -388,6 +508,11 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange, onViewChange }) => {
       setIsLoading(false);
     }
   };
+
+  const handleViewChange = useCallback((view: any) => {
+    setCurrentView(view.view.type);
+    setCurrentDate(view.view.currentStart);
+  }, []);
 
   const handleDayCellDidMount = useCallback((info: { el: HTMLElement; date: Date }) => {
     const cell = info.el;
@@ -520,7 +645,6 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange, onViewChange }) => {
           color: originalEvent.backgroundColor || '#3788d8'
         };
 
-        // Use originalId for recurring events
         const eventId = originalEvent.extendedProps?.originalId || event.id;
 
         const response = await authAPI.authenticatedFetch(`${process.env.NEXT_PUBLIC_API_URL}/api/events/${eventId}/`, {
@@ -532,7 +656,8 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange, onViewChange }) => {
         });
 
         if (response.ok) {
-          refreshEvents();
+          // Update in place instead of full refresh
+          updateEventInPlace(updatedData, eventId);
           if (onEventChange) onEventChange();
           setEditMode(null);
           setUpdatedMarking(null);
@@ -558,7 +683,6 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange, onViewChange }) => {
     };
 
     const confirmDelete = async (eventId: string) => {
-      // Find the event to get originalId for recurring events
       const event = info.events.find(e => e.id === eventId);
       const actualEventId = event?.extendedProps?.originalId || eventId;
       
@@ -567,6 +691,7 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange, onViewChange }) => {
         setDeleteConfirmId(null);
       }
     };
+
 
     return (
       <div
@@ -751,7 +876,6 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange, onViewChange }) => {
       <div className="flex-1">
         <DayMarkingHighlighter
           onMarkingsLoaded={handleDayMarkingsLoaded}
-          refreshTrigger={refreshTrigger}
         />
 
         <div className="w-full">

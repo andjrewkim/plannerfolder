@@ -10,31 +10,38 @@ import { ThemeProvider } from '../services/themeContext';
 import { EventData } from '../components/EventForm'; // Update import to match the type used in EventForm
 
 const Page = () => {
-  const [result, setResult] = useState<EventData[]>([]); // Changed to EventData[]
+  const [result, setResult] = useState<EventData[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [triggerReload, setTriggerReload] = useState(false);
-  const [view, setView] = useState<string>('dayGridMonth'); // Add state to track the calendar view
+  const [view, setView] = useState<string>('dayGridMonth');
+  const [refreshEvents, setRefreshEvents] = useState(0); // Changed name to be more specific
 
-  useEffect(() => {
-    if (result) {
-      setTriggerReload((prev) => !prev);
-    }
-  }, [result]);
+  // Remove the useEffect that triggers on result changes
+  // useEffect(() => {
+  //   if (result) {
+  //     setTriggerReload((prev) => !prev);
+  //   }
+  // }, [result]);
 
-  const handleTriggerReload = () => {
-    setTriggerReload((prev) => !prev);
+  const handleEventChange = () => {
+    setRefreshEvents((prev) => prev + 1); // Increment to trigger event refresh
   };
 
-  // Using the handleViewChange function in the Calendar component to fix the unused error
   const handleViewChange = (newView: string) => {
-    setView(newView);  // Update the view when the slider changes
+    setView(newView);
+  };
+
+  // Handle successful event creation/update
+  const handleEventSuccess = (newEventData: EventData[]) => {
+    setResult(newEventData);
+    setError(null);
+    handleEventChange(); // Trigger calendar to refresh events only
   };
 
   return (
     <ThemeProvider>
       <div className="h-screen overflow-hidden">
-        {/* Sidebar with fixed width */}
-        <Sidebar key={Number(triggerReload)} /> {/* Sidebar takes 16rem width */}
+        {/* Sidebar - remove the key prop since it doesn't need to remount */}
+        <Sidebar />
 
         {/* Main content area */}
         <div className="ewfsf">
@@ -42,22 +49,24 @@ const Page = () => {
             <input type="hidden" name="csrfmiddlewaretoken" value="Django-CSRF-Token" />
           </form>
           <div className="form-content">
-            <EventForm setResult={setResult} setError={setError} />
+            <EventForm 
+              setResult={handleEventSuccess} // Use the new handler
+              setError={setError} 
+            />
             {error && <p style={{ color: 'red' }}>{error}</p>}
           </div>
         </div>
 
-        {/* Calendar component in its own container */}
+        {/* Calendar component - NO key prop to prevent remounting */}
         <div className="calendar-container">
           <Calendar 
-            key={String(triggerReload)} 
-            onEventChange={handleTriggerReload} 
-            onViewChange={handleViewChange} // Added to utilize the handleViewChange function
+            refreshTrigger={refreshEvents} // Pass as prop instead of key
+            onEventChange={handleEventChange} 
+            onViewChange={handleViewChange}
           />
-          <p className="current-view">Current View: {view}</p> {/* Display the current view */}
+          <p className="current-view">Current View: {view}</p>
         </div>
 
-        {/* LLM Chat Component - floating and draggable */}
         <LLMChat />
       </div>
     </ThemeProvider>
