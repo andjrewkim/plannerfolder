@@ -36,6 +36,19 @@ class CalendarEvent(models.Model):
         return f'{self.event_name} on {self.date} at {self.start_time} - {self.user.username}'
 
 
+
+
+
+# Add this to your views.py or models.py file where your Event model is defined
+
+
+    
+    
+
+
+
+
+
 class TodoTask(models.Model):
     user = models.ForeignKey(CustomUser, on_delete=models.CASCADE)
     event = models.CharField(max_length=200)

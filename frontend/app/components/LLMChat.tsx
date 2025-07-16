@@ -197,7 +197,7 @@ const LLMChat: React.FC = () => {
           alignItems: 'center'
         }}
       >
-        <span style={{ fontWeight: 'bold' }}>AI Chat</span>
+        <span style={{ fontWeight: 'bold' }}>bleh bleh bleh</span>
         <button 
           onClick={() => setIsMinimized(!isMinimized)}
           style={{
