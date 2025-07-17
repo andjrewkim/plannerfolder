@@ -74,7 +74,7 @@ const Page = () => {
         <div 
           className="calendar-container"
           style={{
-            marginRight: rightSidebarOpen ? '320px' : '0',
+            marginRight: rightSidebarOpen ? '319px' : '0',
             '@media (max-width: 768px)': {
               marginRight: '0'
             }
@@ -95,7 +95,6 @@ const Page = () => {
           navbarVisible={navbarVisible}
         />
 
-        <LLMChat />
 
         {/* Additional styles for responsive behavior */}
         <style jsx>{`

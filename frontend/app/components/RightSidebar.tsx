@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { ChevronLeft, ChevronRight, Send, Bot, User } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Send, Sparkles, User } from 'lucide-react';
+import { authAPI } from '../../lib/auth'; // Adjust path as needed
 
 interface RightSidebarProps {
   isOpen?: boolean;
@@ -15,6 +16,12 @@ interface Message {
   timestamp: Date;
 }
 
+interface LLMResponse {
+  response: string;
+  message_id?: string;
+  error?: string;
+}
+
 const RightSidebar: React.FC<RightSidebarProps> = ({ 
   isOpen: controlledIsOpen, 
   onToggle,
@@ -25,13 +32,14 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
   const [messages, setMessages] = useState<Message[]>([
     {
       id: '1',
-      content: 'Hello! I\'m your AI assistant. I can help you with calendar management, scheduling, and answer questions about your events. How can I assist you today?',
+      content: 'Hello! I\'m your AI assistant. I can help you edit events, answer questions, and schedule your day.',
       sender: 'ai',
       timestamp: new Date()
     }
   ]);
   const [inputMessage, setInputMessage] = useState('');
   const [isTyping, setIsTyping] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   
   // Use controlled state if provided, otherwise use internal state
   const isOpen = controlledIsOpen !== undefined ? controlledIsOpen : internalIsOpen;
@@ -48,8 +56,61 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
     }
   }, [forceClose, isOpen, controlledIsOpen, onToggle]);
 
+  // Check if user is authenticated
+  useEffect(() => {
+    const checkAuth = async () => {
+      const isAuth = await authAPI.checkAuthStatus();
+      if (!isAuth) {
+        setError('Please log in to use the chat feature');
+      }
+    };
+    
+    checkAuth();
+  }, []);
+
+  // Function to send message to LLM backend
+  const sendMessageToLLM = async (message: string): Promise<string> => {
+    try {
+      setError(null);
+
+      const response = await authAPI.authenticatedFetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/llm-text/`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            message: message,
+            // Add any additional parameters your backend expects
+            // conversation_id: conversationId, // if you track conversations
+            // model: 'gpt-3.5-turbo', // if you allow model selection
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || errorData.message || 'Failed to get LLM response');
+      }
+
+      const data: LLMResponse = await response.json();
+      
+      if (data.error) {
+        throw new Error(data.error);
+      }
+
+      return data.response || 'No response received';
+    } catch (error) {
+      console.error('LLM request error:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      setError(errorMessage);
+      throw error;
+    }
+  };
+
   const handleSendMessage = async () => {
-    if (!inputMessage.trim()) return;
+    if (!inputMessage.trim() || isTyping) return;
 
     const userMessage: Message = {
       id: Date.now().toString(),
@@ -62,30 +123,31 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
     setInputMessage('');
     setIsTyping(true);
 
-    // Simulate AI response
-    setTimeout(() => {
+    try {
+      // Send message to LLM backend
+      const llmResponse = await sendMessageToLLM(inputMessage);
+      
+      // Add AI response
       const aiResponse: Message = {
         id: (Date.now() + 1).toString(),
-        content: generateAIResponse(inputMessage),
+        content: llmResponse,
         sender: 'ai',
         timestamp: new Date()
       };
+      
       setMessages(prev => [...prev, aiResponse]);
+    } catch (error) {
+      // Add error message to chat
+      const errorMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        content: 'Sorry, I encountered an error processing your message. Please try again.',
+        sender: 'ai',
+        timestamp: new Date()
+      };
+      
+      setMessages(prev => [...prev, errorMessage]);
+    } finally {
       setIsTyping(false);
-    }, 1000);
-  };
-
-  const generateAIResponse = (userInput: string): string => {
-    const input = userInput.toLowerCase();
-    
-    if (input.includes('schedule') || input.includes('event')) {
-      return 'I can help you schedule events! You can create events using the form on the left, and I can suggest optimal times based on your existing calendar. What type of event would you like to schedule?';
-    } else if (input.includes('calendar') || input.includes('view')) {
-      return 'Your calendar supports multiple views including month, week, and day views. You can switch between them using the view controls. Would you like me to explain any specific calendar features?';
-    } else if (input.includes('help') || input.includes('what can you do')) {
-      return 'I can help you with:\n• Creating and managing events\n• Finding optimal meeting times\n• Calendar navigation tips\n• Scheduling suggestions\n• Answering questions about your appointments\n\nWhat would you like to know more about?';
-    } else {
-      return 'I understand you\'re asking about "' + userInput + '". I\'m here to help with calendar management and scheduling. Could you be more specific about what you need assistance with?';
     }
   };
 
@@ -120,12 +182,12 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
         
         {/* Tab/Toggle Button */}
         <div className="absolute -left-8 top-14">
-
           <button
             onClick={handleToggle}
             className="text-white p-2 rounded-l-md shadow-md transition-colors duration-200 focus:outline-none"
             style={{
-              background: 'hsl(var(--primary) / 0.9)'
+              backgroundColor: 'hsl(var(--primary))',
+              color: 'hsl(var(--primary-foreground))'
             } as React.CSSProperties}
             aria-label={isOpen ? "Close AI assistant" : "Open AI assistant"}
           >
@@ -138,47 +200,119 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
         </div>
 
         {/* Sidebar Content */}
-        <div className="w-80 h-full bg-white shadow-2xl border-l border-gray-200 flex flex-col">
+        <div className="w-80 h-full bg-white border-l border-gray-200 flex flex-col">
           
           {/* Header */}
-          <div className="p-4 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50">
+          <div 
+            className="p-4 border-b border-gray-200"
+            style={{
+              backgroundColor: 'hsl(var(--primary) / 0.05)',
+              borderBottomColor: 'hsl(var(--border))'
+            }}
+          >
             <div className="flex items-center gap-3">
-              <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center">
-                <Bot className="w-5 h-5 text-white" />
+              <div 
+                className="w-8 h-8 rounded-full flex items-center justify-center"
+                style={{
+                  backgroundColor: 'hsl(var(--primary))',
+                  color: 'hsl(var(--primary-foreground))'
+                }}
+              >
+                <Sparkles className="w-5 h-5" />
               </div>
               <div>
-                <h2 className="text-lg font-semibold text-gray-800">
+                <h2 
+                  className="text-lg font-semibold"
+                  style={{ color: 'hsl(var(--foreground))' }}
+                >
                   AI Assistant
                 </h2>
-                <p className="text-xs text-gray-500">Ready to help with your calendar</p>
+                <p 
+                  className="text-xs"
+                  style={{ color: 'hsl(var(--muted-foreground))' }}
+                >
+                  Ready to help with your calendar
+                </p>
               </div>
             </div>
           </div>
 
           {/* Chat Messages */}
           <div className="flex-1 p-4 overflow-y-auto space-y-4">
+            {error && (
+              <div 
+                className="border rounded-lg p-3"
+                style={{
+                  backgroundColor: 'hsl(var(--destructive) / 0.1)',
+                  borderColor: 'hsl(var(--destructive) / 0.2)'
+                }}
+              >
+                <div className="flex items-start gap-2">
+                  <div 
+                    className="w-4 h-4 rounded-full flex-shrink-0 mt-0.5"
+                    style={{ backgroundColor: 'hsl(var(--destructive))' }}
+                  ></div>
+                  <div>
+                    <p 
+                      className="text-sm font-medium"
+                      style={{ color: 'hsl(var(--destructive))' }}
+                    >
+                      Error
+                    </p>
+                    <p 
+                      className="text-xs"
+                      style={{ color: 'hsl(var(--destructive))' }}
+                    >
+                      {error}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {messages.map((message) => (
               <div
                 key={message.id}
                 className={`flex ${message.sender === 'user' ? 'justify-end' : 'justify-start'}`}
               >
-                <div className={`max-w-[80%] p-3 rounded-lg ${
-                  message.sender === 'user' 
-                    ? 'bg-blue-600 text-white rounded-br-none' 
-                    : 'bg-gray-100 text-gray-800 rounded-bl-none'
-                }`}>
+                <div 
+                  className={`max-w-[80%] p-3 rounded-lg ${
+                    message.sender === 'user' 
+                      ? 'rounded-br-none' 
+                      : 'rounded-bl-none'
+                  }`}
+                  style={{
+                    backgroundColor: message.sender === 'user' 
+                      ? 'hsl(var(--primary))' 
+                      : 'hsl(var(--muted))',
+                    color: message.sender === 'user' 
+                      ? 'hsl(var(--primary-foreground))' 
+                      : 'hsl(var(--foreground))'
+                  }}
+                >
                   <div className="flex items-start gap-2">
                     {message.sender === 'ai' && (
-                      <Bot className="w-4 h-4 mt-0.5 text-blue-600" />
+                      <Sparkles 
+                        className="w-4 h-4 mt-0.5" 
+                        style={{ color: 'hsl(var(--primary))' }}
+                      />
                     )}
                     {message.sender === 'user' && (
-                      <User className="w-4 h-4 mt-0.5 text-blue-100" />
+                      <User 
+                        className="w-4 h-4 mt-0.5" 
+                        style={{ color: 'hsl(var(--primary-foreground) / 0.7)' }}
+                      />
                     )}
                     <div className="flex-1">
                       <p className="text-sm whitespace-pre-wrap">{message.content}</p>
-                      <p className={`text-xs mt-1 ${
-                        message.sender === 'user' ? 'text-blue-100' : 'text-gray-500'
-                      }`}>
+                      <p 
+                        className="text-xs mt-1"
+                        style={{
+                          color: message.sender === 'user' 
+                            ? 'hsl(var(--primary-foreground) / 0.7)' 
+                            : 'hsl(var(--muted-foreground))'
+                        }}
+                      >
                         {message.timestamp.toLocaleTimeString([], { 
                           hour: '2-digit', 
                           minute: '2-digit' 
@@ -192,13 +326,37 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
             
             {isTyping && (
               <div className="flex justify-start">
-                <div className="bg-gray-100 p-3 rounded-lg rounded-bl-none">
+                <div 
+                  className="p-3 rounded-lg rounded-bl-none"
+                  style={{
+                    backgroundColor: 'hsl(var(--muted))',
+                    color: 'hsl(var(--foreground))'
+                  }}
+                >
                   <div className="flex items-center gap-2">
-                    <Bot className="w-4 h-4 text-blue-600" />
+                    <Sparkles 
+                      className="w-4 h-4" 
+                      style={{ color: 'hsl(var(--primary))' }}
+                    />
                     <div className="flex gap-1">
-                      <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
-                      <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-                      <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                      <div 
+                        className="w-2 h-2 rounded-full animate-bounce"
+                        style={{ backgroundColor: 'hsl(var(--muted-foreground))' }}
+                      ></div>
+                      <div 
+                        className="w-2 h-2 rounded-full animate-bounce"
+                        style={{ 
+                          backgroundColor: 'hsl(var(--muted-foreground))',
+                          animationDelay: '0.1s' 
+                        }}
+                      ></div>
+                      <div 
+                        className="w-2 h-2 rounded-full animate-bounce"
+                        style={{ 
+                          backgroundColor: 'hsl(var(--muted-foreground))',
+                          animationDelay: '0.2s' 
+                        }}
+                      ></div>
                     </div>
                   </div>
                 </div>
@@ -207,21 +365,45 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
           </div>
 
           {/* Input Area */}
-          <div className="p-4 border-t border-gray-200 bg-gray-50">
+          <div 
+            className="p-4 border-t"
+            style={{
+              backgroundColor: 'hsl(var(--muted) / 0.3)',
+              borderTopColor: 'hsl(var(--border))'
+            }}
+          >
             <div className="flex gap-2">
               <textarea
                 value={inputMessage}
                 onChange={(e) => setInputMessage(e.target.value)}
                 onKeyPress={handleKeyPress}
                 placeholder="Ask me about your calendar..."
-                className="flex-1 p-3 border border-gray-300 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                disabled={isTyping || !!error}
+                className="flex-1 p-3 border rounded-lg resize-none focus:outline-none focus:ring-2 focus:border-transparent disabled:cursor-not-allowed"
+                style={{
+                  borderColor: 'hsl(var(--border))',
+                  backgroundColor: 'hsl(var(--background))',
+                  color: 'hsl(var(--foreground))',
+                  focusRingColor: 'hsl(var(--primary))',
+                  disabledBackgroundColor: 'hsl(var(--muted))',
+                } as React.CSSProperties}
                 rows={1}
-                style={{ minHeight: '44px', maxHeight: '100px' }}
               />
               <button
                 onClick={handleSendMessage}
-                disabled={!inputMessage.trim() || isTyping}
-                className="p-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors duration-200"
+                disabled={!inputMessage.trim() || isTyping || !!error}
+                className="p-3 rounded-lg transition-colors duration-200 disabled:cursor-not-allowed"
+                style={{
+                  backgroundColor: !inputMessage.trim() || isTyping || !!error 
+                    ? 'hsl(var(--muted))' 
+                    : 'hsl(var(--primary))',
+                  color: !inputMessage.trim() || isTyping || !!error 
+                    ? 'hsl(var(--muted-foreground))' 
+                    : 'hsl(var(--primary-foreground))',
+                  ':hover': {
+                    backgroundColor: 'hsl(var(--primary) / 0.9)'
+                  }
+                } as React.CSSProperties}
               >
                 <Send className="w-4 h-4" />
               </button>
