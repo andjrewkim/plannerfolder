@@ -174,14 +174,14 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
           isOpen ? 'translate-x-0' : 'translate-x-full'
         }`}
         style={{
-          top: navbarVisible ? '60px' : '0px',
-          height: navbarVisible ? 'calc(100vh - 60px)' : '100vh',
-          transition: 'transform 0.3s ease-in-out, top 0.4s ease-in-out, height 0.4s ease-in-out'
+          top: '0px', // Always stay at top
+          height: '100vh', // Always full height
+          transition: 'transform 0.3s ease-in-out'
         }}
       >
         
         {/* Tab/Toggle Button */}
-        <div className="absolute -left-8 top-14">
+        <div className="absolute -left-8 top-16">
           <button
             onClick={handleToggle}
             className="text-white p-2 rounded-l-md shadow-md transition-colors duration-200 focus:outline-none"

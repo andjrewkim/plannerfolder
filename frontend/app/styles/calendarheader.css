@@ -1,0 +1,506 @@
+/* Advanced Calendar Header Styles */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@300;400;500&display=swap');
+
+:root {
+  --primary-gradient: linear-gradient(135deg, hsl(var(--primary) / 0.1), hsl(var(--primary) / 0.05));
+  --glass-backdrop: hsl(var(--card) / 0.8);
+  --glass-border: hsl(var(--border) / 0.3);
+  --text-primary: hsl(var(--foreground));
+  --text-secondary: hsl(var(--muted-foreground));
+  --accent-glow: hsl(var(--primary) / 0.3);
+  --surface-elevated: hsl(var(--card) / 0.9);
+  --shadow-soft: 0 4px 24px -4px hsl(var(--foreground) / 0.1);
+  --shadow-elevated: 0 8px 40px -8px hsl(var(--foreground) / 0.15);
+  --border-subtle: hsl(var(--border) / 0.5);
+}
+
+.advanced-calendar-header {
+  position: relative;
+  height: 64px;
+  width: 100%;
+  overflow: hidden;
+
+  /* ✅ Only top border-radius */
+  border-top-left-radius: 20px;
+  border-top-right-radius: 20px;
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+
+  background: 
+    linear-gradient(135deg, var(--glass-backdrop) 0%, hsl(var(--card) / 0.95) 100%),
+    radial-gradient(circle at 30% 30%, hsl(var(--primary) / 0.03) 0%, transparent 50%),
+    radial-gradient(circle at 70% 70%, hsl(var(--accent) / 0.03) 0%, transparent 50%);
+
+  backdrop-filter: blur(20px) saturate(1.2);
+  -webkit-backdrop-filter: blur(20px) saturate(1.2);
+
+  border-top: 1px solid var(--glass-border);
+
+  box-shadow: 
+    var(--shadow-soft),
+    inset 0 1px 0 hsl(var(--card) / 0.8),
+    inset 0 -1px 0 hsl(var(--border) / 0.2);
+
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  user-select: none;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+
+}
+
+
+.advanced-calendar-header::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, hsl(var(--primary) / 0.2), transparent);
+  z-index: 1;
+}
+
+.header-container {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 100%;
+  padding: 0 24px;
+  z-index: 2;
+}
+
+/* Background Animated Orbs */
+.bg-orb {
+  position: absolute;
+  border-radius: 50%;
+  background: radial-gradient(circle, hsl(var(--primary) / 0.1), transparent);
+  filter: blur(40px);
+  animation: float 8s ease-in-out infinite;
+  z-index: 0;
+}
+
+.orb-1 {
+  width: 120px;
+  height: 120px;
+  top: -60px;
+  left: 10%;
+  animation-delay: -2s;
+}
+
+.orb-2 {
+  width: 80px;
+  height: 80px;
+  top: -40px;
+  right: 20%;
+  animation-delay: -4s;
+}
+
+.orb-3 {
+  width: 100px;
+  height: 100px;
+  bottom: -50px;
+  left: 60%;
+  animation-delay: -6s;
+}
+
+/* Navigation Section */
+.nav-section {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  z-index: 3;
+}
+
+.nav-group {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px;
+  background: hsl(var(--card) / 0.6);
+  border-radius: 12px;
+  border: 1px solid var(--border-subtle);
+  box-shadow: 0 2px 8px -2px hsl(var(--foreground) / 0.08);
+}
+
+.nav-btn {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: hidden;
+  z-index: 1;
+}
+
+.nav-btn::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  background: hsl(var(--primary) / 0.08);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  z-index: -1;
+}
+
+
+.nav-btn:hover,
+.nav-today:hover {
+  color: var(--text-primary);
+  background-color: hsl(var(--primary) / 0.05);
+  transform: translateY(-1px);
+  transition: background-color 0.2s ease, transform 0.2s ease, color 0.2s ease;
+}
+
+
+
+.nav-btn:active {
+  transform: translateY(0);
+}
+
+.nav-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.nav-icon {
+  font-size: 20px;
+  font-weight: 600;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+}
+
+.nav-today {
+  gap: 6px;
+  padding: 0 12px;
+  min-width: auto;
+}
+
+.today-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: hsl(var(--primary));
+  box-shadow: 0 0 8px hsl(var(--primary) / 0.6);
+  animation: pulse 2s ease-in-out infinite;
+}
+
+.nav-text {
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+}
+
+.nav-ripple {
+  position: absolute;
+  inset: 0;
+  border-radius: 8px;
+  background: radial-gradient(circle, hsl(var(--primary) / 0.1) 0%, transparent 70%);
+  opacity: 0;
+  transform: scale(0);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.nav-btn:active .nav-ripple {
+  opacity: 1;
+  transform: scale(1);
+}
+
+/* Title Section */
+.title-section {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 3;
+}
+
+.title-container {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.title-container.animating {
+  transform: scale(1.01);
+}
+
+.title-backdrop {
+  position: absolute;
+  inset: -16px;
+  background: 
+    radial-gradient(ellipse at center, hsl(var(--card) / 0.8) 0%, transparent 70%),
+    linear-gradient(90deg, transparent, hsl(var(--primary) / 0.05), transparent);
+  border-radius: 24px;
+  filter: blur(20px);
+  opacity: 0.6;
+  z-index: -1;
+}
+
+.calendar-title {
+  position: relative;
+  margin: 0;
+  font-size: 28px;
+  font-weight: 400;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+  color: var(--text-primary);
+  z-index: 1;
+}
+
+.title-text {
+  position: relative;
+  display: inline-block;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+  text-shadow: 0 0 20px hsl(var(--primary) / 0.2);
+}
+
+.title-underline {
+  position: absolute;
+  bottom: -4px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 80%;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, hsl(var(--primary) / 0.6), transparent);
+  border-radius: 1px;
+  animation: underlineGlow 3s ease-in-out infinite;
+}
+
+
+
+.p1 {
+  top: 10%;
+  left: 20%;
+  animation-delay: -1s;
+}
+
+.p2 {
+  top: 80%;
+  right: 15%;
+  animation-delay: -3s;
+}
+
+.p3 {
+  bottom: 15%;
+  left: 70%;
+  animation-delay: -5s;
+}
+
+/* View Selector */
+.view-section {
+  display: flex;
+  align-items: center;
+  z-index: 3;
+}
+
+.view-slider {
+  position: relative;
+  display: flex;
+  align-items: center;
+  padding: 4px;
+  background: hsl(var(--card) / 0.6);
+  border-radius: 12px;
+  border: 1px solid var(--border-subtle);
+  box-shadow: 0 2px 8px -2px hsl(var(--foreground) / 0.08);
+  overflow: hidden;
+}
+
+.slider-indicator {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  width: calc(33.333% - 2px);
+  height: calc(100% - 8px);
+  background: linear-gradient(135deg, 
+    hsl(var(--primary) / 0.15) 0%, 
+    hsl(var(--primary) / 0.1) 100%);
+  border-radius: 8px;
+  border: 1px solid hsl(var(--primary) / 0.2);
+  box-shadow: 
+    0 2px 8px -2px hsl(var(--primary) / 0.3),
+    inset 0 1px 0 hsl(var(--primary) / 0.2);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  z-index: 0;
+}
+
+.view-btn {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 44px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  border-radius: 8px;
+  gap: 2px;
+  z-index: 1;
+}
+
+.view-btn.active {
+  color: hsl(var(--primary));
+  font-weight: 600;
+}
+
+.view-btn:hover:not(.active) {
+  color: var(--text-primary);
+  transform: translateY(-1px);
+}
+
+.view-icon {
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.view-label {
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  line-height: 1;
+}
+
+.view-glow {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle, hsl(var(--primary) / 0.1) 0%, transparent 70%);
+  border-radius: 8px;
+  opacity: 0;
+  transition: opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.view-btn.active .view-glow {
+  opacity: 1;
+}
+
+/* Floating Elements - Removed */
+
+/* Animations */
+@keyframes float {
+  0%, 100% { transform: translateY(0px) rotate(0deg); }
+  50% { transform: translateY(-10px) rotate(180deg); }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.7; transform: scale(1.1); }
+}
+
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+@keyframes underlineGlow {
+  0%, 100% { opacity: 0.4; transform: translateX(-50%) scaleX(0.8); }
+  50% { opacity: 0.8; transform: translateX(-50%) scaleX(1.2); }
+}
+
+@keyframes particleFloat {
+  0%, 100% { 
+    transform: translateY(0px) rotate(0deg);
+    opacity: 0.6;
+  }
+  33% { 
+    transform: translateY(-8px) rotate(120deg);
+    opacity: 1;
+  }
+  66% { 
+    transform: translateY(-4px) rotate(240deg);
+    opacity: 0.8;
+  }
+}
+
+@keyframes floatElement {
+  0%, 100% { 
+    transform: translateY(0px) scale(1);
+    opacity: 0.3;
+  }
+  50% { 
+    transform: translateY(-20px) scale(1.2);
+    opacity: 0.6;
+  }
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .header-container {
+    padding: 0 16px;
+  }
+  
+  .nav-group {
+    gap: 2px;
+  }
+  
+  .nav-btn {
+    min-width: 32px;
+    height: 32px;
+  }
+  
+  .calendar-title {
+    font-size: 22px;
+  }
+  
+  .view-btn {
+    width: 48px;
+    height: 40px;
+  }
+  
+  .view-icon {
+    font-size: 10px;
+  }
+  
+  .view-label {
+    font-size: 9px;
+  }
+}
+
+@media (max-width: 480px) {
+  .advanced-calendar-header {
+    height: 56px;
+    border-radius: 12px;
+  }
+  
+  .header-container {
+    padding: 0 12px;
+  }
+  
+  .calendar-title {
+    font-size: 18px;
+  }
+  
+  .nav-today .nav-text {
+    display: none;
+  }
+  
+  .view-btn {
+    width: 40px;
+    height: 36px;
+  }
+}

@@ -4,7 +4,10 @@
   height: 100% !important;
 }
 
-
+.big-container {
+  margin-top: 3rem;
+  
+}
 
 
 /* Calendar Container */
@@ -24,12 +27,19 @@
     hsl(var(--card) / 0.8)
   );
   backdrop-filter: blur(20px);
-  border-radius: 24px;
-  border: 1px solid hsl(var(--border) / 0.1);
+  border-bottom-right-radius: 20px;
+  border-bottom-left-radius: 20px;
+
+  /* Enhanced border - much more visible */
+  border: 2px solid hsl(var(--border) / 0.4);
+  box-shadow: 
+    0 0 0 1px hsl(var(--border) / 0.2),
+    0 4px 16px -4px hsl(var(--foreground) / 0.1);
   
 
   position: relative;
   overflow: hidden;
+  
 }
 
 .fc::before {
@@ -190,7 +200,7 @@
   opacity: 1;
 }
 
-/* Day Cells - Lighter hover and today highlights */
+/* Enhanced Day Cells with Darker Corner Borders */
 .fc-daygrid-day {
   font-size: 14px;
   color: hsl(var(--foreground));
@@ -205,6 +215,7 @@
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
+/* Corner border styling - creates + shape at corners - MUCH DARKER */
 .fc-daygrid-day::before {
   content: '';
   position: absolute;
@@ -212,18 +223,36 @@
   left: 0;
   right: 0;
   bottom: 0;
-  background: linear-gradient(135deg, 
-    hsl(var(--primary) / 0.02), 
-    hsl(var(--primary) / 0.05)
-  );
-  opacity: 0;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  transform: scale(0.8);
+  background: 
+    /* Top left corner */
+    linear-gradient(90deg, hsl(var(--border) / 0.8) 0%, hsl(var(--border) / 0.8) 12px, transparent 12px),
+    linear-gradient(180deg, hsl(var(--border) / 0.8) 0%, hsl(var(--border) / 0.8) 12px, transparent 12px),
+    /* Top right corner */
+    linear-gradient(270deg, hsl(var(--border) / 0.8) 0%, hsl(var(--border) / 0.8) 12px, transparent 12px),
+    linear-gradient(180deg, hsl(var(--border) / 0.8) 0%, hsl(var(--border) / 0.8) 12px, transparent 12px),
+    /* Bottom left corner */
+    linear-gradient(90deg, hsl(var(--border) / 0.8) 0%, hsl(var(--border) / 0.8) 12px, transparent 12px),
+    linear-gradient(0deg, hsl(var(--border) / 0.8) 0%, hsl(var(--border) / 0.8) 12px, transparent 12px),
+    /* Bottom right corner */
+    linear-gradient(270deg, hsl(var(--border) / 0.8) 0%, hsl(var(--border) / 0.8) 12px, transparent 12px),
+    linear-gradient(0deg, hsl(var(--border) / 0.8) 0%, hsl(var(--border) / 0.8) 12px, transparent 12px);
+  background-position: 
+    top left, top left,
+    top right, top right,
+    bottom left, bottom left,
+    bottom right, bottom right;
+  background-size: 
+    12px 1px, 1px 12px,
+    12px 1px, 1px 12px,
+    12px 1px, 1px 12px,
+    12px 1px, 1px 12px;
+  background-repeat: no-repeat;
+  opacity: 0.9;
+  transition: opacity 0.3s ease;
 }
 
 .fc-daygrid-day:hover::before {
   opacity: 1;
-  transform: scale(1);
 }
 
 .fc-daygrid-day:hover {
@@ -233,7 +262,7 @@
     0 8px 24px -4px hsl(var(--foreground) / 0.08);
 }
 
-/* Today's Date - Lighter */
+/* Today's Date - Enhanced with darker corner borders */
 .fc-day-today {
   background: linear-gradient(135deg, 
     hsl(var(--primary) / 0.06), 
@@ -241,6 +270,31 @@
   ) !important;
   position: relative;
   overflow: hidden;
+}
+
+.fc-day-today::before {
+  background: 
+    /* Enhanced corner borders for today - MUCH DARKER */
+    linear-gradient(90deg, hsl(var(--primary) / 0.9) 0%, hsl(var(--primary) / 0.9) 12px, transparent 12px),
+    linear-gradient(180deg, hsl(var(--primary) / 0.9) 0%, hsl(var(--primary) / 0.9) 12px, transparent 12px),
+    linear-gradient(270deg, hsl(var(--primary) / 0.9) 0%, hsl(var(--primary) / 0.9) 12px, transparent 12px),
+    linear-gradient(180deg, hsl(var(--primary) / 0.9) 0%, hsl(var(--primary) / 0.9) 12px, transparent 12px),
+    linear-gradient(90deg, hsl(var(--primary) / 0.9) 0%, hsl(var(--primary) / 0.9) 12px, transparent 12px),
+    linear-gradient(0deg, hsl(var(--primary) / 0.9) 0%, hsl(var(--primary) / 0.9) 12px, transparent 12px),
+    linear-gradient(270deg, hsl(var(--primary) / 0.9) 0%, hsl(var(--primary) / 0.9) 12px, transparent 12px),
+    linear-gradient(0deg, hsl(var(--primary) / 0.9) 0%, hsl(var(--primary) / 0.9) 12px, transparent 12px);
+  background-position: 
+    top left, top left,
+    top right, top right,
+    bottom left, bottom left,
+    bottom right, bottom right;
+  background-size: 
+    12px 2px, 2px 12px,
+    12px 2px, 2px 12px,
+    12px 2px, 2px 12px,
+    12px 2px, 2px 12px;
+  background-repeat: no-repeat;
+  opacity: 1;
 }
 
 .fc-day-today::after {
@@ -284,7 +338,7 @@
   );
   backdrop-filter: blur(12px);
   color: hsl(var(--card-foreground));
-  border: 1px solid hsl(var(--border) / 0.1);
+  border: 1px solid hsl(var(--border) / 0.2);
   border-radius: 8px;
   padding: 2px 6px;
   font-size: 10px;
@@ -295,8 +349,8 @@
   margin: 1px 0;
   
   box-shadow: 
-    0 1px 4px -1px hsl(var(--foreground) / 0.1),
-    0 2px 8px -2px hsl(var(--foreground) / 0.05);
+    0 1px 4px -1px hsl(var(--foreground) / 0.15),
+    0 2px 8px -2px hsl(var(--foreground) / 0.1);
   
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
@@ -308,7 +362,7 @@
     0 4px 16px -4px hsl(var(--primary) / 0.15);
 }
 
-/* Week/Day View Events - Completely redesigned */
+/* Week/Day View Events - Enhanced borders */
 .fc-timegrid-event {
   background: linear-gradient(135deg, 
     hsl(var(--card) / 0.95), 
@@ -316,7 +370,7 @@
   );
   backdrop-filter: blur(8px);
   color: hsl(var(--card-foreground));
-  border: none;
+  border: 1px solid hsl(var(--border) / 0.2);
   border-left: 3px solid hsl(var(--primary));
   border-radius: 6px;
   padding: 4px 8px;
@@ -328,8 +382,8 @@
   margin: 1px 2px;
   
   box-shadow: 
-    0 1px 3px -1px hsl(var(--foreground) / 0.1),
-    0 2px 6px -2px hsl(var(--foreground) / 0.05);
+    0 1px 3px -1px hsl(var(--foreground) / 0.15),
+    0 2px 6px -2px hsl(var(--foreground) / 0.1);
   
   transition: all 0.2s ease;
 }
@@ -351,7 +405,6 @@
 .fc-timegrid-event .fc-event-time {
   font-size: 8x;
   color: white;
-
   font-weight: 400;
 }
 
@@ -372,13 +425,33 @@
   );
 }
 
-/* Time grid slots */
+/* Enhanced Time grid slots with defined borders */
 .fc-timegrid-slot {
-  border-color: hsl(var(--border) / 0.1);
+  border-color: hsl(var(--border) / 0.2);
+  border-width: 1px;
 }
 
 .fc-timegrid-slot-minor {
-  border-color: hsl(var(--border) / 0.05);
+  border-color: hsl(var(--border) / 0.1);
+}
+
+/* Enhanced grid lines for better definition */
+.fc-daygrid-day-frame {
+  position: relative;
+}
+
+.fc-daygrid-day-frame::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 1px;
+  background: linear-gradient(180deg, 
+    hsl(var(--border) / 0.2) 0%, 
+    hsl(var(--border) / 0.4) 50%, 
+    hsl(var(--border) / 0.2) 100%
+  );
 }
 
 /* Advanced Scrollbar */

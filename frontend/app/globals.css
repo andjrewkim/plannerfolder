@@ -4,6 +4,8 @@
 
 body {
   font-family: Arial, Helvetica, sans-serif;
+  background-color: oklab(98.713% -0.00532 -0.00451);
+
 }
 
 /* Defining custom properties (CSS variables) for light mode */

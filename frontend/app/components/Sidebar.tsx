@@ -1,6 +1,23 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
+import EventForm from './EventForm'; // Import your EventForm component
 import '../styles/container.css';
-import { authAPI } from '../../lib/auth'; // Import the auth service
+import { authAPI } from '../../lib/auth';
+
+// Import the EventData interface from EventForm
+interface EventData {
+  id?: string;
+  event_name: string;
+  date: string;
+  start_time: string;
+  end_time: string;
+  location: string;
+  event_type: string;
+  recurrence_pattern: string;
+  color: string;
+  is_all_day: boolean;
+  day_marking_title?: string;
+  type?: string;
+}
 
 interface APIEvent {
   id: number;
@@ -36,11 +53,16 @@ const Sidebar: React.FC = () => {
   const [newLongTermText, setNewLongTermText] = useState('');
   const newTaskInputRef = useRef<HTMLInputElement>(null);
   
-  // Store section heights with default values
+  // State for EventForm results
+  const [eventResults, setEventResults] = useState<EventData[]>([]);
+  const [eventError, setEventError] = useState<string | null>(null);
+  
+  // Store section heights with updated values to accommodate EventForm
   const [sectionHeights, setSectionHeights] = useState({
-    schedule: 300,
-    tasks: 300,
-    longTerm: 300
+    eventForm: 200,
+    schedule: 250,
+    tasks: 250,
+    longTerm: 200
   });
   
   // Track active resize section and use refs for smooth resizing
@@ -78,6 +100,13 @@ const Sidebar: React.FC = () => {
       newTaskInputRef.current.focus();
     }
   }, [isAddingLongTerm]);
+
+  // Handle EventForm results - refresh today's events when new events are created
+  const handleEventResult = (results: EventData[]) => {
+    setEventResults(results);
+    // Refresh today's events to show newly created events
+    fetchTodayEvents();
+  };
 
   // Handle click on tasks area to initiate task creation
   const handleTaskAreaClick = (e: React.MouseEvent) => {
@@ -381,7 +410,7 @@ const Sidebar: React.FC = () => {
     startHeightRef.current = heightsRef.current[section as keyof typeof sectionHeights];
     
     // Track adjacent section
-    const sections = ['schedule', 'tasks', 'longTerm'];
+    const sections = ['eventForm', 'schedule', 'tasks', 'longTerm'];
     const sectionIndex = sections.indexOf(section);
     const nextSectionIndex = sectionIndex + 1;
     const nextSection = nextSectionIndex < sections.length ? sections[nextSectionIndex] : null;
@@ -525,16 +554,44 @@ const Sidebar: React.FC = () => {
     return () => {
       document.body.classList.remove('resizing');
     };
-  }, [checkAndResetTasks, fetchTasks, fetchTodayEvents]); // Now correctly referencing stable function references
+  }, [checkAndResetTasks, fetchTasks, fetchTodayEvents]);
 
   return (
     <div className="app-layout">
       <aside className="app-sidebar">
+        {/* Event Form Section - Added at the top */}
+        <section 
+          className={`sidebar-section ${activeSection === 'eventForm' ? 'resizing' : ''}`}
+          data-section="eventForm"
+          style={{ 
+            marginTop: '10px', 
+            height: `${sectionHeights.eventForm}px`,
+            minHeight: '120px',
+            transition: isResizing ? 'none' : 'height 0.2s ease-out'
+          }}
+        >
+          <h3 className="section-title">Create Event</h3>
+          <div className="section-content" style={{ overflow: 'hidden' }}>
+            <div style={{ 
+
+            }}>
+              <EventForm 
+                setResult={handleEventResult}
+                setError={setEventError}
+              />
+            </div>
+          </div>
+          <div 
+            className={`resize-handle ${activeSection === 'eventForm' ? 'active' : ''}`}
+            onMouseDown={startResize('eventForm')}
+          />
+        </section>
+
+        {/* Today's Schedule Section */}
         <section 
           className={`sidebar-section ${activeSection === 'schedule' ? 'resizing' : ''}`}
           data-section="schedule"
           style={{ 
-            marginTop: '60px', 
             height: `${sectionHeights.schedule}px`,
             minHeight: '120px',
             transition: isResizing ? 'none' : 'height 0.2s ease-out'
@@ -571,6 +628,7 @@ const Sidebar: React.FC = () => {
           />
         </section>
 
+        {/* Tasks Section */}
         <section 
           className={`sidebar-section ${activeSection === 'tasks' ? 'resizing' : ''}`}
           data-section="tasks"
@@ -635,6 +693,7 @@ const Sidebar: React.FC = () => {
           />
         </section>
 
+        {/* Long-term Goals Section - Made scrollable */}
         <section 
           className={`sidebar-section ${activeSection === 'longTerm' ? 'resizing' : ''}`}
           data-section="longTerm"
@@ -648,6 +707,10 @@ const Sidebar: React.FC = () => {
           <div 
             className="section-content clickable-area"
             onClick={handleLongTermAreaClick}
+            style={{ 
+              overflowY: 'auto', 
+              maxHeight: `${sectionHeights.longTerm - 60}px` // Account for title and padding
+            }}
           >
             {longTermTasks.length > 0 && (
               <ul className="task-list">
@@ -693,15 +756,17 @@ const Sidebar: React.FC = () => {
               <div className="empty-state">Click here to add long-term goals</div>
             )}
           </div>
-          <div 
-            className={`resize-handle ${activeSection === 'longTerm' ? 'active' : ''}`}
-            onMouseDown={startResize('longTerm')}
-          />
+          {/* No resize handle for the last section */}
         </section>
       </aside>
 
       <main className="app-content">
         {/* Your main content goes here */}
+        {eventError && (
+          <div className="error-message" style={{ margin: '20px' }}>
+            {eventError}
+          </div>
+        )}
       </main>
     </div>
   );

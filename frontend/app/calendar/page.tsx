@@ -5,6 +5,7 @@ import Sidebar from '../components/Sidebar';
 import RightSidebar from '../components/RightSidebar';
 import EventForm from '../components/EventForm';
 import LLMChat from '../components/LLMChat';
+import Navigation from '../components/Navigation'; // Import the Navigation component
 import '../globals.css';
 import { ThemeProvider } from '../services/themeContext';
 
@@ -55,56 +56,53 @@ const Page = () => {
 
   return (
     <ThemeProvider>
-      <div className="h-screen overflow-hidden">
-        {/* Sidebar */}
-        <Sidebar />
+      <Navigation rightSidebarOpen={rightSidebarOpen}>
+        <div className="h-screen overflow-hidden">
+          {/* Sidebar */}
+          <Sidebar />
 
-        {/* Main content area */}
-        <div className="ewfsf">
-          <div className="form-content">
-            <EventForm 
-              setResult={handleEventSuccess}
-              setError={setError} 
-            />
-            {error && <p style={{ color: 'red' }}>{error}</p>}
+          {/* Main content area */}
+          <div className="ewfsf">
+            <div className="form-content">
+
+       
+              {error && <p style={{ color: 'red' }}>{error}</p>}
+            </div>
           </div>
-        </div>
 
-        {/* Calendar component with dynamic margin - RESTORED TO ORIGINAL */}
-        <div 
-          className="calendar-container"
-          style={{
-            marginRight: rightSidebarOpen ? '319px' : '0',
-            '@media (max-width: 768px)': {
-              marginRight: '0'
-            }
-          }}
-        >
-          <Calendar 
-            refreshTrigger={refreshEvents}
-            onEventChange={handleEventChange} 
-            onViewChange={handleViewChange}
+          {/* Calendar component with dynamic margin - FIXED */}
+          <div 
+            className="calendar-container"
+            style={{
+              marginRight: rightSidebarOpen ? '349px' : '30px',
+              marginLeft: '20px',
+            }}
+          >
+            <Calendar 
+              refreshTrigger={refreshEvents}
+              onEventChange={handleEventChange} 
+              onViewChange={handleViewChange}
+            />
+            <p className="current-view">Current View: {view}</p>
+          </div>
+
+          {/* AI Assistant Sidebar - positioned to slide with navbar */}
+          <RightSidebar 
+            isOpen={rightSidebarOpen}
+            onToggle={handleRightSidebarToggle}
+            navbarVisible={navbarVisible}
           />
-          <p className="current-view">Current View: {view}</p>
-        </div>
 
-        {/* AI Assistant Sidebar - positioned to slide with navbar */}
-        <RightSidebar 
-          isOpen={rightSidebarOpen}
-          onToggle={handleRightSidebarToggle}
-          navbarVisible={navbarVisible}
-        />
-
-
-        {/* Additional styles for responsive behavior */}
-        <style jsx>{`
-          @media (max-width: 768px) {
-            .calendar-container {
-              margin-right: 0 !important;
+          {/* Responsive styles moved to styled-jsx */}
+          <style jsx>{`
+            @media (max-width: 768px) {
+              .calendar-container {
+                margin-right: 0 !important;
+              }
             }
-          }
-        `}</style>
-      </div>
+          `}</style>
+        </div>
+      </Navigation>
     </ThemeProvider>
   );
 }

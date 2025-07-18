@@ -13,6 +13,7 @@ import interactionPlugin from "@fullcalendar/interaction";
 import { RRule } from 'rrule';
 import EventModal from './EventModal';
 import DayMarkingHighlighter from './DayMarkingHIghlighter';
+import CustomCalendarHeader from './CustomCalHeader';
 import { authAPI } from '../../lib/auth';
 import '../styles/calendar.css';
 import '../globals.css';
@@ -64,6 +65,7 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange, onViewChange }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [, setError] = useState<string | null>(null);
   const [hoveredDay, setHoveredDay] = useState<DayHoverInfo | null>(null);
+  const [currentTitle, setCurrentTitle] = useState('');
   const [currentView, setCurrentView] = useState('dayGridMonth');
   const [currentDate, setCurrentDate] = useState<Date | null>(null);
   const calendarRef = useRef<FullCalendar | null>(null);
@@ -869,116 +871,128 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange, onViewChange }) => {
   ];
 
   return (
-    <div className="flex h-screen"> {/* Add h-screen here */}
-      <div className="w-[320px] bg-gray-100">
-      </div>
-
-      <div className="flex-1 flex flex-col"> {/* Add flex flex-col */}
-        <DayMarkingHighlighter
-          onMarkingsLoaded={handleDayMarkingsLoaded}
-        />
-
-        <div className="flex-1"> {/* This will now take remaining space */}
-          <FullCalendar
-            ref={calendarRef}
-            plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
-            headerToolbar={{
-              left: "prev,next today",
-              center: "title",
-              right: "dayGridMonth,timeGridWeek,timeGridDay",
-            }}
-            initialView="dayGridMonth"
-            editable={!isLoading}
-            selectable={!isLoading}
-            selectMirror={true}
-            dayMaxEvents={true}
-            dayMaxEventRows={false}
-            displayEventEnd={false}
-            events={allEvents}
-            select={handleDateSelect}
-            eventClick={(clickInfo: EventClickArg) => {
-              if (clickInfo.event.extendedProps?.event_type === 'marking') {
-                return;
-              }
-
-              const event = clickInfo.event;
-              const startDate = new Date(event.start!);
-              const endDate = event.end ? new Date(event.end) : startDate;
-
-              const eventEl = clickInfo.el;
-              const rect = eventEl.getBoundingClientRect();
-              const viewportWidth = window.innerWidth;
-              const modalWidth = 400;
-
-              let x = rect.right + 10;
-              if (rect.right + modalWidth + 20 > viewportWidth) {
-                x = Math.max(10, rect.left - modalWidth - 10);
-              }
-
-              setModalPosition({
-                x: x + window.scrollX,
-                y: rect.top + window.scrollY
-              });
-
-              setSelectedEvent({
-                eventId: event.extendedProps?.originalId || event.id,
-                event_name: event.title,
-                date: `${startDate.getFullYear()}-${String(startDate.getMonth() + 1).padStart(2, '0')}-${String(startDate.getDate()).padStart(2, '0')}`,
-
-                start_time: startDate.toLocaleTimeString('en-US', {
-                  hour12: false,
-                  hour: '2-digit',
-                  minute: '2-digit',
-                }),
-                end_time: endDate.toLocaleTimeString('en-US', {
-                  hour12: false,
-                  hour: '2-digit',
-                  minute: '2-digit',
-                }),
-                location: event.extendedProps?.location || '',
-                virtual: event.extendedProps?.virtual || false,
-                urgency: event.extendedProps?.urgency || 'medium',
-                notes: event.extendedProps?.notes || '',
-                event_type: event.extendedProps?.event_type || '',
-                category: event.extendedProps?.category || '',
-                subcategories: event.extendedProps?.subcategories || '',
-                recurrence_pattern: event.extendedProps?.recurrence_pattern || '',
-                color: event.backgroundColor || '#3788d8'
-              });
-              setIsModalOpen(true);
-            }}
-            eventDrop={handleEventDrop}
-            height="100%" // Change from 85vh to 100%
-            allDaySlot={false}
-            slotMinTime="00:00:00"
-            slotMaxTime="24:00:00"
-            dayCellDidMount={handleDayCellDidMount}
-            viewDidMount={(viewInfo) => {
-              if (onViewChange) {
-                onViewChange(viewInfo.view.type);
-              }
-            }}
-          />
+    <div className='big-container'>'
+      <div className="flex h-screen">
+        <div className="w-[306px] ">
+          {/* Your existing sidebar content */}
         </div>
 
-        {hoveredDay && <DayDetailPopup info={hoveredDay} />}
-
-        {selectedEvent && (
-          <EventModal
-            isOpen={isModalOpen}
-            onClose={() => setIsModalOpen(false)}
-            selectedEvent={{
-              ...selectedEvent,
-              eventId: selectedEvent.eventId || '',
-              start_time: selectedEvent.start_time ?? '',
-              end_time: selectedEvent.end_time ?? ''
-            }}
-            position={modalPosition}
-            onChange={handleEventChange}
-            onSubmit={handleEventSubmit}
-            onDelete={handleDeleteEvent}
+        <div className="flex-1 flex flex-col">
+          <DayMarkingHighlighter
+            onMarkingsLoaded={handleDayMarkingsLoaded}
           />
-        )}
+
+          {/* Custom Header */}
+          <CustomCalendarHeader 
+            calendarRef={calendarRef}
+            currentTitle={currentTitle}
+            onViewChange={onViewChange}
+          />
+
+          {/* Calendar Container */}
+          <div className="flex-1">
+            <FullCalendar
+              ref={calendarRef}
+              plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
+              headerToolbar={false} // Disable the default header
+              initialView="dayGridMonth"
+              editable={!isLoading}
+              selectable={!isLoading}
+              selectMirror={true}
+              dayMaxEvents={true}
+              dayMaxEventRows={false}
+              displayEventEnd={false}
+              events={allEvents}
+              select={handleDateSelect}
+              eventClick={(clickInfo) => {
+                if (clickInfo.event.extendedProps?.event_type === 'marking') {
+                  return;
+                }
+
+                const event = clickInfo.event;
+                const startDate = new Date(event.start!);
+                const endDate = event.end ? new Date(event.end) : startDate;
+
+                const eventEl = clickInfo.el;
+                const rect = eventEl.getBoundingClientRect();
+                const viewportWidth = window.innerWidth;
+                const modalWidth = 400;
+
+                let x = rect.right + 10;
+                if (rect.right + modalWidth + 20 > viewportWidth) {
+                  x = Math.max(10, rect.left - modalWidth - 10);
+                }
+
+                setModalPosition({
+                  x: x + window.scrollX,
+                  y: rect.top + window.scrollY
+                });
+
+                setSelectedEvent({
+                  eventId: event.extendedProps?.originalId || event.id,
+                  event_name: event.title,
+                  date: `${startDate.getFullYear()}-${String(startDate.getMonth() + 1).padStart(2, '0')}-${String(startDate.getDate()).padStart(2, '0')}`,
+                  start_time: startDate.toLocaleTimeString('en-US', {
+                    hour12: false,
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  }),
+                  end_time: endDate.toLocaleTimeString('en-US', {
+                    hour12: false,
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  }),
+                  location: event.extendedProps?.location || '',
+                  virtual: event.extendedProps?.virtual || false,
+                  urgency: event.extendedProps?.urgency || 'medium',
+                  notes: event.extendedProps?.notes || '',
+                  event_type: event.extendedProps?.event_type || '',
+                  category: event.extendedProps?.category || '',
+                  subcategories: event.extendedProps?.subcategories || '',
+                  recurrence_pattern: event.extendedProps?.recurrence_pattern || '',
+                  color: event.backgroundColor || '#3788d8'
+                });
+                setIsModalOpen(true);
+              }}
+              eventDrop={handleEventDrop}
+              height="100%"
+              allDaySlot={false}
+              slotMinTime="00:00:00"
+              slotMaxTime="24:00:00"
+              dayCellDidMount={handleDayCellDidMount}
+              viewDidMount={(viewInfo) => {
+                // Update the title when view changes
+                setCurrentTitle(viewInfo.view.title);
+                if (onViewChange) {
+                  onViewChange(viewInfo.view.type);
+                }
+              }}
+              datesSet={(dateInfo) => {
+                // Update title when dates change (navigation)
+                setCurrentTitle(dateInfo.view.title);
+              }}
+            />
+          </div>
+
+          {hoveredDay && <DayDetailPopup info={hoveredDay} />}
+
+          {selectedEvent && (
+            <EventModal
+              isOpen={isModalOpen}
+              onClose={() => setIsModalOpen(false)}
+              selectedEvent={{
+                ...selectedEvent,
+                eventId: selectedEvent.eventId || '',
+                start_time: selectedEvent.start_time ?? '',
+                end_time: selectedEvent.end_time ?? ''
+              }}
+              position={modalPosition}
+              onChange={handleEventChange}
+              onSubmit={handleEventSubmit}
+              onDelete={handleDeleteEvent}
+            />
+          )}
+        </div>
       </div>
     </div>
   );

@@ -1,3 +1,4 @@
+/* Recurrence Section Styles */
 .recurrence-section {
   flex-direction: column;
   gap: 8px;
@@ -30,11 +31,7 @@
   color: #666;
 }
 
-
-
-
-
-
+/* Event Type Switcher */
 .event-type-switcher {
   display: flex;
   margin-bottom: 20px;
@@ -73,13 +70,7 @@
   color: #888;
 }
 
-
-
-
-
-
-
-/* Add these new keyframes at the top of your file */
+/* Animation Keyframes */
 @keyframes slideIn {
   from {
     opacity: 0;
@@ -111,77 +102,25 @@
   }
 }
 
-/* Modify your existing modal class */
-.event-confirmation-modal {
-  position: absolute;
-  top: calc(100% - 40px);
-  left: 0;
-  margin-left: 1rem;
-  background: white;
-  border-radius: 12px;
-  box-shadow: 
-    0 8px 24px rgba(149, 128, 255, 0.12),
-    0 4px 12px rgba(149, 128, 255, 0.08);
-  opacity: 0;
-  pointer-events: none;
-  z-index: 1000;
-  width: 100%;
-  max-width: 500px;
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+    max-height: 0;
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+    max-height: 500px;
+  }
 }
 
-.event-confirmation-modal.show {
-  opacity: 1;
-  pointer-events: auto;
-  animation: slideIn 0.4s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-/* Modify modal content title */
-.modal-content h3 {
-  margin: 0 0 1rem 0;
-  font-size: 1.25rem;
-  font-weight: 600;
-  color: #1f2937;
-  opacity: 0;
-  animation: fadeIn 0.3s ease forwards;
-  animation-delay: 0.1s;
-}
-
-/* Modify detail row */
-.detail-row {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  padding: 0.5rem;
-  border-radius: 8px;
-  transition: background-color 0.2s ease;
-  opacity: 0;
-  animation: scaleIn 0.4s ease forwards;
-}
-
-/* Add these new styles for staggered animation delays */
-.detail-row:nth-child(1) { animation-delay: 0.2s; }
-.detail-row:nth-child(2) { animation-delay: 0.3s; }
-.detail-row:nth-child(3) { animation-delay: 0.4s; }
-.detail-row:nth-child(4) { animation-delay: 0.5s; }
-
-/* Modify button group */
-.button-group {
-  display: flex;
-  gap: 0.75rem;
-  margin-top: 1.5rem;
-  opacity: 0;
-  animation: fadeIn 0.3s ease forwards;
-  animation-delay: 0.6s;
-}
-
-
-
-
+/* Updated Event Form Container */
 .event-form-container {
   width: 70%;
   padding: 1rem;
   margin-top: 1rem;
-
+  margin-bottom: -2rem;
   position: relative;
 }
 
@@ -190,9 +129,10 @@
   border-radius: 12px;
   width: 70%;
   display: flex;
-  align-items: flex-start;
+  flex-direction: column;
   gap: 1rem;
   margin-bottom: 2rem;
+  transition: all 0.3s ease;
 }
 
 .form-content {
@@ -202,19 +142,23 @@
   align-items: flex-start;
 }
 
+/* Updated Textarea - Expandable */
 .event-textarea {
   flex: 1;
-  min-height: 0px;
-  max-height: 60px;
+  min-height: 40px;
+  max-height: none;
   padding: 12px;
   border: 1px solid #e5e7eb;
   border-radius: 8px;
   background: #f9fafb;
   color: #374151;
-  resize: vertical;
+  resize: none;
   transition: all 0.2s ease;
-  margin: 0; /* Remove margin */
-  overflow:hidden;
+  margin: 0;
+  overflow: hidden;
+  font-family: inherit;
+  font-size: 14px;
+  line-height: 1.5;
 }
 
 .event-textarea:focus {
@@ -224,23 +168,14 @@
   outline: none;
 }
 
-.submit-button {
-  padding: 12px 24px;
-  background: #7c66ff;
-  color: white;
-  border: none;
-  border-radius: 8px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  white-space: nowrap;
-  height: fit-content;
-  margin-top: 0.4rem
+/* Auto-expanding textarea behavior */
+.event-textarea[data-expanded="true"] {
+  min-height: 60px;
+  background: white;
+  border-color: #9580ff;
 }
+
+
 
 .submit-button:hover {
   background: #6652ff;
@@ -251,29 +186,30 @@
   cursor: not-allowed;
 }
 
-/* Modal Styles */
+/* Event Confirmation - Now positioned below form */
 .event-confirmation-modal {
-  position: absolute;
-  top: calc(100% - 40px);  left: 0;
-  margin-left: 1rem;
+  position: static;
   background: white;
   border-radius: 12px;
   box-shadow: 
-    0 8px 24px rgba(149, 128, 255, 0.12),
-    0 4px 12px rgba(149, 128, 255, 0.08);
+    0 4px 12px rgba(149, 128, 255, 0.08),
+    0 2px 6px rgba(149, 128, 255, 0.04);
+  border: 1px solid #e5e7eb;
   opacity: 0;
-  transform: translateY(-10px);
+  max-height: 0;
+  overflow: hidden;
   pointer-events: none;
-  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
   z-index: 1000;
   width: 100%;
-  max-width: 500px;
+  margin-top: 1rem;
 }
 
 .event-confirmation-modal.show {
   opacity: 1;
-  transform: translateY(0);
+  max-height: 500px;
   pointer-events: auto;
+  animation: slideDown 0.4s ease forwards;
 }
 
 .modal-content {
@@ -285,6 +221,9 @@
   font-size: 1.25rem;
   font-weight: 600;
   color: #1f2937;
+  opacity: 0;
+  animation: fadeIn 0.3s ease forwards;
+  animation-delay: 0.1s;
 }
 
 .detail-group {
@@ -301,11 +240,19 @@
   padding: 0.5rem;
   border-radius: 8px;
   transition: background-color 0.2s ease;
+  opacity: 0;
+  animation: scaleIn 0.4s ease forwards;
 }
 
 .detail-row:hover {
   background: #f9fafb;
 }
+
+/* Staggered animation delays */
+.detail-row:nth-child(1) { animation-delay: 0.2s; }
+.detail-row:nth-child(2) { animation-delay: 0.3s; }
+.detail-row:nth-child(3) { animation-delay: 0.4s; }
+.detail-row:nth-child(4) { animation-delay: 0.5s; }
 
 .icon {
   width: 1.25rem;
@@ -340,6 +287,9 @@
   display: flex;
   gap: 0.75rem;
   margin-top: 1.5rem;
+  opacity: 0;
+  animation: fadeIn 0.3s ease forwards;
+  animation-delay: 0.6s;
 }
 
 .confirm-button,
@@ -371,6 +321,7 @@
   background: #e5e7eb;
 }
 
+/* Error and Loading States */
 .error-shake {
   animation: shake 0.5s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
 }
@@ -397,4 +348,14 @@
 
 .all-day-toggle {
   margin: 10px 0;
+}
+
+/* Additional styles for better textarea expansion */
+.event-textarea:not(:placeholder-shown) {
+  min-height: 60px;
+  background: white;
+}
+
+.event-textarea:focus:not(:placeholder-shown) {
+  min-height: 80px;
 }
