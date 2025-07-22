@@ -17,6 +17,7 @@ interface EventData {
   is_all_day: boolean;
   day_marking_title?: string;
   type?: string;
+  
 }
 
 interface APIEvent {
@@ -33,14 +34,19 @@ interface TodoTask {
   date: string | null;
 }
 
+interface SidebarProps {
+  onEventChange?: () => void;
+}
+
 // Key for storing the last reset date in local storage
 const LAST_RESET_KEY = 'tasks_last_reset_date';
 
-const Sidebar: React.FC = () => {
+const Sidebar: React.FC<SidebarProps> = ({ onEventChange }) => {
   const [todayEvents, setTodayEvents] = useState<APIEvent[]>([]);
   const [tasks, setTasks] = useState<TodoTask[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [deletingTasks, setDeletingTasks] = useState<number[]>([]);
+
   
   // State for regular task creation
   const [isAddingTask, setIsAddingTask] = useState(false);
@@ -87,11 +93,14 @@ const Sidebar: React.FC = () => {
     }
   }, [isAddingTask]);
 
-  // Handle EventForm results - refresh today's events when new events are created
   const handleEventResult = (results: EventData[]) => {
     setEventResults(results);
     // Refresh today's events to show newly created events
     fetchTodayEvents();
+    // Notify parent component to refresh calendar
+    if (onEventChange) {
+      onEventChange();
+    }
   };
 
   // Handle click on tasks area to initiate task creation
@@ -485,8 +494,9 @@ const Sidebar: React.FC = () => {
           <div className="section-content" style={{ overflow: 'hidden' }}>
             <div>
               <EventForm 
-                setResult={handleEventResult}
+                setResult={setEventResults} 
                 setError={setEventError}
+                onEventResult={handleEventResult}
               />
             </div>
           </div>

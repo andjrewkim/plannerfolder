@@ -5,6 +5,7 @@ import {
   EventDropArg,
   EventSourceInput,
   EventClickArg,
+  EventInput,
 } from "@fullcalendar/core";
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
@@ -37,6 +38,29 @@ interface EventDetails {
   day_marking_title?: string;
 }
 
+// Custom event input type that matches FullCalendar's expectations
+interface CustomEventInput extends EventInput {
+  id: string;
+  title: string;
+  start: string;
+  end?: string;
+  backgroundColor: string;
+  borderColor: string;
+  extendedProps: {
+    originalId: string;
+    location: string;
+    virtual: boolean;
+    urgency: string;
+    notes: string;
+    event_type: string;
+    category: string;
+    subcategories: string;
+    recurrence_pattern: string;
+    isDayMarking: boolean;
+    day_marking_title?: string;
+  };
+}
+
 interface DayHoverInfo {
   date: Date;
   events: EventApi[];
@@ -52,12 +76,15 @@ interface ModalPosition {
 }
 
 interface CalendarProps {
+  refreshTrigger: number;
   onEventChange?: () => void;
   onViewChange?: (newView: string) => void;
 }
 
 const Calendar: React.FC<CalendarProps> = ({ onEventChange, onViewChange }) => {
-  const [currentEvents, setCurrentEvents] = useState<EventApi[]>([]);
+  
+  // Change to use CustomEventInput[] instead of EventApi[]
+  const [currentEvents, setCurrentEvents] = useState<CustomEventInput[]>([]);
   const [dayMarkings, setDayMarkings] = useState<EventSourceInput>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<EventDetails | null>(null);
@@ -171,7 +198,7 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange, onViewChange }) => {
       const data: EventDetails[] = await response.json();
       const expandedEvents = expandRecurringEvents(data);
       
-      const formattedEvents = expandedEvents.map((event: EventDetails) => ({
+      const formattedEvents: CustomEventInput[] = expandedEvents.map((event: EventDetails) => ({
         id: String(event.id),
         title: event.day_marking_title || event.event_name,
         start: formatToISOString(event.date, event.start_time),
@@ -179,7 +206,7 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange, onViewChange }) => {
         backgroundColor: event.color,
         borderColor: event.color,
         extendedProps: {
-          originalId: event.eventId || event.id,
+          originalId: event.eventId || event.id || '',
           location: event.location,
           virtual: event.virtual,
           urgency: event.urgency,
@@ -193,7 +220,7 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange, onViewChange }) => {
         }
       }));
 
-      setCurrentEvents(formattedEvents as unknown as EventApi[]);
+      setCurrentEvents(formattedEvents);
       
       // Restore view state after events are loaded
       if (preserveView && calendar && savedDate) {
@@ -230,7 +257,7 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange, onViewChange }) => {
   };
 
   // Update a single event in the events array without full refresh
-  const updateEventInPlace = useCallback((updatedEventData: any, eventId: string) => {
+  const updateEventInPlace = useCallback((updatedEventData: EventDetails, eventId: string) => {
     setCurrentEvents(prevEvents => {
       return prevEvents.map(event => {
         if (event.id === eventId || event.extendedProps?.originalId === eventId) {
@@ -262,8 +289,8 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange, onViewChange }) => {
   }, []);
 
   // Add a new event to the events array without full refresh
-  const addEventInPlace = useCallback((newEventData: any, newEventId: string) => {
-    const newEvent = {
+  const addEventInPlace = useCallback((newEventData: EventDetails, newEventId: string) => {
+    const newEvent: CustomEventInput = {
       id: newEventId,
       title: newEventData.day_marking_title || newEventData.event_name,
       start: formatToISOString(newEventData.date, newEventData.start_time),
@@ -285,7 +312,7 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange, onViewChange }) => {
       }
     };
 
-    setCurrentEvents(prevEvents => [...prevEvents, newEvent as unknown as EventApi]);
+    setCurrentEvents(prevEvents => [...prevEvents, newEvent]);
   }, []);
 
   // Remove an event from the events array without full refresh
@@ -302,7 +329,7 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange, onViewChange }) => {
     if (!selectedEvent) return;
 
     setIsLoading(true);
-    const formattedEvent = {
+    const formattedEvent: Omit<EventDetails, 'id' | 'eventId'> = {
       event_name: selectedEvent.event_name,
       date: selectedEvent.date,
       start_time: selectedEvent.start_time,
@@ -340,10 +367,16 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange, onViewChange }) => {
           await fetchEvents(true); // Preserve view for recurring events
         } else {
           // For non-recurring events, update in place
+          const fullEventData: EventDetails = {
+            ...formattedEvent,
+            id: selectedEvent.eventId || responseData.id,
+            eventId: selectedEvent.eventId
+          };
+          
           if (selectedEvent.eventId) {
-            updateEventInPlace(formattedEvent, selectedEvent.eventId);
+            updateEventInPlace(fullEventData, selectedEvent.eventId);
           } else {
-            addEventInPlace(formattedEvent, responseData.id);
+            addEventInPlace(fullEventData, responseData.id);
           }
         }
         
@@ -369,7 +402,7 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange, onViewChange }) => {
 
     const eventId = event.extendedProps.originalId || event.id;
 
-    const updatedEvent = {
+    const updatedEvent: EventDetails = {
       event_name: event.title,
       date: `${startDate.getFullYear()}-${String(startDate.getMonth() + 1).padStart(2, '0')}-${String(startDate.getDate()).padStart(2, '0')}`,
       start_time: startDate.toLocaleTimeString('en-US', {
@@ -524,7 +557,12 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange, onViewChange }) => {
 
       hoverTimerRef.current = setTimeout(() => {
         const date = info.date;
-        const dayEvents = currentEventsRef.current.filter(event => {
+        // Get events for this day from the calendar API
+        const calendar = calendarRef.current;
+        if (!calendar) return;
+        
+        const calendarApi = calendar.getApi();
+        const dayEvents = calendarApi.getEvents().filter(event => {
           const eventDate = event.start ? new Date(event.start) : null;
           return eventDate && eventDate.toDateString() === date.toDateString();
         });
@@ -581,7 +619,7 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange, onViewChange }) => {
       cell.removeEventListener('mouseleave', handleMouseLeave);
       if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
     };
-  }, [currentEventsRef, setHoveredDay, hoverTimerRef]);
+  }, [setHoveredDay, hoverTimerRef]);
 
   const handleEventChange = (field: keyof EventDetails, value: string | boolean | null) => {
     if (selectedEvent) {
@@ -693,7 +731,6 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange, onViewChange }) => {
         setDeleteConfirmId(null);
       }
     };
-
 
     return (
       <div

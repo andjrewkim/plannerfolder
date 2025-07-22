@@ -23,9 +23,11 @@ export interface EventData {
 interface EventFormProps {
   setResult: React.Dispatch<React.SetStateAction<EventData[]>>;
   setError: React.Dispatch<React.SetStateAction<string | null>>;
+  onEventResult?: (results: EventData[]) => void;
+
 }
 
-const EventForm: React.FC<EventFormProps> = ({ setResult, setError }) => {
+const EventForm: React.FC<EventFormProps> = ({ setResult, setError, onEventResult }) => {
   const [inputText, setInputText] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isError, setIsError] = useState(false);
@@ -183,6 +185,7 @@ const EventForm: React.FC<EventFormProps> = ({ setResult, setError }) => {
       setShowDetails(true);
       setError(null);
       setIsError(false);
+      
     } catch (err) {
       console.error(err);
       setError('Failed to parse event details. Please try again.');
@@ -237,6 +240,10 @@ const EventForm: React.FC<EventFormProps> = ({ setResult, setError }) => {
         setResult((prevState) => Array.isArray(prevState) ? [...prevState, savedData] : [savedData]);
         setSuccessMessage(`${editedEventData.event_type === 'task' ? 'Task' : 'Event'} created successfully!`);
         
+        if (onEventResult) {
+          onEventResult([savedData]); // or whatever format you need
+        }
+
         // Clear form after successful submission
         setTimeout(() => {
           setInputText('');

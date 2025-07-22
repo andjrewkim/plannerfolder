@@ -71,9 +71,8 @@ const Page = () => {
     <ThemeProvider>
       <Navigation rightSidebarOpen={rightSidebarOpen}>
         <div className="h-screen overflow-hidden">
+          <Sidebar onEventChange={handleEventChange} />
           {/* Sidebar */}
-          <Sidebar />
-
           {/* Main content area */}
           <div className="ewfsf">
             <div className="form-content">
