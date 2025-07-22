@@ -81,7 +81,7 @@ interface CalendarProps {
   onViewChange?: (newView: string) => void;
 }
 
-const Calendar: React.FC<CalendarProps> = ({ onEventChange, onViewChange }) => {
+const Calendar: React.FC<CalendarProps> = ({ onEventChange, onViewChange, refreshTrigger }) => {
   
   // Change to use CustomEventInput[] instead of EventApi[]
   const [currentEvents, setCurrentEvents] = useState<CustomEventInput[]>([]);
@@ -99,6 +99,8 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange, onViewChange }) => {
   const currentEventsRef = useRef(currentEvents);
   const hoverTimerRef = useRef<NodeJS.Timeout | null>(null);
   const [hasInitialized, setHasInitialized] = useState(false);
+
+
 
   // Update the ref whenever currentEvents changes
   useEffect(() => {
@@ -237,6 +239,14 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange, onViewChange }) => {
       setError(err instanceof Error ? err.message : 'An unexpected error occurred');
     }
   }, [currentView, currentDate]);
+
+
+  useEffect(() => {
+    if (refreshTrigger && refreshTrigger > 0) {
+      fetchEvents(true); // Preserve current view when refreshing
+    }
+  }, [refreshTrigger, fetchEvents]);
+
 
   useEffect(() => {
     fetchEvents(false);
@@ -731,6 +741,9 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange, onViewChange }) => {
         setDeleteConfirmId(null);
       }
     };
+
+
+
 
     return (
       <div
