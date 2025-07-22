@@ -28,7 +28,7 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
   forceClose = false,
   navbarVisible = false
 }) => {
-  const [internalIsOpen, setInternalIsOpen] = useState(false);
+  const [internalIsOpen, setInternalIsOpen] = useState(true);
   const [messages, setMessages] = useState<Message[]>([
     {
       id: '1',

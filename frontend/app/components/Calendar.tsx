@@ -900,7 +900,6 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange, onViewChange }) => {
               selectable={!isLoading}
               selectMirror={true}
               dayMaxEvents={true}
-              dayMaxEventRows={false}
               displayEventEnd={false}
               events={allEvents}
               select={handleDateSelect}
@@ -971,7 +970,10 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange, onViewChange }) => {
                 // Update title when dates change (navigation)
                 setCurrentTitle(dateInfo.view.title);
               }}
+              fixedWeekCount={false}  // This prevents showing extra weeks
+              dayMaxEventRows={3}  // Optional: limits events per day for better spacing
             />
+            
           </div>
 
           {hoveredDay && <DayDetailPopup info={hoveredDay} />}

@@ -39,7 +39,6 @@ const LAST_RESET_KEY = 'tasks_last_reset_date';
 const Sidebar: React.FC = () => {
   const [todayEvents, setTodayEvents] = useState<APIEvent[]>([]);
   const [tasks, setTasks] = useState<TodoTask[]>([]);
-  const [longTermTasks, setLongTermTasks] = useState<TodoTask[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [deletingTasks, setDeletingTasks] = useState<number[]>([]);
   
@@ -48,21 +47,15 @@ const Sidebar: React.FC = () => {
   const [newTaskText, setNewTaskText] = useState('');
   const taskInputRef = useRef<HTMLInputElement>(null);
   
-  // State for long-term task creation
-  const [isAddingLongTerm, setIsAddingLongTerm] = useState(false);
-  const [newLongTermText, setNewLongTermText] = useState('');
-  const newTaskInputRef = useRef<HTMLInputElement>(null);
-  
   // State for EventForm results
   const [eventResults, setEventResults] = useState<EventData[]>([]);
   const [eventError, setEventError] = useState<string | null>(null);
   
-  // Store section heights with updated values to accommodate EventForm
+  // Store section heights with updated values (removed longTerm section)
   const [sectionHeights, setSectionHeights] = useState({
-    eventForm: 200,
-    schedule: 250,
-    tasks: 250,
-    longTerm: 200
+    eventForm: 250,
+    schedule: 350,
+    tasks: 350
   });
   
   // Track active resize section and use refs for smooth resizing
@@ -94,13 +87,6 @@ const Sidebar: React.FC = () => {
     }
   }, [isAddingTask]);
 
-  // Focus input when adding a new long-term task
-  useEffect(() => {
-    if (isAddingLongTerm && newTaskInputRef.current) {
-      newTaskInputRef.current.focus();
-    }
-  }, [isAddingLongTerm]);
-
   // Handle EventForm results - refresh today's events when new events are created
   const handleEventResult = (results: EventData[]) => {
     setEventResults(results);
@@ -118,17 +104,7 @@ const Sidebar: React.FC = () => {
     }
   };
 
-  // Handle click on long-term tasks area to initiate task creation
-  const handleLongTermAreaClick = (e: React.MouseEvent) => {
-    // Only activate if clicking directly on the section content (not on task items)
-    if ((e.target as HTMLElement).className === 'section-content' || 
-        (e.target as HTMLElement).className === 'empty-state' ||
-        (e.target as HTMLElement).className === 'clickable-area') {
-      setIsAddingLongTerm(true);
-    }
-  };
-
-  // Fetch tasks function using authAPI
+  // Fetch tasks function using authAPI (only regular tasks now)
   const fetchTasks = useCallback(async () => {
     try {
       // Check if user is authenticated first
@@ -149,20 +125,12 @@ const Sidebar: React.FC = () => {
       
       const data = await response.json();
       
-      const regular: TodoTask[] = [];
-      const longTerm: TodoTask[] = [];
-      
-      data.forEach((task: TodoTask) => {
-        // Consider tasks with "longterm" marker as long term goals
-        if (task.date === "longterm") {
-          longTerm.push(task);
-        } else if (!task.date) {
-          regular.push(task);
-        }
-      });
+      // Only get regular tasks (no date or not "longterm")
+      const regular: TodoTask[] = data.filter((task: TodoTask) => 
+        !task.date || task.date !== "longterm"
+      );
 
       setTasks(regular);
-      setLongTermTasks(longTerm);
       setError(null);
     } catch (error) {
       console.error('Error fetching tasks:', error);
@@ -193,7 +161,7 @@ const Sidebar: React.FC = () => {
       const tasks = await response.json();
       
       // Filter for regular (non-dated) tasks that need to be reset
-      const regularTasks = tasks.filter((task: TodoTask) => !task.date);
+      const regularTasks = tasks.filter((task: TodoTask) => !task.date || task.date !== "longterm");
       
       // Delete all regular tasks
       for (const task of regularTasks) {
@@ -342,62 +310,6 @@ const Sidebar: React.FC = () => {
     setNewTaskText('');
   };
 
-  // Handle long term goal creation using authAPI
-  const handleCreateLongTerm = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!newLongTermText.trim()) {
-      return; // Don't create empty tasks
-    }
-    
-    try {
-      // Check if user is authenticated first
-      if (!authAPI.isAuthenticated()) {
-        setError('Please log in to create tasks');
-        return;
-      }
-
-      // For long-term goals, we'll use a special marker in the database
-      // We'll set date to "longterm" string which our API can interpret
-      const response = await authAPI.authenticatedFetch(`${process.env.NEXT_PUBLIC_API_URL}/api/tasks/`, {
-        method: 'POST',
-        body: JSON.stringify({
-          event: newLongTermText,
-          date: "longterm" // Special marker for long-term goals without dates
-        })
-      });
-
-      if (!response.ok) {
-        if (response.status === 401) {
-          setError('Please log in to create tasks');
-          return;
-        }
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      
-      // Reset only the text, keep the form open
-      setNewLongTermText('');
-      // Don't set isAddingLongTerm to false - keep the form open
-      
-      // Refresh tasks
-      await fetchTasks();
-      
-      // Refocus the input for continuous adding
-      if (newTaskInputRef.current) {
-        newTaskInputRef.current.focus();
-      }
-    } catch (error) {
-      console.error('Error creating long-term goal:', error);
-      setError('Failed to create long-term goal');
-    }
-  };
-
-  // Cancel long-term task creation
-  const handleCancelLongTerm = () => {
-    setIsAddingLongTerm(false);
-    setNewLongTermText('');
-  };
-
   // Improved resize function with throttling and constraints
   const startResize = (section: string) => (e: React.MouseEvent) => {
     e.preventDefault();
@@ -409,8 +321,8 @@ const Sidebar: React.FC = () => {
     startYRef.current = e.clientY;
     startHeightRef.current = heightsRef.current[section as keyof typeof sectionHeights];
     
-    // Track adjacent section
-    const sections = ['eventForm', 'schedule', 'tasks', 'longTerm'];
+    // Track adjacent section (only eventForm and schedule have resize handles)
+    const sections = ['eventForm', 'schedule', 'tasks'];
     const sectionIndex = sections.indexOf(section);
     const nextSectionIndex = sectionIndex + 1;
     const nextSection = nextSectionIndex < sections.length ? sections[nextSectionIndex] : null;
@@ -547,7 +459,6 @@ const Sidebar: React.FC = () => {
       // Clear data and show login message if not authenticated
       setTodayEvents([]);
       setTasks([]);
-      setLongTermTasks([]);
       setError('Please log in to access your data');
     }
 
@@ -558,8 +469,8 @@ const Sidebar: React.FC = () => {
 
   return (
     <div className="app-layout">
-      <aside className="app-sidebar">
-        {/* Event Form Section - Added at the top */}
+      <aside className="app-sidebar" style={{ overflowY: 'auto', maxHeight: '100vh' }}>
+        {/* Event Form Section */}
         <section 
           className={`sidebar-section ${activeSection === 'eventForm' ? 'resizing' : ''}`}
           data-section="eventForm"
@@ -572,9 +483,7 @@ const Sidebar: React.FC = () => {
         >
           <h3 className="section-title">Create Event</h3>
           <div className="section-content" style={{ overflow: 'hidden' }}>
-            <div style={{ 
-
-            }}>
+            <div>
               <EventForm 
                 setResult={handleEventResult}
                 setError={setEventError}
@@ -598,7 +507,7 @@ const Sidebar: React.FC = () => {
           }}
         >
           <h3 className="section-title">Today&apos;s Schedule</h3>
-          <div className="section-content">
+          <div className="section-content" style={{ overflowY: 'auto', maxHeight: `${sectionHeights.schedule - 60}px` }}>
             {error ? (
               <div className="error-message">{error}</div>
             ) : todayEvents.length > 0 ? (
@@ -628,9 +537,9 @@ const Sidebar: React.FC = () => {
           />
         </section>
 
-        {/* Tasks Section */}
+        {/* Tasks Section - Now with more space and scrollable */}
         <section 
-          className={`sidebar-section ${activeSection === 'tasks' ? 'resizing' : ''}`}
+          className="sidebar-section"
           data-section="tasks"
           style={{ 
             height: `${sectionHeights.tasks}px`,
@@ -642,6 +551,10 @@ const Sidebar: React.FC = () => {
           <div 
             className="section-content clickable-area"
             onClick={handleTaskAreaClick}
+            style={{ 
+              overflowY: 'auto', 
+              maxHeight: `${sectionHeights.tasks - 60}px` // Account for title and padding
+            }}
           >
             {tasks.length > 0 && (
               <ul className="task-list">
@@ -685,75 +598,6 @@ const Sidebar: React.FC = () => {
               </form>
             ) : (
               <div className="empty-state">Click here to add tasks</div>
-            )}
-          </div>
-          <div 
-            className={`resize-handle ${activeSection === 'tasks' ? 'active' : ''}`}
-            onMouseDown={startResize('tasks')}
-          />
-        </section>
-
-        {/* Long-term Goals Section - Made scrollable */}
-        <section 
-          className={`sidebar-section ${activeSection === 'longTerm' ? 'resizing' : ''}`}
-          data-section="longTerm"
-          style={{ 
-            height: `${sectionHeights.longTerm}px`,
-            minHeight: '120px',
-            transition: isResizing ? 'none' : 'height 0.2s ease-out'
-          }}
-        >
-          <h3 className="section-title">Long-term Goals</h3>
-          <div 
-            className="section-content clickable-area"
-            onClick={handleLongTermAreaClick}
-            style={{ 
-              overflowY: 'auto', 
-              maxHeight: `${sectionHeights.longTerm - 60}px` // Account for title and padding
-            }}
-          >
-            {longTermTasks.length > 0 && (
-              <ul className="task-list">
-                {longTermTasks.map((task) => (
-                  <li 
-                    key={task.id} 
-                    className={`task-item ${deletingTasks.includes(task.id) ? 'deleting' : ''}`}
-                  >
-                    <label className="task-label">
-                      <input
-                        type="checkbox"
-                        onChange={() => handleTaskComplete(task.id)}
-                        className="task-checkbox"
-                      />
-                      <span className="task-text">{task.event}</span>
-                    </label>
-                  </li>
-                ))}
-              </ul>
-            )}
-            {isAddingLongTerm ? (
-              <form onSubmit={handleCreateLongTerm} className="task-form">
-                <input
-                  type="text"
-                  ref={newTaskInputRef}
-                  value={newLongTermText}
-                  onChange={(e) => setNewLongTermText(e.target.value)}
-                  placeholder="Enter new long-term goal..."
-                  className="task-input"
-                />
-                <div className="task-form-buttons">
-                  <button type="submit" className="btn btn-save">Save</button>
-                  <button 
-                    type="button" 
-                    className="btn btn-cancel"
-                    onClick={handleCancelLongTerm}
-                  >
-                    Close
-                  </button>
-                </div>
-              </form>
-            ) : (
-              <div className="empty-state">Click here to add long-term goals</div>
             )}
           </div>
           {/* No resize handle for the last section */}

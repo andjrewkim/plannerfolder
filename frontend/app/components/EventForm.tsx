@@ -345,7 +345,7 @@ const EventForm: React.FC<EventFormProps> = ({ setResult, setError }) => {
     }
   };
 
-  return (
+return (
     <div className="event-form-container" style={{ padding: '4px' }}>
       {/* Input Field - Only show when not showing details */}
       {!showDetails && (
@@ -441,19 +441,11 @@ const EventForm: React.FC<EventFormProps> = ({ setResult, setError }) => {
           border: 'none',
           width: '100%'
         }}>
-          <h4 style={{ 
-            margin: '0 0 8px 0', 
-            color: '#a7aaaeff', 
-            fontSize: '12px',
-            fontWeight: '600'
-          }}>
-            Event Details
-          </h4>
           
           {/* Event Type Switcher */}
           <div className="event-type-switcher" style={{
             display: 'flex',
-            marginBottom: '4px',
+            marginBottom: '2px',
             backgroundColor: '#e9ecef',
             borderRadius: '4px',
             padding: '2px'
@@ -467,7 +459,7 @@ const EventForm: React.FC<EventFormProps> = ({ setResult, setError }) => {
                 padding: '2px 16px',
                 border: 'none',
                 borderRadius: '2px',
-                backgroundColor: editedEventData.event_type === 'event',
+                backgroundColor: editedEventData.event_type === 'event' ? '#007bff' : 'transparent',
                 color: editedEventData.event_type === 'event' ? 'white' : '#495057',
                 cursor: 'pointer',
                 fontSize: '14px',
@@ -485,7 +477,7 @@ const EventForm: React.FC<EventFormProps> = ({ setResult, setError }) => {
                 padding: '2px 16px',
                 border: 'none',
                 borderRadius: '2px',
-                backgroundColor: editedEventData.event_type === 'task',
+                backgroundColor: editedEventData.event_type === 'task' ? '#007bff' : 'transparent',
                 color: editedEventData.event_type === 'task' ? 'white' : '#495057',
                 cursor: 'pointer',
                 fontSize: '14px',
@@ -496,102 +488,132 @@ const EventForm: React.FC<EventFormProps> = ({ setResult, setError }) => {
             </button>
           </div>
           
+          <div
+            className="detail-group"
+            style={{ 
+              display: 'flex', 
+              flexDirection: 'column', 
+              gap: '4px',
+              backgroundColor: '#f8f9fa',
+              borderRadius: '4px',
+              overflow: 'hidden'
+            }}
+          >
+            {/* Event Name */}
             <div
-              className="detail-group"
-              style={{ display: 'flex', flexDirection: 'column', gap: '0' }}
+              className="detail-row"
+              style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '4px' }}
             >
-              {/* Event Name */}
+              <Tag size={14} color="#6c757d" />
+              <input
+                value={editedEventData.event_name || ''}
+                onChange={(e) => handleEdit('event_name', e.target.value)}
+                className="detail-input"
+                placeholder={
+                  editedEventData.event_type === 'task' ? 'Task name' : 'Event name'
+                }
+                style={{
+                  flex: 1,
+                  padding: '2px 4px',
+                  border: '1px solid #ddd',
+                  borderRadius: '2px',
+                  fontSize: '13px',
+                  minHeight: '20px',
+                  lineHeight: '1.3',
+                  margin: 0,
+                  backgroundColor: 'white'
+                }}
+              />
+            </div>
+
+            {/* Task Today Toggle */}
+            {editedEventData.event_type === 'task' && (
               <div
                 className="detail-row"
-                style={{ display: 'flex', alignItems: 'center', gap: '4px' }}
+                style={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  gap: '4px',
+                  padding: '4px'
+                }}
               >
-                <Tag size={16} color="#6c757d" />
+                <Tag size={14} color="transparent" style={{ visibility: 'hidden' }} />
+                <label
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '3px',
+                    cursor: 'pointer',
+                    fontSize: '13px',
+                    margin: 0,
+                    padding: 0,
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={isTaskToday}
+                    onChange={handleTaskTodayToggle}
+                    style={{ width: '14px', height: '14px', margin: 0, padding: 0 }}
+                  />
+                  Today task
+                </label>
+              </div>
+            )}
+
+            {/* Date */}
+            {(editedEventData.event_type !== 'task' || !isTaskToday) && (
+              <div
+                className="detail-row"
+                style={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  gap: '4px', 
+                  padding: '4px'
+                }}
+              >
+                <Calendar size={14} color="#6c757d" />
                 <input
-                  value={editedEventData.event_name || ''}
-                  onChange={(e) => handleEdit('event_name', e.target.value)}
+                  type="date"
+                  value={editedEventData.date || ''}
+                  onChange={(e) => handleEdit('date', e.target.value)}
                   className="detail-input"
-                  placeholder={
-                    editedEventData.event_type === 'task' ? 'Task name' : 'Event name'
-                  }
                   style={{
                     flex: 1,
-                    padding: '0 8px',
-                    border: '1px solid #ced4da',
-                    borderRadius: '4px',
-                    fontSize: '14px',
-                    width: '100%',
-                    minHeight: '27px',
-                    lineHeight: '1.4',
+                    padding: '2px 4px',
+                    border: '1px solid #ddd',
+                    borderRadius: '2px',
+                    fontSize: '13px',
+                    minHeight: '20px',
                     margin: 0,
+                    backgroundColor: 'white'
                   }}
                 />
               </div>
-
-              {/* Task Today Toggle */}
-              {editedEventData.event_type === 'task' && (
-                <div
-                  className="detail-row"
-                  style={{ display: 'flex', alignItems: 'center', gap: '0' }}
-                >
-                  <label
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '4px',
-                      cursor: 'pointer',
-                      fontSize: '14px',
-                      margin: 0,
-                      padding: 0,
-                    }}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={isTaskToday}
-                      onChange={handleTaskTodayToggle}
-                      style={{ width: '16px', height: '16px', margin: 0, padding: 0 }}
-                    />
-                    Today task
-                  </label>
-                </div>
-              )}
-
-              {/* Date */}
-              {(editedEventData.event_type !== 'task' || !isTaskToday) && (
-                <div
-                  className="detail-row"
-                  style={{ display: 'flex', alignItems: 'center', gap: '4px' }}
-                >
-                  <Calendar size={16} color="#6c757d" />
-                  <input
-                    type="date"
-                    value={editedEventData.date || ''}
-                    onChange={(e) => handleEdit('date', e.target.value)}
-                    className="detail-input"
-                    style={{
-                      flex: 1,
-                      padding: '0 8px',
-                      border: '1px solid #ced4da',
-                      borderRadius: '4px',
-                      fontSize: '14px',
-                      minHeight: '27px',
-                      margin: 0,
-                    }}
-                  />
-                </div>
-              )}
+            )}
          
-            
             {/* Event-specific fields */}
             {(editedEventData.event_type === 'event' || editedEventData.event_type === 'marking') && (
               <>
                 {/* All-day toggle */}
-                <div className="detail-row" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '14px' }}>
+                <div className="detail-row" style={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  gap: '4px',
+                  padding: '4px'
+                }}>
+                  <Tag size={14} color="transparent" style={{ visibility: 'hidden' }} />
+                  <label style={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    gap: '3px', 
+                    cursor: 'pointer', 
+                    fontSize: '13px' 
+                  }}>
                     <input
                       type="checkbox"
                       checked={editedEventData.is_all_day || false}
                       onChange={toggleAllDayEvent}
-                      style={{ width: '16px', height: '16px' }}
+                      style={{ width: '14px', height: '14px' }}
                     />
                     All-day event
                   </label>
@@ -599,34 +621,41 @@ const EventForm: React.FC<EventFormProps> = ({ setResult, setError }) => {
 
                 {/* Time inputs */}
                 {!editedEventData.is_all_day && (
-                  <div className="detail-row" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <Clock size={16} color="#6c757d" />
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1 }}>
+                  <div className="detail-row" style={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    gap: '4px', 
+                    padding: '4px'
+                  }}>
+                    <Clock size={14} color="#6c757d" />
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flex: 1 }}>
                       <input
                         type="time"
                         value={editedEventData.start_time || ''}
                         onChange={(e) => handleEdit('start_time', e.target.value)}
                         style={{
-                          padding: '8px 12px',
-                          border: '1px solid #ced4da',
-                          borderRadius: '4px',
-                          fontSize: '14px',
-                          width: '100%',
-                          minHeight: '36px'
+                          padding: '2px 4px',
+                          border: '1px solid #ddd',
+                          borderRadius: '2px',
+                          fontSize: '13px',
+                          flex: 1,
+                          minHeight: '20px',
+                          backgroundColor: 'white'
                         }}
                       />
-                      <span style={{ color: '#6c757d', fontSize: '14px' }}>to</span>
+                      <span style={{ color: '#6c757d', fontSize: '12px' }}>to</span>
                       <input
                         type="time"
                         value={editedEventData.end_time || ''}
                         onChange={(e) => handleEdit('end_time', e.target.value)}
                         style={{
-                          padding: '8px 12px',
-                          border: '1px solid #ced4da',
-                          borderRadius: '4px',
-                          fontSize: '14px',
-                          width: '100%',
-                          minHeight: '36px'
+                          padding: '2px 4px',
+                          border: '1px solid #ddd',
+                          borderRadius: '2px',
+                          fontSize: '13px',
+                          flex: 1,
+                          minHeight: '20px',
+                          backgroundColor: 'white'
                         }}
                       />
                     </div>
@@ -634,19 +663,24 @@ const EventForm: React.FC<EventFormProps> = ({ setResult, setError }) => {
                 )}
 
                 {/* Recurrence */}
-                <div className="detail-row" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <Repeat size={16} color="#6c757d" />
+                <div className="detail-row" style={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  gap: '4px', 
+                  padding: '4px'
+                }}>
+                  <Repeat size={14} color="#6c757d" />
                   <select
                     value={getRecurrenceDisplayValue()}
                     onChange={(e) => handleSimpleRecurrenceChange(e.target.value)}
                     style={{
                       flex: 1,
-                      padding: '8px 12px',
-                      border: '1px solid #ced4da',
-                      borderRadius: '4px',
-                      fontSize: '14px',
-                      width: '100%',
-                      minHeight: '36px'
+                      padding: '2px 4px',
+                      border: '1px solid #ddd',
+                      borderRadius: '2px',
+                      fontSize: '13px',
+                      minHeight: '20px',
+                      backgroundColor: 'white'
                     }}
                   >
                     <option value="none">Doesn't repeat</option>
@@ -667,7 +701,7 @@ const EventForm: React.FC<EventFormProps> = ({ setResult, setError }) => {
           {/* Action Buttons */}
           <div className="button-group" style={{
             display: 'flex',
-            gap: '8px',
+            gap: '4px',
             marginTop: '-20px',
             justifyContent: 'flex-end'
           }}>
@@ -676,14 +710,14 @@ const EventForm: React.FC<EventFormProps> = ({ setResult, setError }) => {
               className="cancel-button"
               disabled={isSubmitting}
               style={{
-                padding: '8px 16px',
-                border: '1px solid #6c757d',
-                borderRadius: '4px',
-                backgroundColor: 'white',
-                color: '#6c757d',
+                padding: '4px 10px',
+                border: 'none',
+                borderRadius: '2px',
+                backgroundColor: '#e9ecef',
+                color: '#495057',
                 cursor: 'pointer',
-                fontSize: '14px',
-                minHeight: '36px',
+                fontSize: '12px',
+                minHeight: '24px',
                 fontWeight: '500'
               }}
             >
@@ -694,14 +728,14 @@ const EventForm: React.FC<EventFormProps> = ({ setResult, setError }) => {
               className="confirm-button"
               disabled={isSubmitting}
               style={{
-                padding: '8px 16px',
+                padding: '4px 10px',
                 border: 'none',
-                borderRadius: '4px',
+                borderRadius: '2px',
                 backgroundColor: '#007bff',
                 color: 'white',
                 cursor: 'pointer',
-                fontSize: '14px',
-                minHeight: '36px',
+                fontSize: '12px',
+                minHeight: '24px',
                 fontWeight: '500'
               }}
             >

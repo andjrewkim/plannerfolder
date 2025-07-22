@@ -16,8 +16,21 @@ const Page = () => {
   const [error, setError] = useState<string | null>(null);
   const [view, setView] = useState<string>('dayGridMonth');
   const [refreshEvents, setRefreshEvents] = useState(0);
-  const [rightSidebarOpen, setRightSidebarOpen] = useState(false);
+  const [rightSidebarOpen, setRightSidebarOpen] = useState(true);
   const [navbarVisible, setNavbarVisible] = useState(false);
+
+  // Disable scrolling on mount and re-enable on unmount
+  useEffect(() => {
+    // Disable scrolling
+    document.body.style.overflow = 'hidden';
+    document.documentElement.style.overflow = 'hidden';
+
+    // Cleanup function to re-enable scrolling when component unmounts
+    return () => {
+      document.body.style.overflow = 'auto';
+      document.documentElement.style.overflow = 'auto';
+    };
+  }, []);
 
   // Listen for navbar visibility changes
   useEffect(() => {
@@ -64,8 +77,6 @@ const Page = () => {
           {/* Main content area */}
           <div className="ewfsf">
             <div className="form-content">
-
-       
               {error && <p style={{ color: 'red' }}>{error}</p>}
             </div>
           </div>
@@ -90,6 +101,7 @@ const Page = () => {
           <RightSidebar 
             isOpen={rightSidebarOpen}
             onToggle={handleRightSidebarToggle}
+            forceClose={false}
             navbarVisible={navbarVisible}
           />
 
@@ -99,6 +111,14 @@ const Page = () => {
               .calendar-container {
                 margin-right: 0 !important;
               }
+            }
+          `}</style>
+
+          {/* Global styles to prevent scrolling */}
+          <style jsx global>{`
+            html, body {
+              overflow: hidden !important;
+              height: 100%;
             }
           `}</style>
         </div>
