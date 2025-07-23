@@ -50,6 +50,7 @@ function DisplaySettingsContent() {
         <p className="form-helper mt-2">Choose from our wide selection of carefully crafted themes</p>
       </div>
 
+{/*
       <div className="form-group">
         <div className="flex items-center justify-between">
           <div>
@@ -83,6 +84,11 @@ function DisplaySettingsContent() {
   );
 }
 
+*/}
+
+    </div>
+  );
+}
 // Wrap the component with the ThemeProvider
 export default function DisplaySettings() {
   return (
