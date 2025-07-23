@@ -16,7 +16,7 @@ interface CalendarRef {
 
 // Define the component props interface
 interface CustomCalendarHeaderProps {
-  calendarRef: RefObject<CalendarRef>;
+  calendarRef: RefObject<CalendarRef | null>;
   currentTitle: string;
   onViewChange?: (view: string) => void;
 }
