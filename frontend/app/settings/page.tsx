@@ -12,7 +12,8 @@ import {
   Mail,
   LogOut,
   Lock,
-  Camera
+  Camera,
+  ArrowLeft
 } from 'lucide-react';
 import DisplaySettings from '@/app/settings/settingspages/DisplaySettings';
 import GeneralPreferences from '@/app/settings/settingspages/GeneralPreferences';
@@ -85,6 +86,10 @@ const CalendarSettings: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleBackToCalendar = () => {
+    router.push('/calendar');
   };
 
   useEffect(() => {
@@ -339,6 +344,17 @@ const CalendarSettings: React.FC = () => {
 
       {/* Main Content */}
       <div className="flex-1 p-8">
+        {/* Back Arrow */}
+        <div className="mb-6">
+          <button
+            onClick={handleBackToCalendar}
+            className="flex items-center space-x-2 px-3 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            <span className="text-sm font-medium">Back to Calendar</span>
+          </button>
+        </div>
+        
         {renderContent()}
       </div>
     </div>

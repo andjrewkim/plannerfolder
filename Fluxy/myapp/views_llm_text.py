@@ -371,7 +371,7 @@ User: {message}"""
         
         # Gemini API configuration
         generation_config = {
-            "maxOutputTokens": kwargs.get("max_tokens", 1000),  # Increased default
+            "maxOutputTokens": kwargs.get("max_tokens", 100),  # Increased default
             "temperature": kwargs.get("temperature", 0.7),
             "topP": kwargs.get("top_p", 0.95),
             "topK": kwargs.get("top_k", 40)
