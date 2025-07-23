@@ -97,11 +97,13 @@ const Page = () => {
           </div>
 
           {/* AI Assistant Sidebar - positioned to slide with navbar */}
+          {/* UPDATED: Added onEventChange prop to trigger calendar refresh */}
           <RightSidebar 
             isOpen={rightSidebarOpen}
             onToggle={handleRightSidebarToggle}
             forceClose={false}
             navbarVisible={navbarVisible}
+            onEventChange={handleEventChange} // Pass the event change handler
           />
 
           {/* Responsive styles moved to styled-jsx */}
@@ -125,5 +127,4 @@ const Page = () => {
     </ThemeProvider>
   );
 }
-
 export default Page;

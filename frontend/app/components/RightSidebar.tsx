@@ -7,6 +7,7 @@ interface RightSidebarProps {
   onToggle?: () => void;
   forceClose?: boolean;
   navbarVisible?: boolean;
+  onEventChange?: () => void; // Add this prop to trigger calendar refresh
 }
 
 interface Message {
@@ -20,13 +21,15 @@ interface LLMResponse {
   response: string;
   message_id?: string;
   error?: string;
+  changes_applied?: boolean; // Add this to check if the AI made calendar changes
 }
 
 const RightSidebar: React.FC<RightSidebarProps> = ({ 
   isOpen: controlledIsOpen, 
   onToggle,
   forceClose = false,
-  navbarVisible = false
+  navbarVisible = false,
+  onEventChange // Add this prop
 }) => {
   const [internalIsOpen, setInternalIsOpen] = useState(true);
   const [messages, setMessages] = useState<Message[]>([
@@ -69,7 +72,7 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
   }, []);
 
   // Function to send message to LLM backend
-  const sendMessageToLLM = async (message: string): Promise<string> => {
+  const sendMessageToLLM = async (message: string): Promise<{ response: string; calendarUpdated: boolean }> => {
     try {
       setError(null);
 
@@ -100,7 +103,10 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
         throw new Error(data.error);
       }
 
-      return data.response || 'No response received';
+      return {
+        response: data.response || 'No response received',
+        calendarUpdated: data.changes_applied || false
+      };
     } catch (error) {
       console.error('LLM request error:', error);
       const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
@@ -125,7 +131,7 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
 
     try {
       // Send message to LLM backend
-      const llmResponse = await sendMessageToLLM(inputMessage);
+      const { response: llmResponse, calendarUpdated } = await sendMessageToLLM(inputMessage);
       
       // Add AI response
       const aiResponse: Message = {
@@ -136,6 +142,12 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
       };
       
       setMessages(prev => [...prev, aiResponse]);
+
+      // Trigger calendar refresh if the AI made changes to the calendar
+      if (calendarUpdated && onEventChange) {
+        console.log('AI made calendar changes, refreshing calendar...');
+        onEventChange();
+      }
     } catch (error) {
       // Add error message to chat
       const errorMessage: Message = {
