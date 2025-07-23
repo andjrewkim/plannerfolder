@@ -1,11 +1,35 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, RefObject } from 'react';
 import '../styles/calendarheader.css';
 
-const CustomCalendarHeader = ({ calendarRef, currentTitle, onViewChange }) => {
-  const [activeView, setActiveView] = useState('dayGridMonth');
-  const [isAnimating, setIsAnimating] = useState(false);
+// Define the FullCalendar API interface (minimal required methods)
+interface FullCalendarApi {
+  prev(): void;
+  next(): void;
+  today(): void;
+  changeView(viewName: string): void;
+}
 
-  const handlePrevious = () => {
+// Define the calendar ref interface
+interface CalendarRef {
+  getApi(): FullCalendarApi;
+}
+
+// Define the component props interface
+interface CustomCalendarHeaderProps {
+  calendarRef: RefObject<CalendarRef>;
+  currentTitle: string;
+  onViewChange?: (view: string) => void;
+}
+
+const CustomCalendarHeader: React.FC<CustomCalendarHeaderProps> = ({ 
+  calendarRef, 
+  currentTitle, 
+  onViewChange 
+}) => {
+  const [activeView, setActiveView] = useState<string>('dayGridMonth');
+  const [isAnimating, setIsAnimating] = useState<boolean>(false);
+
+  const handlePrevious = (): void => {
     if (calendarRef.current) {
       setIsAnimating(true);
       calendarRef.current.getApi().prev();
@@ -13,7 +37,7 @@ const CustomCalendarHeader = ({ calendarRef, currentTitle, onViewChange }) => {
     }
   };
 
-  const handleNext = () => {
+  const handleNext = (): void => {
     if (calendarRef.current) {
       setIsAnimating(true);
       calendarRef.current.getApi().next();
@@ -21,7 +45,7 @@ const CustomCalendarHeader = ({ calendarRef, currentTitle, onViewChange }) => {
     }
   };
 
-  const handleToday = () => {
+  const handleToday = (): void => {
     if (calendarRef.current) {
       setIsAnimating(true);
       calendarRef.current.getApi().today();
@@ -29,7 +53,7 @@ const CustomCalendarHeader = ({ calendarRef, currentTitle, onViewChange }) => {
     }
   };
 
-  const handleViewChange = (view) => {
+  const handleViewChange = (view: string): void => {
     if (calendarRef.current) {
       calendarRef.current.getApi().changeView(view);
       setActiveView(view);
@@ -39,7 +63,13 @@ const CustomCalendarHeader = ({ calendarRef, currentTitle, onViewChange }) => {
     }
   };
 
-  const viewOptions = [
+  interface ViewOption {
+    key: string;
+    label: string;
+    icon: string;
+  }
+
+  const viewOptions: ViewOption[] = [
     { key: 'dayGridMonth', label: 'Month', icon: '◼' },
     { key: 'timeGridWeek', label: 'Week', icon: '◫' },
     { key: 'timeGridDay', label: 'Day', icon: '◯' }
@@ -111,7 +141,7 @@ const CustomCalendarHeader = ({ calendarRef, currentTitle, onViewChange }) => {
                 transform: `translateX(${viewOptions.findIndex(v => v.key === activeView) * 100}%)`
               }}
             ></div>
-            {viewOptions.map((view) => (
+            {viewOptions.map((view: ViewOption) => (
               <button
                 key={view.key}
                 onClick={() => handleViewChange(view.key)}
