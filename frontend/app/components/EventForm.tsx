@@ -165,9 +165,9 @@ const EventForm: React.FC<EventFormProps> = ({ setResult, setError, onEventResul
         event_type: isTask ? 'task' : (data.event_type || 'event')
       };
       
-      // Set default times
+      // Set default times to 00:00 when no time info is available
       if (!processedData.start_time) processedData.start_time = "00:00";
-      if (!processedData.end_time && !isTask) processedData.end_time = "23:59";
+      if (!processedData.end_time && !isTask) processedData.end_time = "00:00";
       if (isTask && !processedData.end_time) processedData.end_time = "";
       
       // Format date
@@ -310,7 +310,7 @@ const EventForm: React.FC<EventFormProps> = ({ setResult, setError, onEventResul
         updatedData.recurrence_pattern = '';
       } else if (newType === 'event') {
         if (!updatedData.end_time) {
-          updatedData.end_time = "23:59";
+          updatedData.end_time = "00:00";
         }
       }
       

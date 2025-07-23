@@ -7,16 +7,12 @@
   color: hsl(var(--foreground));
 }
 
-/* Removed header styles completely */
-
 .main-container {
   display: flex;
   flex: 1;
   max-width: 1200px;
   margin: 0 auto;
   width: 100%;
-  /* Start at the top of the window */
-  margin-top: -6.1rem;
 }
 
 /* Sidebar Navigation */
@@ -25,8 +21,8 @@
   border-right: 1px solid hsl(var(--border));
   padding: 1.5rem 1rem;
   background-color: hsl(var(--background));
-  /* Ensure sidebar starts at the top */
   padding-top: 1rem;
+  flex-shrink: 0;
 }
 
 .nav-group {
@@ -68,7 +64,6 @@
 .content {
   flex: 1;
   padding: 1.5rem;
-  /* Ensure content starts at the top */
   padding-top: 1rem;
 }
 
@@ -88,7 +83,7 @@
   color: hsl(var(--muted-foreground));
 }
 
-/* Settings Styles (from your provided CSS) */
+/* Settings Styles */
 .settings-section {
   max-width: 100%;
   padding: 1.5rem;
