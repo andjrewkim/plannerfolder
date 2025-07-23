@@ -581,17 +581,30 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange, onViewChange, refres
           const rect = cell.getBoundingClientRect();
           const viewportWidth = window.innerWidth;
           const viewportHeight = window.innerHeight;
+          const sidebarWidth = 320; // Width of the right sidebar
           const popupWidth = 320;
           const popupHeight = Math.min(300, dayEvents.length * 80 + 60);
 
+          // Calculate available width considering the sidebar
+          const availableWidth = viewportWidth - sidebarWidth;
+
+          // Position horizontally
           let x = rect.right + 10;
-          if (rect.right + popupWidth + 10 > viewportWidth) {
+          
+          // Check if popup would extend beyond available width (before sidebar)
+          if (rect.right + popupWidth + 10 > availableWidth) {
             x = rect.left - popupWidth - 10;
+            
+            // If it still doesn't fit on the left, clamp it to stay within calendar bounds
+            if (x < 0) {
+              x = Math.max(10, availableWidth - popupWidth - 10);
+            }
           }
 
+          // Position vertically
           let y = rect.top;
           if (y + popupHeight > viewportHeight) {
-            y = Math.max(0, viewportHeight - popupHeight);
+            y = Math.max(0, viewportHeight - popupHeight - 10);
           }
 
           setHoveredDay({
@@ -732,6 +745,7 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange, onViewChange, refres
       setEditMode(null);
     };
 
+    // Enhanced confirmDelete function that works for both markings and events
     const confirmDelete = async (eventId: string) => {
       const event = info.events.find(e => e.id === eventId);
       const actualEventId = event?.extendedProps?.originalId || eventId;
@@ -883,20 +897,53 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange, onViewChange, refres
                   backgroundColor: `${event.backgroundColor}15`
                 }}
               >
-                <div className="font-medium">{event.title}</div>
-                <div className="text-sm text-gray-600">
-                  {new Date(event.start!).toLocaleTimeString('en-US', {
-                    hour: 'numeric',
-                    minute: '2-digit'
-                  })}
-                  {event.end && ` - ${new Date(event.end).toLocaleTimeString('en-US', {
-                    hour: 'numeric',
-                    minute: '2-digit'
-                  })}`}
-                </div>
-                {event.extendedProps?.location && (
-                  <div className="text-sm text-gray-600 mt-1">
-                    📍 {event.extendedProps.location}
+                {deleteConfirmId === event.id ? (
+                  <div className="delete-confirmation">
+                    <p className="text-sm mb-2">Delete this event?</p>
+                    <div className="flex justify-end space-x-2">
+                      <button
+                        className="px-3 py-1 bg-gray-200 text-gray-800 rounded text-xs"
+                        onClick={handleCancel}
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        className="px-3 py-1 bg-red-500 text-white rounded text-xs"
+                        onClick={() => confirmDelete(event.id)}
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div>
+                    <div className="flex justify-between items-start">
+                      <div className="font-medium">{event.title}</div>
+                      <button
+                        className="text-gray-500 hover:text-red-500 ml-2"
+                        onClick={() => setDeleteConfirmId(event.id)}
+                        title="Delete Event"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                      </button>
+                    </div>
+                    <div className="text-sm text-gray-600">
+                      {new Date(event.start!).toLocaleTimeString('en-US', {
+                        hour: 'numeric',
+                        minute: '2-digit'
+                      })}
+                      {event.end && ` - ${new Date(event.end).toLocaleTimeString('en-US', {
+                        hour: 'numeric',
+                        minute: '2-digit'
+                      })}`}
+                    </div>
+                    {event.extendedProps?.location && (
+                      <div className="text-sm text-gray-600 mt-1">
+                        📍 {event.extendedProps.location}
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

@@ -180,24 +180,26 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
         }}
       >
         
-        {/* Tab/Toggle Button */}
-        <div className="absolute -left-8 top-16">
-          <button
-            onClick={handleToggle}
-            className="text-white p-2 rounded-l-md shadow-md transition-colors duration-200 focus:outline-none"
-            style={{
-              backgroundColor: 'hsl(var(--primary))',
-              color: 'hsl(var(--primary-foreground))'
-            } as React.CSSProperties}
-            aria-label={isOpen ? "Close AI assistant" : "Open AI assistant"}
-          >
-            {isOpen ? (
-              <ChevronRight className="w-4 h-4" />
-            ) : (
-              <ChevronLeft className="w-4 h-4" />
-            )}
-          </button>
-        </div>
+      {/* Tab/Toggle Button */}
+      <div className="absolute -left-6 top-16">
+        <button
+          onClick={handleToggle}
+          className="text-white py-4 px-1 rounded-l-md shadow-md transition-colors duration-200 focus:outline-none"
+          style={{
+            backgroundColor: 'hsl(var(--primary))',
+            color: 'hsl(var(--primary-foreground))',
+            width: '24px', // keeps it narrow horizontally
+          } as React.CSSProperties}
+          aria-label={isOpen ? "Close AI assistant" : "Open AI assistant"}
+        >
+          {isOpen ? (
+            <ChevronRight className="w-4 h-4 mx-auto" />
+          ) : (
+            <ChevronLeft className="w-4 h-4 mx-auto" />
+          )}
+        </button>
+      </div>
+
 
         {/* Sidebar Content */}
         <div className="w-80 h-full bg-white border-l border-gray-200 flex flex-col">

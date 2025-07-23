@@ -17,7 +17,6 @@ interface EventData {
   is_all_day: boolean;
   day_marking_title?: string;
   type?: string;
-  
 }
 
 interface APIEvent {
@@ -47,7 +46,6 @@ const Sidebar: React.FC<SidebarProps> = ({ onEventChange }) => {
   const [error, setError] = useState<string | null>(null);
   const [deletingTasks, setDeletingTasks] = useState<number[]>([]);
 
-  
   // State for regular task creation
   const [isAddingTask, setIsAddingTask] = useState(false);
   const [newTaskText, setNewTaskText] = useState('');
@@ -57,7 +55,7 @@ const Sidebar: React.FC<SidebarProps> = ({ onEventChange }) => {
   const [eventResults, setEventResults] = useState<EventData[]>([]);
   const [eventError, setEventError] = useState<string | null>(null);
   
-  // Store section heights with updated values (removed longTerm section)
+  // Store section heights with updated values
   const [sectionHeights, setSectionHeights] = useState({
     eventForm: 250,
     schedule: 350,
@@ -93,28 +91,52 @@ const Sidebar: React.FC<SidebarProps> = ({ onEventChange }) => {
     }
   }, [isAddingTask]);
 
-  const handleEventResult = (results: EventData[]) => {
-    setEventResults(results);
-    // Refresh today's events to show newly created events
-    fetchTodayEvents();
-    // Notify parent component to refresh calendar
-    if (onEventChange) {
-      onEventChange();
-    }
-  };
+  // Enhanced fetchTodayEvents function with better error handling
+  const fetchTodayEvents = useCallback(async () => {
+    console.log('Fetching today events...');
+    try {
+      // Check if user is authenticated first
+      if (!authAPI.isAuthenticated()) {
+        setError('Please log in to view your events');
+        return;
+      }
 
-  // Handle click on tasks area to initiate task creation
-  const handleTaskAreaClick = (e: React.MouseEvent) => {
-    // Only activate if clicking directly on the section content (not on task items)
-    if ((e.target as HTMLElement).className === 'section-content' || 
-        (e.target as HTMLElement).className === 'empty-state' ||
-        (e.target as HTMLElement).className === 'clickable-area') {
-      setIsAddingTask(true);
-    }
-  };
+      const response = await authAPI.authenticatedFetch(`${process.env.NEXT_PUBLIC_API_URL}/api/events/`);
 
-  // Fetch tasks function using authAPI (only regular tasks now)
+      if (!response.ok) {
+        if (response.status === 401) {
+          setError('Please log in to view your events');
+          return;
+        }
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      
+      // Get today's date in local timezone (YYYY-MM-DD format)
+      const today = new Date();
+      const todayString = today.getFullYear() + '-' + 
+                        String(today.getMonth() + 1).padStart(2, '0') + '-' + 
+                        String(today.getDate()).padStart(2, '0');
+      
+      const filteredEvents = data.filter((event: APIEvent) => {
+        // Extract just the date part from the event date
+        const eventDateString = event.date.split('T')[0];
+        return eventDateString === todayString;
+      });
+
+      console.log('Today events fetched successfully:', filteredEvents);
+      setTodayEvents(filteredEvents);
+      setError(null);
+    } catch (error) {
+      console.error('Error fetching events:', error);
+      setError('Failed to load events');
+    }
+  }, []);
+
+  // Enhanced fetchTasks function with better error handling
   const fetchTasks = useCallback(async () => {
+    console.log('Fetching tasks...');
     try {
       // Check if user is authenticated first
       if (!authAPI.isAuthenticated()) {
@@ -139,6 +161,7 @@ const Sidebar: React.FC<SidebarProps> = ({ onEventChange }) => {
         !task.date || task.date !== "longterm"
       );
 
+      console.log('Tasks fetched successfully:', regular);
       setTasks(regular);
       setError(null);
     } catch (error) {
@@ -146,6 +169,49 @@ const Sidebar: React.FC<SidebarProps> = ({ onEventChange }) => {
       setError('Failed to load tasks');
     }
   }, []);
+
+  // Centralized refresh function for all data
+  const refreshAllData = useCallback(async () => {
+    console.log('Refreshing all sidebar data...');
+    if (authAPI.isAuthenticated()) {
+      try {
+        await Promise.all([
+          fetchTodayEvents(),
+          fetchTasks()
+        ]);
+        
+        // Notify parent component to refresh calendar
+        if (onEventChange) {
+          onEventChange();
+        }
+        
+        console.log('All sidebar data refreshed successfully');
+      } catch (error) {
+        console.error('Error refreshing data:', error);
+      }
+    }
+  }, [fetchTodayEvents, fetchTasks, onEventChange]);
+
+  // Enhanced event result handler with proper refresh timing
+  const handleEventResult = async (results: EventData[]) => {
+    console.log('Event created, refreshing sidebar...');
+    setEventResults(results);
+    
+    // Add a delay to ensure the API has processed the new event
+    setTimeout(async () => {
+      await refreshAllData();
+    }, 500);
+  };
+
+  // Handle click on tasks area to initiate task creation
+  const handleTaskAreaClick = (e: React.MouseEvent) => {
+    // Only activate if clicking directly on the section content (not on task items)
+    if ((e.target as HTMLElement).className === 'section-content' || 
+        (e.target as HTMLElement).className === 'empty-state' ||
+        (e.target as HTMLElement).className === 'clickable-area') {
+      setIsAddingTask(true);
+    }
+  };
 
   // Function to reset daily tasks using authAPI
   const resetDailyTasks = useCallback(async () => {
@@ -191,15 +257,15 @@ const Sidebar: React.FC<SidebarProps> = ({ onEventChange }) => {
       }
 
       // Refresh tasks after reset
-      fetchTasks();
+      await fetchTasks(); // Use fetchTasks instead of refreshAllData to avoid circular dependency
       
     } catch (error) {
       console.error('Error resetting tasks:', error);
       setError('Failed to reset tasks');
     }
-  }, [fetchTasks]);
+  }, [fetchTasks]); // Only depend on fetchTasks
 
-  // Function to check if tasks should be reset wrapped in useCallback
+  // Function to check if tasks should be reset
   const checkAndResetTasks = useCallback(async () => {
     // Only proceed if authenticated
     if (!authAPI.isAuthenticated()) {
@@ -219,53 +285,7 @@ const Sidebar: React.FC<SidebarProps> = ({ onEventChange }) => {
     }
   }, [resetDailyTasks]);
 
-  // Updated fetchTodayEvents function with better date handling
-  const fetchTodayEvents = useCallback(async () => {
-    try {
-      // Check if user is authenticated first
-      if (!authAPI.isAuthenticated()) {
-        setError('Please log in to view your events');
-        return;
-      }
-
-      const response = await authAPI.authenticatedFetch(`${process.env.NEXT_PUBLIC_API_URL}/api/events/`);
-
-      if (!response.ok) {
-        if (response.status === 401) {
-          setError('Please log in to view your events');
-          return;
-        }
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      
-      const data = await response.json();
-      
-      // Get today's date in local timezone (YYYY-MM-DD format)
-      const today = new Date();
-      const todayString = today.getFullYear() + '-' + 
-                        String(today.getMonth() + 1).padStart(2, '0') + '-' + 
-                        String(today.getDate()).padStart(2, '0');
-      
-      console.log('Today string:', todayString); // Debug log
-      console.log('Events data:', data); // Debug log
-      
-      const filteredEvents = data.filter((event: APIEvent) => {
-        // Extract just the date part from the event date
-        const eventDateString = event.date.split('T')[0];
-        console.log('Event date string:', eventDateString, 'vs today:', todayString); // Debug log
-        return eventDateString === todayString;
-      });
-
-      console.log('Filtered events:', filteredEvents); // Debug log
-      setTodayEvents(filteredEvents);
-      setError(null);
-    } catch (error) {
-      console.error('Error fetching events:', error);
-      setError('Failed to load events');
-    }
-  }, []);
-
-  // Handle regular task creation using authAPI
+  // Enhanced task creation with proper refresh
   const handleCreateTask = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -280,6 +300,7 @@ const Sidebar: React.FC<SidebarProps> = ({ onEventChange }) => {
         return;
       }
 
+      console.log('Creating new task:', newTaskText);
       const response = await authAPI.authenticatedFetch(`${process.env.NEXT_PUBLIC_API_URL}/api/tasks/`, {
         method: 'POST',
         body: JSON.stringify({
@@ -296,17 +317,18 @@ const Sidebar: React.FC<SidebarProps> = ({ onEventChange }) => {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
       
-      // Reset only the text, keep the form open
+      // Reset form
       setNewTaskText('');
-      // Don't set isAddingTask to false - keep the form open
       
-      // Refresh tasks
-      await fetchTasks();
+      // Refresh all sidebar data
+      await refreshAllData();
       
       // Refocus the input for continuous adding
       if (taskInputRef.current) {
         taskInputRef.current.focus();
       }
+      
+      console.log('Task created and sidebar refreshed');
     } catch (error) {
       console.error('Error creating task:', error);
       setError('Failed to create task');
@@ -403,7 +425,7 @@ const Sidebar: React.FC<SidebarProps> = ({ onEventChange }) => {
     document.addEventListener('mouseup', handleMouseUp);
   };
 
-  // Enhanced task completion with animation using authAPI
+  // Enhanced task completion with animation and refresh
   const handleTaskComplete = async (taskId: number) => {
     setDeletingTasks(prev => [...prev, taskId]);
     
@@ -417,12 +439,14 @@ const Sidebar: React.FC<SidebarProps> = ({ onEventChange }) => {
           return;
         }
 
+        console.log('Completing task:', taskId);
         const response = await authAPI.authenticatedFetch(`${process.env.NEXT_PUBLIC_API_URL}/api/tasks/${taskId}/`, {
           method: 'DELETE'
         });
 
         if (response.ok) {
-          await fetchTasks();
+          await refreshAllData();
+          console.log('Task completed and sidebar refreshed');
         } else {
           if (response.status === 401) {
             setError('Please log in to manage tasks');
@@ -446,35 +470,37 @@ const Sidebar: React.FC<SidebarProps> = ({ onEventChange }) => {
     });
   };
 
+  // Initial data fetch effect - runs only once when component mounts
   useEffect(() => {
-    // Only fetch data if user is authenticated
     if (authAPI.isAuthenticated()) {
-      fetchTodayEvents();
-      fetchTasks();
-      
-      // Check for daily reset when component loads
+      refreshAllData();
       checkAndResetTasks();
-      
-      // Set up a timer to check for date change (useful for when app is left open overnight)
-      const timer = setInterval(() => {
-        checkAndResetTasks();
-      }, 60 * 60 * 1000); // Check every hour
-      
-      return () => {
-        clearInterval(timer);
-        document.body.classList.remove('resizing');
-      };
     } else {
-      // Clear data and show login message if not authenticated
       setTodayEvents([]);
       setTasks([]);
       setError('Please log in to access your data');
     }
+  }, []); // Run only once on mount
 
+  // Separate effect for the reset timer to avoid recreation
+  useEffect(() => {
+    if (!authAPI.isAuthenticated()) return;
+
+    const resetTimer = setInterval(() => {
+      checkAndResetTasks();
+    }, 60 * 60 * 1000); // Check every hour for date changes
+
+    return () => {
+      clearInterval(resetTimer);
+    };
+  }, []); // Run only once on mount
+
+  // Cleanup effect for resizing
+  useEffect(() => {
     return () => {
       document.body.classList.remove('resizing');
     };
-  }, [checkAndResetTasks, fetchTasks, fetchTodayEvents]);
+  }, []);
 
   return (
     <div className="app-layout">
@@ -547,7 +573,7 @@ const Sidebar: React.FC<SidebarProps> = ({ onEventChange }) => {
           />
         </section>
 
-        {/* Tasks Section - Now with more space and scrollable */}
+        {/* Tasks Section */}
         <section 
           className="sidebar-section"
           data-section="tasks"
@@ -563,7 +589,7 @@ const Sidebar: React.FC<SidebarProps> = ({ onEventChange }) => {
             onClick={handleTaskAreaClick}
             style={{ 
               overflowY: 'auto', 
-              maxHeight: `${sectionHeights.tasks - 60}px` // Account for title and padding
+              maxHeight: `${sectionHeights.tasks - 60}px`
             }}
           >
             {tasks.length > 0 && (
@@ -610,7 +636,6 @@ const Sidebar: React.FC<SidebarProps> = ({ onEventChange }) => {
               <div className="empty-state">Click here to add tasks</div>
             )}
           </div>
-          {/* No resize handle for the last section */}
         </section>
       </aside>
 
