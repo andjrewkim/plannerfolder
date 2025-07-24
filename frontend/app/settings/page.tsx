@@ -13,7 +13,8 @@ import {
   LogOut,
   Lock,
   Camera,
-  ArrowLeft
+  ArrowLeft,
+  Save
 } from 'lucide-react';
 import DisplaySettings from '@/app/settings/settingspages/DisplaySettings';
 import GeneralPreferences from '@/app/settings/settingspages/GeneralPreferences';
@@ -24,40 +25,13 @@ import { authAPI } from '../../lib/auth';
 // Define a type for all possible section names
 type SectionName = 'preferences' | 'display' | 'timezone' | 'notifications' | 'profile' | 'sharing' | 'email';
 
-// Standalone SignOutButton component
-const SignOutButton: React.FC = () => {
-  console.log('=== SIGN OUT CLICKED ===');
-  
-  const router = useRouter();
-  const [isLoading, setIsLoading] = useState(false);
-  
-  const handleSignOut = async () => {
-    setIsLoading(true);
-    try {
-      await authAPI.logout();
-      router.push('/userlogin');
-    } catch (error) {
-      console.error('Sign out error:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-  
-  return (
-    <button
-      onClick={handleSignOut}
-      disabled={isLoading}
-      className="px-4 py-2 rounded-md bg-blue-600 text-white hover:bg-blue-700"
-    >
-      {isLoading ? 'Signing out...' : (
-        <div className="flex items-center">
-          <LogOut className="h-4 w-4 mr-2" />
-          Sign Out
-        </div>
-      )}
-    </button>
-  );
-};
+// User settings type
+interface UserSettings {
+  default_calendar_view: string;
+  week_starts_on: string;
+  dark_mode: boolean;
+  theme: string;
+}
 
 // Define the section titles with the correct type
 const sectionTitles: Record<SectionName, string> = {
@@ -74,6 +48,101 @@ const CalendarSettings: React.FC = () => {
   const router = useRouter();
   const [activeSection, setActiveSection] = useState<SectionName>('preferences');
   const [isLoading, setIsLoading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [settings, setSettings] = useState<UserSettings>({
+    default_calendar_view: 'month',
+    week_starts_on: 'sunday',
+    dark_mode: false,
+    theme: 'classic'
+  });
+  const [originalSettings, setOriginalSettings] = useState<UserSettings>({
+    default_calendar_view: 'month',
+    week_starts_on: 'sunday',
+    dark_mode: false,
+    theme: 'classic'
+  });
+
+  // Load user settings on component mount
+  useEffect(() => {
+    const loadSettings = async () => {
+      try {
+        const response = await authAPI.authenticatedFetch(`${process.env.NEXT_PUBLIC_API_URL}/api/user-settings/`);
+        if (response.ok) {
+          const data = await response.json();
+          setSettings(data);
+          setOriginalSettings(data);
+        } else {
+          console.error('Failed to load settings:', response.statusText);
+        }
+      } catch (error) {
+        console.error('Failed to load settings:', error);
+      }
+    };
+
+    loadSettings();
+  }, []);
+
+  // Check for unsaved changes
+  useEffect(() => {
+    const hasChanges = JSON.stringify(settings) !== JSON.stringify(originalSettings);
+    setHasUnsavedChanges(hasChanges);
+  }, [settings, originalSettings]);
+
+  // Clear success/error messages after 3 seconds
+  useEffect(() => {
+    if (saveSuccess) {
+      const timer = setTimeout(() => setSaveSuccess(false), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [saveSuccess]);
+
+  useEffect(() => {
+    if (saveError) {
+      const timer = setTimeout(() => setSaveError(null), 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [saveError]);
+
+  const handleSettingsChange = (newSettings: Partial<UserSettings>) => {
+    setSettings(prev => ({ ...prev, ...newSettings }));
+    // Clear any previous error messages when user makes changes
+    setSaveError(null);
+    setSaveSuccess(false);
+  };
+
+  const handleSaveSettings = async () => {
+    setIsSaving(true);
+    setSaveError(null);
+    setSaveSuccess(false);
+
+    try {
+      const response = await authAPI.authenticatedFetch(`${process.env.NEXT_PUBLIC_API_URL}/api/user-settings/`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(settings),
+      });
+
+      if (response.ok) {
+        const updatedSettings = await response.json();
+        setOriginalSettings(updatedSettings);
+        setHasUnsavedChanges(false);
+        setSaveSuccess(true);
+      } else {
+        const errorData = await response.json().catch(() => ({}));
+        setSaveError(errorData.message || 'Failed to save settings. Please try again.');
+      }
+    } catch (error) {
+      console.error('Error saving settings:', error);
+      setSaveError('Network error. Please check your connection and try again.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
   
   const handleSignOut = async () => {
     setIsLoading(true);
@@ -89,6 +158,10 @@ const CalendarSettings: React.FC = () => {
   };
 
   const handleBackToCalendar = () => {
+    if (hasUnsavedChanges) {
+      const confirmLeave = window.confirm('You have unsaved changes. Are you sure you want to leave?');
+      if (!confirmLeave) return;
+    }
     router.push('/calendar');
   };
 
@@ -150,16 +223,88 @@ const CalendarSettings: React.FC = () => {
     }
   ];
 
+  // Save button component for reuse
+  const SaveButton = () => (
+    <div className="mt-8 pt-6 border-t border-gray-200">
+      {/* Success/Error Messages */}
+      {saveSuccess && (
+        <div className="mb-4 p-3 bg-green-50 border border-green-200 text-green-700 rounded-lg text-sm">
+          Settings saved successfully!
+        </div>
+      )}
+      {saveError && (
+        <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm">
+          {saveError}
+        </div>
+      )}
+      
+      <button
+        onClick={handleSaveSettings}
+        disabled={!hasUnsavedChanges || isSaving}
+        className={`flex items-center space-x-2 px-4 py-2 rounded-lg font-medium transition-colors ${
+          hasUnsavedChanges && !isSaving
+            ? 'bg-blue-600 text-white hover:bg-blue-700'
+            : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+        }`}
+      >
+        <Save className="h-4 w-4" />
+        <span className="text-sm">
+          {isSaving ? 'Saving...' : hasUnsavedChanges ? 'Save Changes' : 'No Changes'}
+        </span>
+      </button>
+    </div>
+  );
+
   const renderContent = () => {
     switch(activeSection) {
       case 'preferences':
-        return <GeneralPreferences />;
+        return (
+          <div>
+            <div className="mb-6">
+              <h2 className="text-2xl font-semibold text-gray-900 mb-2">General Preferences</h2>
+              <p className="text-gray-600">Customize your calendar's default behavior</p>
+            </div>
+            <GeneralPreferences 
+              settings={settings}
+              onSettingsChange={handleSettingsChange}
+            />
+            <SaveButton />
+          </div>
+        );
       case 'display':
-        return <DisplaySettings />;
+        return (
+          <div>
+            <div className="mb-6">
+              <h2 className="text-2xl font-semibold text-gray-900 mb-2">Display Settings</h2>
+              <p className="text-gray-600">Personalize the look and feel of your calendar</p>
+            </div>
+            <DisplaySettings 
+              settings={settings}
+              onSettingsChange={handleSettingsChange}
+            />
+            <SaveButton />
+          </div>
+        );
       case 'timezone':
-        return <TimeSettings />;
+        return (
+          <div>
+            <div className="mb-6">
+              <h2 className="text-2xl font-semibold text-gray-900 mb-2">Time & Date</h2>
+              <p className="text-gray-600">Configure timezone and date format preferences</p>
+            </div>
+            <TimeSettings />
+          </div>
+        );
       case 'notifications':
-        return <NotificationSettings />;
+        return (
+          <div>
+            <div className="mb-6">
+              <h2 className="text-2xl font-semibold text-gray-900 mb-2">Notifications</h2>
+              <p className="text-gray-600">Manage how you receive calendar notifications</p>
+            </div>
+            <NotificationSettings />
+          </div>
+        );
       case 'profile':
         return (
           <div className="space-y-8">
@@ -221,11 +366,6 @@ const CalendarSettings: React.FC = () => {
                 </div>
                 <p className="text-xs text-gray-500 mt-1">Choose a strong password that you haven't used elsewhere.</p>
               </div>
-
-              {/* Added the standalone SignOutButton component here */}
-              <div className="pt-6 border-t border-gray-200">
-
-              </div>
             </div>
           </div>
         );
@@ -281,6 +421,10 @@ const CalendarSettings: React.FC = () => {
                   <button
                     key={item.id}
                     onClick={() => {
+                      if (hasUnsavedChanges && (activeSection === 'preferences' || activeSection === 'display')) {
+                        const confirmLeave = window.confirm('You have unsaved changes. Are you sure you want to switch sections?');
+                        if (!confirmLeave) return;
+                      }
                       setActiveSection(item.id);
                       window.location.hash = item.id;
                     }}
@@ -292,6 +436,9 @@ const CalendarSettings: React.FC = () => {
                   >
                     <item.icon className="h-4 w-4" />
                     <span className="text-sm">{item.label}</span>
+                    {hasUnsavedChanges && (activeSection === 'preferences' || activeSection === 'display') && activeSection === item.id && (
+                      <div className="w-2 h-2 bg-orange-400 rounded-full ml-auto"></div>
+                    )}
                   </button>
                 ))}
               </div>
@@ -305,6 +452,10 @@ const CalendarSettings: React.FC = () => {
                   <button
                     key={item.id}
                     onClick={() => {
+                      if (hasUnsavedChanges && (activeSection === 'preferences' || activeSection === 'display')) {
+                        const confirmLeave = window.confirm('You have unsaved changes. Are you sure you want to switch sections?');
+                        if (!confirmLeave) return;
+                      }
                       setActiveSection(item.id);
                       window.location.hash = item.id;
                     }}

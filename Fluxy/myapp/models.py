@@ -38,17 +38,6 @@ class CalendarEvent(models.Model):
 
 
 
-
-# Add this to your views.py or models.py file where your Event model is defined
-
-
-    
-    
-
-
-
-
-
 class TodoTask(models.Model):
     user = models.ForeignKey(CustomUser, on_delete=models.CASCADE)
     event = models.CharField(max_length=200)
@@ -57,3 +46,44 @@ class TodoTask(models.Model):
     
     def __str__(self):
         return f"{self.event} - {self.user.username}"
+    
+    
+    
+    
+    
+
+
+class UserSettings(models.Model):
+    VIEW_CHOICES = [
+        ('month', 'Month'),
+        ('week', 'Week'),
+        ('day', 'Day'),
+        ('agenda', 'Agenda'),
+    ]
+
+    WEEK_START_CHOICES = [
+        ('sunday', 'Sunday'),
+        ('monday', 'Monday'),
+    ]
+
+    THEME_CHOICES = [
+        ('classic', 'Classic'),
+        ('emerald', 'Emerald'),
+        ('ocean', 'Ocean'),
+        ('sunset', 'Sunset'),
+        ('royal', 'Royal'),
+        ('monochrome', 'Monochrome'),
+    ]
+
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='settings')
+    default_calendar_view = models.CharField(max_length=10, choices=VIEW_CHOICES, default='month')
+    week_starts_on = models.CharField(max_length=6, choices=WEEK_START_CHOICES, default='sunday')
+    dark_mode = models.BooleanField(default=False)
+    theme = models.CharField(max_length=20, choices=THEME_CHOICES, default='classic')
+
+    def __str__(self):
+        return f"Settings for {self.user.email}"
+
+    
+    
+    

@@ -1,18 +1,41 @@
-
 // GeneralPreferences.tsx
 "use client"
 import React from 'react';
 
-export default function GeneralPreferences() {
+interface UserSettings {
+  default_calendar_view: string;
+  week_starts_on: string;
+  dark_mode: boolean;
+  theme: string;
+}
+
+interface GeneralPreferencesProps {
+  settings: UserSettings;
+  onSettingsChange: (newSettings: Partial<UserSettings>) => void;
+}
+
+export default function GeneralPreferences({ settings, onSettingsChange }: GeneralPreferencesProps) {
+  const handleViewChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    onSettingsChange({ default_calendar_view: e.target.value });
+  };
+
+  const handleWeekStartChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    onSettingsChange({ week_starts_on: e.target.value });
+  };
+
   return (
     <div className="settings-section">
       <div className="form-group">
         <label className="form-label">Default Calendar View</label>
-        <select className="form-input">
-          <option>Month</option>
-          <option>Week</option>
-          <option>Day</option>
-          <option>Agenda</option>
+        <select 
+          className="form-input"
+          value={settings.default_calendar_view}
+          onChange={handleViewChange}
+        >
+          <option value="month">Month</option>
+          <option value="week">Week</option>
+          <option value="day">Day</option>
+          <option value="agenda">Agenda</option>
         </select>
         <p className="form-helper">
           Choose which view to show when you first open the calendar.
@@ -21,16 +44,18 @@ export default function GeneralPreferences() {
 
       <div className="form-group">
         <label className="form-label">Week Starts On</label>
-        <select className="form-input">
-          <option>Sunday</option>
-          <option>Monday</option>
+        <select 
+          className="form-input"
+          value={settings.week_starts_on}
+          onChange={handleWeekStartChange}
+        >
+          <option value="sunday">Sunday</option>
+          <option value="monday">Monday</option>
         </select>
         <p className="form-helper">
           Select which day your week should start with.
         </p>
       </div>
-
-
     </div>
   );
 }

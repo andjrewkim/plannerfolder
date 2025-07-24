@@ -1,5 +1,7 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
 
+import { authAPI } from '../../lib/auth';
+
 // Define the theme type with HSL values
 type Theme = {
   id: string;
@@ -201,44 +203,138 @@ const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 export const ThemeProvider: React.FC<{children: React.ReactNode}> = ({ children }) => {
   const [currentThemeId, setCurrentThemeId] = useState('classic');
   const [isDarkMode, setIsDarkMode] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   
   const currentTheme = themes.find(t => t.id === currentThemeId) || themes[0];
 
-  const setTheme = (themeId: string) => {
-    setCurrentThemeId(themeId);
-    localStorage.setItem('theme', themeId);
+  // Fetch user settings from backend
+  const fetchUserSettings = async () => {
+    try {
+      setIsLoading(true);
+      const response = await authAPI.authenticatedFetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/user-settings/`
+      );
+      
+      if (response.ok) {
+        const settings = await response.json();
+        
+        // Update theme settings from backend
+        if (settings.theme) {
+          setCurrentThemeId(settings.theme);
+        }
+        
+        if (typeof settings.darkMode === 'boolean') {
+          setIsDarkMode(settings.darkMode);
+          
+          // Apply dark mode class immediately
+          if (settings.darkMode) {
+            document.documentElement.classList.add('dark');
+          } else {
+            document.documentElement.classList.remove('dark');
+          }
+        }
+      } else {
+        // Fallback to default values if API call fails
+        console.warn('Failed to fetch user settings, using defaults');
+        setCurrentThemeId('classic');
+        setIsDarkMode(false);
+      }
+    } catch (error) {
+      console.error('Error fetching user settings:', error);
+      // Fallback to default values
+      setCurrentThemeId('classic');
+      setIsDarkMode(false);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const toggleDarkMode = () => {
+  // Save settings to backend
+  const saveUserSettings = async (themeId?: string, darkMode?: boolean) => {
+    try {
+      const settingsToUpdate: any = {};
+      
+      if (themeId !== undefined) {
+        settingsToUpdate.theme = themeId;
+      }
+      
+      if (darkMode !== undefined) {
+        settingsToUpdate.darkMode = darkMode;
+      }
+
+      const response = await authAPI.authenticatedFetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/user-settings/`,
+        {
+          method: 'PATCH', // or PUT depending on your API
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(settingsToUpdate),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error('Failed to save user settings');
+      }
+    } catch (error) {
+      console.error('Error saving user settings:', error);
+      // You might want to show a toast notification here
+      throw error; // Re-throw to handle in the calling function
+    }
+  };
+
+  const setTheme = async (themeId: string) => {
+    try {
+      // Optimistically update the UI
+      setCurrentThemeId(themeId);
+      
+      // Save to backend
+      await saveUserSettings(themeId, undefined);
+    } catch (error) {
+      // Revert on failure
+      console.error('Failed to save theme:', error);
+      // You might want to show an error message to the user
+    }
+  };
+
+  const toggleDarkMode = async () => {
     const newMode = !isDarkMode;
-    setIsDarkMode(newMode);
-    localStorage.setItem('darkMode', newMode.toString());
     
-    // Toggle the dark class on the document
-    if (newMode) {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
+    try {
+      // Optimistically update the UI
+      setIsDarkMode(newMode);
+      
+      // Toggle the dark class on the document
+      if (newMode) {
+        document.documentElement.classList.add('dark');
+      } else {
+        document.documentElement.classList.remove('dark');
+      }
+      
+      // Save to backend
+      await saveUserSettings(undefined, newMode);
+    } catch (error) {
+      // Revert on failure
+      setIsDarkMode(!newMode);
+      if (!newMode) {
+        document.documentElement.classList.add('dark');
+      } else {
+        document.documentElement.classList.remove('dark');
+      }
+      console.error('Failed to save dark mode setting:', error);
+      // You might want to show an error message to the user
     }
   };
 
+  // Load settings on mount
   useEffect(() => {
-    // Load saved preferences
-    const savedTheme = localStorage.getItem('theme');
-    if (savedTheme) setCurrentThemeId(savedTheme);
-    
-    const savedDarkMode = localStorage.getItem('darkMode') === 'true';
-    setIsDarkMode(savedDarkMode);
-    
-    if (savedDarkMode) {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
+    fetchUserSettings();
   }, []);
 
+  // Apply theme colors to CSS variables
   useEffect(() => {
-    // Apply theme colors to CSS variables
+    if (isLoading) return; // Don't apply themes while loading
+    
     const root = document.documentElement;
     
     // Set theme variables based on current mode
@@ -263,10 +359,16 @@ export const ThemeProvider: React.FC<{children: React.ReactNode}> = ({ children 
       root.style.setProperty('--chart-4', currentTheme.variables.chart4);
       root.style.setProperty('--chart-5', currentTheme.variables.chart5);
     }
-  }, [currentTheme, isDarkMode]);
+  }, [currentTheme, isDarkMode, isLoading]);
 
   return (
-    <ThemeContext.Provider value={{ currentTheme, setTheme, isDarkMode, toggleDarkMode }}>
+    <ThemeContext.Provider value={{ 
+      currentTheme, 
+      setTheme, 
+      isDarkMode, 
+      toggleDarkMode, 
+      isLoading 
+    }}>
       {children}
     </ThemeContext.Provider>
   );

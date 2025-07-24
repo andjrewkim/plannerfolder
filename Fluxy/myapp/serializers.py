@@ -3,6 +3,8 @@ from rest_framework import serializers
 from .models import CalendarEvent, TodoTask, CustomUser
 from django.core.exceptions import ValidationError
 import json
+from .models import UserSettings
+
 
 
 class CalendarEventSerializer(serializers.ModelSerializer):
@@ -235,3 +237,32 @@ class TodoTaskSerializer(serializers.ModelSerializer):
         if instance.user != self.context['request'].user:
             raise serializers.ValidationError("You can only update your own tasks")
         return super().update(instance, validated_data)
+    
+    
+    
+    
+    
+    
+    
+class UserSettingsSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = UserSettings
+        fields = ['default_calendar_view', 'week_starts_on', 'dark_mode', 'theme']
+        
+    def validate_default_calendar_view(self, value):
+        valid_choices = ['month', 'week', 'day', 'agenda']
+        if value not in valid_choices:
+            raise serializers.ValidationError(f"Invalid choice. Must be one of: {valid_choices}")
+        return value
+    
+    def validate_week_starts_on(self, value):
+        valid_choices = ['sunday', 'monday']
+        if value not in valid_choices:
+            raise serializers.ValidationError(f"Invalid choice. Must be one of: {valid_choices}")
+        return value
+    
+    def validate_theme(self, value):
+        valid_choices = ['classic', 'emerald', 'ocean', 'sunset', 'royal', 'monochrome']
+        if value not in valid_choices:
+            raise serializers.ValidationError(f"Invalid choice. Must be one of: {valid_choices}")
+        return value
