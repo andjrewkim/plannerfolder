@@ -360,8 +360,8 @@ return (
           display: 'flex',
           alignItems: 'flex-start',
           gap: '8px',
-          backgroundColor: '#f8f9fa',
-          border: '1px solid #e9ecef',
+          backgroundColor: 'var(--input-bg)',
+          border: '1px solid var(--border-color)',
           borderRadius: '4px',
           padding: '8px'
         }}>
@@ -382,7 +382,8 @@ return (
               backgroundColor: 'transparent',
               fontSize: '14px',
               fontFamily: 'inherit',
-              lineHeight: '1.4'
+              lineHeight: '1.4',
+              color: 'var(--text-color)'
             }}
           />
           <button
@@ -397,8 +398,8 @@ return (
               height: '32px',
               border: 'none',
               borderRadius: '4px',
-              backgroundColor: (!inputText.trim() || isSubmitting) ? '#e9ecef' : '#007bff',
-              color: (!inputText.trim() || isSubmitting) ? '#6c757d' : 'white',
+              backgroundColor: (!inputText.trim() || isSubmitting) ? 'var(--button-disabled-bg)' : 'var(--primary-color)',
+              color: (!inputText.trim() || isSubmitting) ? 'var(--button-disabled-text)' : 'var(--primary-text)',
               cursor: (!inputText.trim() || isSubmitting) ? 'not-allowed' : 'pointer',
               transition: 'all 0.2s ease',
               flexShrink: 0
@@ -423,8 +424,8 @@ return (
       {/* Success Message */}
       {successMessage && (
         <div className="success-message" style={{
-          backgroundColor: '#d4edda',
-          color: '#155724',
+          backgroundColor: 'var(--success-bg)',
+          color: 'var(--success-text)',
           padding: '8px 12px',
           borderRadius: '4px',
           marginTop: '8px',
@@ -443,7 +444,7 @@ return (
         <div className="event-details-section" style={{
           marginTop: '-14px',
           padding: '0px',
-          backgroundColor: '#f8f9fa',
+          backgroundColor: 'var(--input-bg)',
           borderRadius: '4px',
           border: 'none',
           width: '100%'
@@ -453,7 +454,7 @@ return (
           <div className="event-type-switcher" style={{
             display: 'flex',
             marginBottom: '2px',
-            backgroundColor: '#e9ecef',
+            backgroundColor: 'var(--tab-bg)',
             borderRadius: '4px',
             padding: '2px'
           }}>
@@ -466,8 +467,8 @@ return (
                 padding: '2px 16px',
                 border: 'none',
                 borderRadius: '2px',
-                backgroundColor: editedEventData.event_type === 'event' ? '#007bff' : 'transparent',
-                color: editedEventData.event_type === 'event' ? 'white' : '#495057',
+                backgroundColor: editedEventData.event_type === 'event' ? 'var(--primary-color)' : 'transparent',
+                color: editedEventData.event_type === 'event' ? 'var(--primary-text)' : 'var(--text-muted)',
                 cursor: 'pointer',
                 fontSize: '14px',
                 fontWeight: '500'
@@ -484,8 +485,8 @@ return (
                 padding: '2px 16px',
                 border: 'none',
                 borderRadius: '2px',
-                backgroundColor: editedEventData.event_type === 'task' ? '#007bff' : 'transparent',
-                color: editedEventData.event_type === 'task' ? 'white' : '#495057',
+                backgroundColor: editedEventData.event_type === 'task' ? 'var(--primary-color)' : 'var(--background)' ,
+                color: editedEventData.event_type === 'task' ? 'var(--primary-text)' : 'var(--text-muted)',
                 cursor: 'pointer',
                 fontSize: '14px',
                 fontWeight: '500'
@@ -501,7 +502,7 @@ return (
               display: 'flex', 
               flexDirection: 'column', 
               gap: '4px',
-              backgroundColor: '#f8f9fa',
+              backgroundColor: 'var(--input-bg)',
               borderRadius: '4px',
               overflow: 'hidden'
             }}
@@ -511,7 +512,7 @@ return (
               className="detail-row"
               style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '4px' }}
             >
-              <Tag size={14} color="#6c757d" />
+              <Tag size={14} color="var(--icon-color)" />
               <input
                 value={editedEventData.event_name || ''}
                 onChange={(e) => handleEdit('event_name', e.target.value)}
@@ -522,13 +523,14 @@ return (
                 style={{
                   flex: 1,
                   padding: '2px 4px',
-                  border: '1px solid #ddd',
+                  border: '1px solid var(--input-border)',
                   borderRadius: '2px',
                   fontSize: '13px',
                   minHeight: '20px',
                   lineHeight: '1.3',
                   margin: 0,
-                  backgroundColor: 'white'
+                  backgroundColor: 'var(--input-field-bg)',
+                  color: 'var(--text-color)'
                 }}
               />
             </div>
@@ -554,6 +556,7 @@ return (
                     fontSize: '13px',
                     margin: 0,
                     padding: 0,
+                    color: 'var(--text-color)'
                   }}
                 >
                   <input
@@ -578,7 +581,7 @@ return (
                   padding: '4px'
                 }}
               >
-                <Calendar size={14} color="#6c757d" />
+                <Calendar size={14} color="var(--icon-color)" />
                 <input
                   type="date"
                   value={editedEventData.date || ''}
@@ -587,12 +590,14 @@ return (
                   style={{
                     flex: 1,
                     padding: '2px 4px',
-                    border: '1px solid #ddd',
+                    border: '1px solid var(--input-border)',
                     borderRadius: '2px',
                     fontSize: '13px',
                     minHeight: '20px',
                     margin: 0,
-                    backgroundColor: 'white'
+                    backgroundColor: 'var(--input-field-bg)',
+                    color: 'var(--text-color)',
+                    colorScheme: 'var(--color-scheme)'
                   }}
                 />
               </div>
@@ -614,7 +619,8 @@ return (
                     alignItems: 'center', 
                     gap: '3px', 
                     cursor: 'pointer', 
-                    fontSize: '13px' 
+                    fontSize: '13px',
+                    color: 'var(--text-color)'
                   }}>
                     <input
                       type="checkbox"
@@ -634,7 +640,7 @@ return (
                     gap: '4px', 
                     padding: '4px'
                   }}>
-                    <Clock size={14} color="#6c757d" />
+                    <Clock size={14} color="var(--icon-color)" />
                     <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flex: 1 }}>
                       <input
                         type="time"
@@ -642,27 +648,31 @@ return (
                         onChange={(e) => handleEdit('start_time', e.target.value)}
                         style={{
                           padding: '2px 4px',
-                          border: '1px solid #ddd',
+                          border: '1px solid var(--input-border)',
                           borderRadius: '2px',
                           fontSize: '13px',
                           flex: 1,
                           minHeight: '20px',
-                          backgroundColor: 'white'
+                          backgroundColor: 'var(--input-field-bg)',
+                          color: 'var(--text-color)',
+                          colorScheme: 'var(--color-scheme)'
                         }}
                       />
-                      <span style={{ color: '#6c757d', fontSize: '12px' }}>to</span>
+                      <span style={{ color: 'var(--text-muted)', fontSize: '12px' }}>to</span>
                       <input
                         type="time"
                         value={editedEventData.end_time || ''}
                         onChange={(e) => handleEdit('end_time', e.target.value)}
                         style={{
                           padding: '2px 4px',
-                          border: '1px solid #ddd',
+                          border: '1px solid var(--input-border)',
                           borderRadius: '2px',
                           fontSize: '13px',
                           flex: 1,
                           minHeight: '20px',
-                          backgroundColor: 'white'
+                          backgroundColor: 'var(--input-field-bg)',
+                          color: 'var(--text-color)',
+                          colorScheme: 'var(--color-scheme)'
                         }}
                       />
                     </div>
@@ -676,18 +686,19 @@ return (
                   gap: '4px', 
                   padding: '4px'
                 }}>
-                  <Repeat size={14} color="#6c757d" />
+                  <Repeat size={14} color="var(--icon-color)" />
                   <select
                     value={getRecurrenceDisplayValue()}
                     onChange={(e) => handleSimpleRecurrenceChange(e.target.value)}
                     style={{
                       flex: 1,
                       padding: '2px 4px',
-                      border: '1px solid #ddd',
+                      border: '1px solid var(--input-border)',
                       borderRadius: '2px',
                       fontSize: '13px',
                       minHeight: '20px',
-                      backgroundColor: 'white'
+                      backgroundColor: 'var(--input-field-bg)',
+                      color: 'var(--text-color)'
                     }}
                   >
                     <option value="none">Doesn't repeat</option>
@@ -720,8 +731,8 @@ return (
                 padding: '4px 10px',
                 border: 'none',
                 borderRadius: '2px',
-                backgroundColor: '#e9ecef',
-                color: '#495057',
+                backgroundColor: 'var(--button-secondary-bg)',
+                color: 'var(--button-secondary-text)',
                 cursor: 'pointer',
                 fontSize: '12px',
                 minHeight: '24px',
@@ -738,8 +749,8 @@ return (
                 padding: '4px 10px',
                 border: 'none',
                 borderRadius: '2px',
-                backgroundColor: '#007bff',
-                color: 'white',
+                backgroundColor: 'var(--primary-color)',
+                color: 'var(--primary-text)',
                 cursor: 'pointer',
                 fontSize: '12px',
                 minHeight: '24px',

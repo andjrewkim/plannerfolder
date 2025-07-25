@@ -170,7 +170,7 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
     }
   };
 
-  return (
+return (
     <>
       {/* Backdrop for mobile */}
       {isOpen && (
@@ -193,14 +193,14 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
       >
         
       {/* Tab/Toggle Button */}
-      <div className="absolute -left-6 top-16">
+      <div className="absolute -left-[18px] top-16">
         <button
           onClick={handleToggle}
-          className="text-white py-4 px-1 rounded-l-md shadow-md transition-colors duration-200 focus:outline-none"
+          className="py-5 px-0 rounded-l-md shadow-md transition-colors duration-200 focus:outline-none"
           style={{
             backgroundColor: 'hsl(var(--primary))',
-            color: 'hsl(var(--primary-foreground))',
-            width: '24px', // keeps it narrow horizontally
+            color: 'hsl(var(--calendar-background))',
+            width: '18px', // keeps it narrow horizontally
           } as React.CSSProperties}
           aria-label={isOpen ? "Close AI assistant" : "Open AI assistant"}
         >
@@ -214,11 +214,17 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
 
 
         {/* Sidebar Content */}
-        <div className="w-80 h-full bg-white border-l border-gray-200 flex flex-col">
+        <div 
+          className="w-80 h-full border-l flex flex-col"
+          style={{
+            backgroundColor: 'hsl(var(--sidebar))',
+            borderLeftColor: 'hsl(var(--border))'
+          }}
+        >
           
           {/* Header */}
           <div 
-            className="p-4 border-b border-gray-200"
+            className="p-4 border-b"
             style={{
               backgroundColor: 'hsl(var(--primary) / 0.05)',
               borderBottomColor: 'hsl(var(--border))'
@@ -228,8 +234,8 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
               <div 
                 className="w-8 h-8 rounded-full flex items-center justify-center"
                 style={{
-                  backgroundColor: 'hsl(var(--primary))',
-                  color: 'hsl(var(--primary-foreground))'
+                  backgroundColor: 'hsl(var(--calendar-background))',
+                  color: 'hsl(var(--primary))'
                 }}
               >
                 <Sparkles className="w-5 h-5" />

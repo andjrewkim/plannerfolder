@@ -84,8 +84,8 @@ const Page = () => {
           <div 
             className="calendar-container"
             style={{
-              marginRight: rightSidebarOpen ? '349px' : '30px',
-              marginLeft: '20px',
+              marginRight: rightSidebarOpen ? '349px' : '40px',
+              marginLeft: '10px',
             }}
           >
             <Calendar 

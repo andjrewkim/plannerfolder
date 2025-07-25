@@ -504,7 +504,10 @@ const Sidebar: React.FC<SidebarProps> = ({ onEventChange }) => {
 
   return (
     <div className="app-layout">
-      <aside className="app-sidebar" style={{ overflowY: 'auto', maxHeight: '100vh' }}>
+      <aside
+        className="app-sidebar bg-[hsl(var(--background))] text-[hsl(var(--foreground))]"
+        style={{ overflowY: 'auto', maxHeight: '100vh' }}
+      >
         {/* Event Form Section */}
         <section 
           className={`sidebar-section ${activeSection === 'eventForm' ? 'resizing' : ''}`}

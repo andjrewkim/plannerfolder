@@ -1,7 +1,6 @@
 // DisplaySettings.tsx
 import React from 'react';
 import { Moon } from 'lucide-react';
-import { Switch } from '@/radix/switch';
 import "../../styles/settings.css";
 
 interface UserSettings {
@@ -26,6 +25,44 @@ const themes = [
   { id: 'monochrome', name: 'Monochrome', colors: ['#6b7280', '#374151'] },
 ];
 
+interface CustomSwitchProps {
+  checked: boolean;
+  onCheckedChange: (checked: boolean) => void;
+  className?: string;
+}
+
+const CustomSwitch = ({ checked, onCheckedChange, className = '' }: CustomSwitchProps) => {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      onClick={() => onCheckedChange(!checked)}
+      className={`
+          relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 ease-in-out 
+  focus:outline-none
+        ${checked 
+          ? 'bg-[hsl(217_100%_68%)]' // accent color from dark theme
+          : 'bg-[hsl(220_10%_40%)]'  // border color from dark theme
+        }
+        focus:ring-[hsl(217_100%_68%)] focus:ring-offset-[hsl(222_20%_7%)]
+        ${className}
+      `}
+    >
+      <span
+        className={`
+          inline-block h-4 w-4 transform rounded-full transition-transform duration-200 ease-in-out
+          ${checked 
+            ? 'translate-x-6 bg-white' 
+            : 'translate-x-1 bg-[hsl(220_10%_85%)]'  // primary color from dark theme
+          }
+          shadow-lg
+        `}
+      />
+    </button>
+  );
+};
+
 export default function DisplaySettings({ settings, onSettingsChange }: DisplaySettingsProps) {
   const handleDarkModeToggle = (checked: boolean) => {
     onSettingsChange({ dark_mode: checked });
@@ -46,7 +83,7 @@ export default function DisplaySettings({ settings, onSettingsChange }: DisplayS
             </label>
             <p className="form-helper">Switch between light and dark theme</p>
           </div>
-          <Switch 
+          <CustomSwitch 
             checked={settings.dark_mode} 
             onCheckedChange={handleDarkModeToggle} 
           />

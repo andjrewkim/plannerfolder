@@ -21,6 +21,8 @@ import GeneralPreferences from '@/app/settings/settingspages/GeneralPreferences'
 import NotificationSettings from '@/app/settings/settingspages/NotificationSettings';
 import TimeSettings from '@/app/settings/settingspages/TimeSettings';
 import { authAPI } from '../../lib/auth';
+import { useTheme, ThemeProvider, variables } from '../services/themeContext';
+
 
 // Define a type for all possible section names
 type SectionName = 'preferences' | 'display' | 'timezone' | 'notifications' | 'profile' | 'sharing' | 'email';
@@ -46,6 +48,8 @@ const sectionTitles: Record<SectionName, string> = {
 
 const CalendarSettings: React.FC = () => {
   const router = useRouter();
+  const { currentTheme, setTheme, isDarkMode, toggleDarkMode } = useTheme(); // Use your existing theme context
+  
   const [activeSection, setActiveSection] = useState<SectionName>('preferences');
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -55,15 +59,24 @@ const CalendarSettings: React.FC = () => {
   const [settings, setSettings] = useState<UserSettings>({
     default_calendar_view: 'month',
     week_starts_on: 'sunday',
-    dark_mode: false,
-    theme: 'classic'
+    dark_mode: isDarkMode,
+    theme: currentTheme.id
   });
   const [originalSettings, setOriginalSettings] = useState<UserSettings>({
     default_calendar_view: 'month',
     week_starts_on: 'sunday',
-    dark_mode: false,
-    theme: 'classic'
+    dark_mode: isDarkMode,
+    theme: currentTheme.id
   });
+
+  // Sync with theme context when it changes
+  useEffect(() => {
+    setSettings(prev => ({
+      ...prev,
+      dark_mode: isDarkMode,
+      theme: currentTheme.id
+    }));
+  }, [isDarkMode, currentTheme.id]);
 
   // Load user settings on component mount
   useEffect(() => {
@@ -85,9 +98,11 @@ const CalendarSettings: React.FC = () => {
     loadSettings();
   }, []);
 
-  // Check for unsaved changes
+  // Check for unsaved changes with deep comparison
   useEffect(() => {
-    const hasChanges = JSON.stringify(settings) !== JSON.stringify(originalSettings);
+    const hasChanges = Object.keys(settings).some(key => 
+      settings[key as keyof UserSettings] !== originalSettings[key as keyof UserSettings]
+    );
     setHasUnsavedChanges(hasChanges);
   }, [settings, originalSettings]);
 
@@ -106,12 +121,39 @@ const CalendarSettings: React.FC = () => {
     }
   }, [saveError]);
 
+  const [pendingDarkMode, setPendingDarkMode] = useState<boolean | null>(null);
+
   const handleSettingsChange = (newSettings: Partial<UserSettings>) => {
-    setSettings(prev => ({ ...prev, ...newSettings }));
+    setSettings(prev => {
+      const updated = { ...prev, ...newSettings };
+
+      if (newSettings.theme && newSettings.theme !== currentTheme.id) {
+        setTheme(newSettings.theme);
+      }
+
+      // Set pending dark mode instead of toggling directly
+      if (newSettings.dark_mode !== undefined && newSettings.dark_mode !== isDarkMode) {
+        setPendingDarkMode(newSettings.dark_mode);
+      }
+
+      return updated;
+    });
+
     // Clear any previous error messages when user makes changes
     setSaveError(null);
     setSaveSuccess(false);
   };
+
+  useEffect(() => {
+  if (pendingDarkMode !== null) {
+    // Ensure the current mode is different before toggling
+    if (pendingDarkMode !== isDarkMode) {
+      toggleDarkMode();
+    }
+    setPendingDarkMode(null); // reset
+  }
+}, [pendingDarkMode, isDarkMode, toggleDarkMode]);
+
 
   const handleSaveSettings = async () => {
     setIsSaving(true);
@@ -130,8 +172,14 @@ const CalendarSettings: React.FC = () => {
       if (response.ok) {
         const updatedSettings = await response.json();
         setOriginalSettings(updatedSettings);
+        setSettings(updatedSettings);
         setHasUnsavedChanges(false);
         setSaveSuccess(true);
+        
+        // Dispatch a custom event to notify other components
+        window.dispatchEvent(new CustomEvent('settingsUpdated', { 
+          detail: updatedSettings 
+        }));
       } else {
         const errorData = await response.json().catch(() => ({}));
         setSaveError(errorData.message || 'Failed to save settings. Please try again.');
@@ -165,15 +213,21 @@ const CalendarSettings: React.FC = () => {
     router.push('/calendar');
   };
 
+  // Handle hash changes more reliably
   useEffect(() => {
-    const hash = (window.location.hash.slice(1) || 'preferences') as SectionName;
-    setActiveSection(hash);
-
     const handleHashChange = () => {
-      const newHash = (window.location.hash.slice(1) || 'preferences') as SectionName;
-      setActiveSection(newHash);
+      const hash = window.location.hash.slice(1);
+      if (hash && Object.keys(sectionTitles).includes(hash as SectionName)) {
+        setActiveSection(hash as SectionName);
+      } else {
+        setActiveSection('preferences');
+        window.location.hash = 'preferences';
+      }
     };
 
+    // Set initial section based on hash
+    handleHashChange();
+    
     window.addEventListener('hashchange', handleHashChange);
     return () => window.removeEventListener('hashchange', handleHashChange);
   }, []);
@@ -223,17 +277,34 @@ const CalendarSettings: React.FC = () => {
     }
   ];
 
+  // Improved section switching with unsaved changes handling
+  const handleSectionSwitch = (sectionId: SectionName) => {
+    const sectionsWithUnsavedCheck = ['preferences', 'display'];
+    
+    if (hasUnsavedChanges && sectionsWithUnsavedCheck.includes(activeSection)) {
+      const confirmLeave = window.confirm('You have unsaved changes. Are you sure you want to switch sections?');
+      if (!confirmLeave) return;
+    }
+    
+    setActiveSection(sectionId);
+    window.location.hash = sectionId;
+    
+    // Clear any temporary UI states when switching sections
+    setSaveError(null);
+    setSaveSuccess(false);
+  };
+
   // Save button component for reuse
   const SaveButton = () => (
-    <div className="mt-8 pt-6 border-t border-gray-200">
+    <div className="mt-8 pt-6 border-t border-border">
       {/* Success/Error Messages */}
       {saveSuccess && (
-        <div className="mb-4 p-3 bg-green-50 border border-green-200 text-green-700 rounded-lg text-sm">
+        <div className="mb-4 p-3 bg-green-50 border border-green-200 text-green-700 rounded-lg text-sm dark:bg-green-900/20 dark:border-green-800 dark:text-green-300">
           Settings saved successfully!
         </div>
       )}
       {saveError && (
-        <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm">
+        <div className="mb-4 p-3 bg-destructive/10 border border-destructive/20 text-destructive rounded-lg text-sm">
           {saveError}
         </div>
       )}
@@ -243,9 +314,10 @@ const CalendarSettings: React.FC = () => {
         disabled={!hasUnsavedChanges || isSaving}
         className={`flex items-center space-x-2 px-4 py-2 rounded-lg font-medium transition-colors ${
           hasUnsavedChanges && !isSaving
-            ? 'bg-blue-600 text-white hover:bg-blue-700'
-            : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+            ? 'bg-green-500 text-white hover:bg-green-600 active:bg-green-700'
+            : 'bg-muted text-muted-foreground cursor-not-allowed'
         }`}
+
       >
         <Save className="h-4 w-4" />
         <span className="text-sm">
@@ -261,8 +333,8 @@ const CalendarSettings: React.FC = () => {
         return (
           <div>
             <div className="mb-6">
-              <h2 className="text-2xl font-semibold text-gray-900 mb-2">General Preferences</h2>
-              <p className="text-gray-600">Customize your calendar's default behavior</p>
+              <h2 className="text-2xl font-semibold text-foreground mb-2">General Preferences</h2>
+              <p className="text-muted-foreground">Customize your calendar's default behavior</p>
             </div>
             <GeneralPreferences 
               settings={settings}
@@ -275,8 +347,8 @@ const CalendarSettings: React.FC = () => {
         return (
           <div>
             <div className="mb-6">
-              <h2 className="text-2xl font-semibold text-gray-900 mb-2">Display Settings</h2>
-              <p className="text-gray-600">Personalize the look and feel of your calendar</p>
+              <h2 className="text-2xl font-semibold text-foreground mb-2">Display Settings</h2>
+              <p className="text-muted-foreground">Personalize the look and feel of your calendar</p>
             </div>
             <DisplaySettings 
               settings={settings}
@@ -289,8 +361,8 @@ const CalendarSettings: React.FC = () => {
         return (
           <div>
             <div className="mb-6">
-              <h2 className="text-2xl font-semibold text-gray-900 mb-2">Time & Date</h2>
-              <p className="text-gray-600">Configure timezone and date format preferences</p>
+              <h2 className="text-2xl font-semibold text-foreground mb-2">Time & Date</h2>
+              <p className="text-muted-foreground">Configure timezone and date format preferences</p>
             </div>
             <TimeSettings />
           </div>
@@ -299,8 +371,8 @@ const CalendarSettings: React.FC = () => {
         return (
           <div>
             <div className="mb-6">
-              <h2 className="text-2xl font-semibold text-gray-900 mb-2">Notifications</h2>
-              <p className="text-gray-600">Manage how you receive calendar notifications</p>
+              <h2 className="text-2xl font-semibold text-foreground mb-2">Notifications</h2>
+              <p className="text-muted-foreground">Manage how you receive calendar notifications</p>
             </div>
             <NotificationSettings />
           </div>
@@ -309,18 +381,18 @@ const CalendarSettings: React.FC = () => {
         return (
           <div className="space-y-8">
             <div>
-              <h2 className="text-2xl font-semibold text-gray-900 mb-2">Account Settings</h2>
-              <p className="text-gray-600">Manage your profile information</p>
+              <h2 className="text-2xl font-semibold text-foreground mb-2">Account Settings</h2>
+              <p className="text-muted-foreground">Manage your profile information</p>
             </div>
 
             <div className="space-y-6">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-4">Profile Picture</label>
+                <label className="block text-sm font-medium text-foreground mb-4">Profile Picture</label>
                 <div className="flex items-center space-x-4">
-                  <div className="w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center">
-                    <User className="h-8 w-8 text-gray-500" />
+                  <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center">
+                    <User className="h-8 w-8 text-muted-foreground" />
                   </div>
-                  <button className="flex items-center space-x-2 px-4 py-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors">
+                  <button className="flex items-center space-x-2 px-4 py-2 bg-accent text-accent-foreground rounded-lg hover:bg-accent/80 transition-colors">
                     <Camera className="h-4 w-4" />
                     <span className="text-sm">Change Photo</span>
                   </button>
@@ -328,43 +400,43 @@ const CalendarSettings: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
+                <label className="block text-sm font-medium text-foreground mb-2">Email</label>
                 <div className="flex items-center space-x-3">
                   <input
                     type="email"
-                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="flex-1 px-3 py-2 border border-border rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
                     placeholder="your.email@example.com"
                   />
-                  <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+                  <button className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors">
                     <span className="text-sm">Update</span>
                   </button>
                 </div>
-                <p className="text-xs text-gray-500 mt-1">We'll send a confirmation to your new email address.</p>
+                <p className="text-xs text-muted-foreground mt-1">We'll send a confirmation to your new email address.</p>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Password</label>
+                <label className="block text-sm font-medium text-foreground mb-2">Password</label>
                 <div className="space-y-3">
                   <input
                     type="password"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 border border-border rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
                     placeholder="Current password"
                   />
                   <input
                     type="password"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 border border-border rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
                     placeholder="New password"
                   />
                   <input
                     type="password"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 border border-border rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
                     placeholder="Confirm new password"
                   />
-                  <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+                  <button className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors">
                     <span className="text-sm">Update Password</span>
                   </button>
                 </div>
-                <p className="text-xs text-gray-500 mt-1">Choose a strong password that you haven't used elsewhere.</p>
+                <p className="text-xs text-muted-foreground mt-1">Choose a strong password that you haven't used elsewhere.</p>
               </div>
             </div>
           </div>
@@ -373,28 +445,28 @@ const CalendarSettings: React.FC = () => {
         return (
           <div className="space-y-8">
             <div>
-              <h2 className="text-2xl font-semibold text-gray-900 mb-2">Calendar Sharing</h2>
-              <p className="text-gray-600">Manage calendar sharing preferences</p>
+              <h2 className="text-2xl font-semibold text-foreground mb-2">Calendar Sharing</h2>
+              <p className="text-muted-foreground">Manage calendar sharing preferences</p>
             </div>
-            <div>Section under construction</div>
+            <div className="text-muted-foreground">Section under construction</div>
           </div>
         );
       case 'email':
         return (
           <div className="space-y-8">
             <div>
-              <h2 className="text-2xl font-semibold text-gray-900 mb-2">Email Settings</h2>
-              <p className="text-gray-600">Configure email notifications and preferences</p>
+              <h2 className="text-2xl font-semibold text-foreground mb-2">Email Settings</h2>
+              <p className="text-muted-foreground">Configure email notifications and preferences</p>
             </div>
-            <div>Section under construction</div>
+            <div className="text-muted-foreground">Section under construction</div>
           </div>
         );
       default:
         return (
           <div className="space-y-8">
             <div>
-              <h2 className="text-2xl font-semibold text-gray-900 mb-2">Settings</h2>
-              <p className="text-gray-600">Section under construction</p>
+              <h2 className="text-2xl font-semibold text-foreground mb-2">Settings</h2>
+              <p className="text-muted-foreground">Section under construction</p>
             </div>
           </div>
         );
@@ -406,32 +478,28 @@ const CalendarSettings: React.FC = () => {
   const accountItems = sidebarItems.filter(item => item.section === 'ACCOUNT');
 
   return (
-    <div className="flex h-screen bg-gray-50">
+    <div
+      className="flex h-screen text-foreground"
+      style={{ backgroundColor: `hsl(var(--sidebar-background))` }}
+    >
       {/* Sidebar */}
-      <div className="w-80 bg-white border-r border-gray-200">
+      <div className="w-80 bg-calendar-background border-r border-border">
         <div className="p-6">
-          <h1 className="text-lg font-semibold text-gray-900 mb-6">CALENDAR SETTINGS</h1>
+          <h1 className="text-lg font-semibold text-foreground mb-6">CALENDAR SETTINGS</h1>
           
           <div className="space-y-6">
             {/* App Settings Section */}
             <div>
-              <h3 className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-3">APP SETTINGS</h3>
+              <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-3">APP SETTINGS</h3>
               <div className="space-y-1">
                 {appSettingsItems.map((item) => (
                   <button
                     key={item.id}
-                    onClick={() => {
-                      if (hasUnsavedChanges && (activeSection === 'preferences' || activeSection === 'display')) {
-                        const confirmLeave = window.confirm('You have unsaved changes. Are you sure you want to switch sections?');
-                        if (!confirmLeave) return;
-                      }
-                      setActiveSection(item.id);
-                      window.location.hash = item.id;
-                    }}
+                    onClick={() => handleSectionSwitch(item.id)}
                     className={`w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-left transition-colors ${
                       activeSection === item.id
-                        ? 'bg-blue-50 text-blue-600'
-                        : 'text-gray-700 hover:bg-gray-50'
+                        ? 'bg-accent text-accent-foreground'
+                        : 'text-foreground hover:bg-muted'
                     }`}
                   >
                     <item.icon className="h-4 w-4" />
@@ -446,23 +514,16 @@ const CalendarSettings: React.FC = () => {
 
             {/* Account Section */}
             <div>
-              <h3 className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-3">ACCOUNT</h3>
+              <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-3">ACCOUNT</h3>
               <div className="space-y-1">
                 {accountItems.map((item) => (
                   <button
                     key={item.id}
-                    onClick={() => {
-                      if (hasUnsavedChanges && (activeSection === 'preferences' || activeSection === 'display')) {
-                        const confirmLeave = window.confirm('You have unsaved changes. Are you sure you want to switch sections?');
-                        if (!confirmLeave) return;
-                      }
-                      setActiveSection(item.id);
-                      window.location.hash = item.id;
-                    }}
+                    onClick={() => handleSectionSwitch(item.id)}
                     className={`w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-left transition-colors ${
                       activeSection === item.id
-                        ? 'bg-blue-50 text-blue-600'
-                        : 'text-gray-700 hover:bg-gray-50'
+                        ? 'bg-accent text-accent-foreground'
+                        : 'text-foreground hover:bg-muted'
                     }`}
                   >
                     <item.icon className="h-4 w-4" />
@@ -475,11 +536,11 @@ const CalendarSettings: React.FC = () => {
         </div>
 
         {/* Sign Out Button at Bottom */}
-        <div className="absolute bottom-0 left-0 right-0 w-80 p-6 border-t border-gray-200 bg-white">
+        <div className="absolute bottom-0 left-0 right-0 w-80 p-6 border-t border-border bg-card">
           <button
             onClick={handleSignOut}
             disabled={isLoading}
-            className="w-full flex items-center justify-center space-x-2 px-4 py-2 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 transition-colors disabled:opacity-50"
+            className="w-full flex items-center justify-center space-x-2 px-4 py-2 rounded-lg bg-destructive/10 text-destructive hover:bg-destructive/20 transition-colors disabled:opacity-50"
           >
             {isLoading ? (
               <span className="text-sm">Signing out...</span>
@@ -494,12 +555,12 @@ const CalendarSettings: React.FC = () => {
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 p-8">
+      <div className="flex-1 p-8 bg-background">
         {/* Back Arrow */}
         <div className="mb-6">
           <button
             onClick={handleBackToCalendar}
-            className="flex items-center space-x-2 px-3 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+            className="flex items-center space-x-2 px-3 py-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg transition-colors"
           >
             <ArrowLeft className="h-4 w-4" />
             <span className="text-sm font-medium">Back to Calendar</span>
@@ -510,6 +571,12 @@ const CalendarSettings: React.FC = () => {
       </div>
     </div>
   );
-};
+}
 
-export default CalendarSettings;
+export default function CalendarSettingsPage() {
+  return (
+    <ThemeProvider>
+      <CalendarSettings />
+    </ThemeProvider>
+  );
+}

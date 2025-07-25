@@ -1,192 +1,428 @@
-import React, { createContext, useState, useContext, useEffect } from 'react';
-
+import React, { createContext, useState, useContext, useEffect, useCallback } from 'react';
 import { authAPI } from '../../lib/auth';
 
-// Define the theme type with HSL values
+// Theme definition with separate light and dark variants
 type Theme = {
   id: string;
   name: string;
-  colors: string[]; // For the preview
-  variables: {
+  colors: string[]; // For preview
+  light: {
     primary: string;
     secondary: string;
     accent: string;
     background: string;
+    calendarBackground: string;
+    mainBackground: string;
+    foreground: string;
+    muted: string;
+    mutedForeground: string;
+    border: string;
+    input: string;
+    ring: string;
     chart1: string;
     chart2: string;
     chart3: string;
     chart4: string;
     chart5: string;
-    // Add other variables as needed
+
+    sidebar: string;
+    header: string;
+    card: string;
+    button: string;
+    link: string;
   };
-  darkVariables?: {
-    primary?: string;
-    secondary?: string;
-    accent?: string;
-    chart1?: string;
-    chart2?: string;
-    chart3?: string;
-    chart4?: string;
-    chart5?: string;
+  dark: {
+    primary: string;
+    secondary: string;
+    accent: string;
+    background: string;
+    foreground: string;
+    muted: string;
+    mutedForeground: string;
+    darkerborder: string;
+    border: string;
+    input: string;
+    ring: string;
+    chart1: string;
+    chart2: string;
+    chart3: string;
+    chart4: string;
+    chart5: string;
+    mainBackground: string;
+    sidebarItemColor: string;
+    sidebar: string;
+    header: string;
+    card: string;
+    button: string;
+    link: string;
   };
 };
 
-// Define themes with HSL values
 export const themes: Theme[] = [
   {
     id: 'classic',
     name: 'Classic',
-    colors: ['#f8fafc', '#64748b'],
-    variables: {
-      primary: '222.2 47.4% 11.2%',
+    colors: ['#3b82f6', '#1e40af'],
+    light: {
+      primary: '222.2 47.4% 30.2%',
       secondary: '210 40% 96.1%',
       accent: '210 40% 96.1%',
-      background: '0 0% 100%',
+      background: '0 0% 90%',
+      mainBackground: '0 0% 90%',
+      calendarBackground: '0 0% 100%',
+      foreground: '222.2 47.4% 11.2%',
+      muted: '210 40% 98.1%',
+      mutedForeground: '215.4 16.3% 46.9%',
+      border: '214.3 15.8% 50.4%',
+      input: '214.3 31.8% 91.4%',
+      ring: '222.2 47.4% 11.2%',
       chart1: '12 76% 61%',
       chart2: '173 58% 39%',
       chart3: '197 37% 24%',
       chart4: '43 74% 66%',
       chart5: '27 87% 67%',
+      // Custom colors for light mode
+      sidebar: '210 5% 95%',
+      sidebarItemColor: '210 40% 96%',
+      header: '0 0% 100%',
+      card: '0 0% 100%',
+      button: '222.2 47.4% 11.2%',
+      link: '221.2 83.2% 53.3%',
     },
-    darkVariables: {
-      primary: '210 40% 98%',
-      secondary: '217.2 32.6% 17.5%',
-      accent: '217.2 32.6% 17.5%',
-      chart1: '220 70% 50%',
-      chart2: '160 60% 45%',
-      chart3: '30 80% 55%',
-      chart4: '280 65% 60%',
-      chart5: '340 75% 55%',
+    dark: {
+      primary: '220 15% 85%',           // Light grayish text for contrast
+      secondary: '220 10% 30%',         // Darker but subtle section bg
+      accent: '217 100% 68%',           // Calmer blue for accents
+      background: '222 10% %',         // Near-black with a hint of blue
+      foreground: '220 10% 85%',        // Matches primary text
+      muted: '220 8% 18%',              // Soft background elements
+      mutedForeground: '220 10% 55%',   // Muted text (descriptions, placeholders)
+      darkerborder: '220 8% 20%',             // Subtle borders
+      border: '220 10% 40%',             // Slightly lighter than background
+      
+      input: '220 10% 15%',             // Input field bg
+      ring: '217 100% 68%',             // Accent color for focus rings
+
+      chart1: '12 70% 55%',             // Warm orange-red
+      chart2: '160 50% 45%',            // Teal-green
+      chart3: '200 40% 50%',            // Steel blue
+      chart4: '45 90% 60%',             // Golden yellow
+      chart5: '30 80% 60%',             // Soft orange
+
+      mainBackground: '222 20% 7%',
+      sidebarItemColor: '222 10% 15%',
+      calendarBackground: '0 0% 0%',   // ACTUALLY SIDEBAR BACKGEROUND
+
+      sidebar: '220 10% 10%',           // Slightly lighter than bg
+      header: '222 50% 5%',             // Very dark header
+      card: '220 12% 14%',              // Lighter than background
+      button: '217 100% 68%',           // Matches accent
+      link: '217 100% 75%',             // Brighter link color
     }
   },
   {
     id: 'emerald',
     name: 'Emerald',
-    colors: ['#059669', '#065f46'],
-    variables: {
+    colors: ['#10b981', '#047857'],
+    light: {
       primary: '142 72% 29%',
-      secondary: '142 72% 90%',
-      accent: '142 50% 50%',
-      background: '0 0% 100%',
-      chart1: '142 70% 45%',
-      chart2: '162 80% 40%',
-      chart3: '122 50% 35%',
-      chart4: '182 65% 45%',
-      chart5: '102 65% 50%',
+      secondary: '142 40% 96.1%',
+      accent: '142 40% 96.1%',
+      background: '0 0% 90%',
+      mainBackground: '0 0% 90%',
+      calendarBackground: '0 0% 100%',
+      foreground: '142 72% 11.2%',
+      muted: '142 40% 98.1%',
+      mutedForeground: '145 16.3% 46.9%',
+      border: '144 15.8% 50.4%',
+      input: '144 31.8% 91.4%',
+      ring: '142 72% 11.2%',
+      chart1: '12 76% 61%',
+      chart2: '173 58% 39%',
+      chart3: '197 37% 24%',
+      chart4: '43 74% 66%',
+      chart5: '27 87% 67%',
+      // Custom colors for light mode
+      sidebar: '142 5% 95%',
+      sidebarItemColor: '142 40% 96%',
+      header: '0 0% 100%',
+      card: '0 0% 100%',
+      button: '142 72% 11.2%',
+      link: '142 83.2% 53.3%',
     },
-    darkVariables: {
-      primary: '142 72% 80%',
-      secondary: '142 40% 20%',
-      accent: '142 50% 40%',
-      chart1: '142 70% 55%',
-      chart2: '162 80% 50%',
-      chart3: '122 50% 45%',
-      chart4: '182 65% 55%',
-      chart5: '102 65% 60%',
+    dark: {
+      primary: '150 15% 85%',           // Light grayish text for contrast
+      secondary: '150 10% 30%',         // Darker but subtle section bg
+      accent: '147 100% 68%',           // Calmer emerald for accents
+      background: '152 10% %',         // Near-black with a hint of emerald
+      foreground: '150 10% 85%',        // Matches primary text
+      muted: '150 8% 18%',              // Soft background elements
+      mutedForeground: '150 10% 55%',   // Muted text (descriptions, placeholders)
+      darkerborder: '150 8% 20%',             // Subtle borders
+      border: '150 10% 40%',             // Slightly lighter than background
+      
+      input: '150 10% 15%',             // Input field bg
+      ring: '147 100% 68%',             // Accent color for focus rings
+
+      chart1: '12 70% 55%',             // Warm orange-red
+      chart2: '160 50% 45%',            // Teal-green
+      chart3: '200 40% 50%',            // Steel blue
+      chart4: '45 90% 60%',             // Golden yellow
+      chart5: '30 80% 60%',             // Soft orange
+
+      mainBackground: '152 20% 7%',
+      sidebarItemColor: '152 10% 15%',
+      calendarBackground: '0 0% 0%',   // ACTUALLY SIDEBAR BACKGEROUND
+
+      sidebar: '150 10% 10%',           // Slightly lighter than bg
+      header: '152 50% 5%',             // Very dark header
+      card: '150 12% 14%',              // Lighter than background
+      button: '147 100% 68%',           // Matches accent
+      link: '147 100% 75%',             // Brighter link color
     }
   },
   {
     id: 'ocean',
     name: 'Ocean',
     colors: ['#0ea5e9', '#0369a1'],
-    variables: {
-      primary: '199 89% 48%',
-      secondary: '199 89% 90%',
-      accent: '199 89% 70%',
-      background: '0 0% 100%',
-      chart1: '199 80% 50%',
-      chart2: '219 70% 55%',
-      chart3: '179 70% 45%',
-      chart4: '239 65% 60%',
-      chart5: '159 65% 40%',
+    light: {
+      primary: '199 89% 30.2%',
+      secondary: '199 40% 96.1%',
+      accent: '199 40% 96.1%',
+      background: '0 0% 90%',
+      mainBackground: '0 0% 90%',
+      calendarBackground: '0 0% 100%',
+      foreground: '199 89% 11.2%',
+      muted: '199 40% 98.1%',
+      mutedForeground: '199 16.3% 46.9%',
+      border: '199 15.8% 50.4%',
+      input: '199 31.8% 91.4%',
+      ring: '199 89% 11.2%',
+      chart1: '12 76% 61%',
+      chart2: '173 58% 39%',
+      chart3: '197 37% 24%',
+      chart4: '43 74% 66%',
+      chart5: '27 87% 67%',
+      // Custom colors for light mode
+      sidebar: '199 5% 95%',
+      sidebarItemColor: '199 40% 96%',
+      header: '0 0% 100%',
+      card: '0 0% 100%',
+      button: '199 89% 11.2%',
+      link: '199 83.2% 53.3%',
     },
-    darkVariables: {
-      primary: '199 89% 80%',
-      secondary: '199 60% 20%',
-      accent: '199 70% 40%',
-      chart1: '199 80% 60%',
-      chart2: '219 70% 65%',
-      chart3: '179 70% 55%',
-      chart4: '239 65% 70%',
-      chart5: '159 65% 50%',
+    dark: {
+      primary: '200 15% 85%',           // Light grayish text for contrast
+      secondary: '200 10% 30%',         // Darker but subtle section bg
+      accent: '199 100% 68%',           // Calmer ocean for accents
+      background: '200 10% %',         // Near-black with a hint of ocean
+      foreground: '200 10% 85%',        // Matches primary text
+      muted: '200 8% 18%',              // Soft background elements
+      mutedForeground: '200 10% 55%',   // Muted text (descriptions, placeholders)
+      darkerborder: '200 8% 20%',             // Subtle borders
+      border: '200 10% 40%',             // Slightly lighter than background
+      
+      input: '200 10% 15%',             // Input field bg
+      ring: '199 100% 68%',             // Accent color for focus rings
+
+      chart1: '12 70% 55%',             // Warm orange-red
+      chart2: '160 50% 45%',            // Teal-green
+      chart3: '200 40% 50%',            // Steel blue
+      chart4: '45 90% 60%',             // Golden yellow
+      chart5: '30 80% 60%',             // Soft orange
+
+      mainBackground: '200 20% 7%',
+      sidebarItemColor: '200 10% 15%',
+      calendarBackground: '0 0% 0%',   // ACTUALLY SIDEBAR BACKGEROUND
+
+      sidebar: '200 10% 10%',           // Slightly lighter than bg
+      header: '200 50% 5%',             // Very dark header
+      card: '200 12% 14%',              // Lighter than background
+      button: '199 100% 68%',           // Matches accent
+      link: '199 100% 75%',             // Brighter link color
     }
   },
   {
     id: 'sunset',
     name: 'Sunset',
     colors: ['#f97316', '#c2410c'],
-    variables: {
-      primary: '24 95% 53%',
-      secondary: '24 95% 90%',
-      accent: '24 95% 70%',
-      background: '0 0% 100%',
-      chart1: '24 90% 60%',
-      chart2: '44 80% 55%',
-      chart3: '4 80% 50%',
-      chart4: '64 75% 65%',
-      chart5: '354 75% 55%',
+    light: {
+      primary: '24 95% 30.2%',
+      secondary: '24 40% 96.1%',
+      accent: '24 40% 96.1%',
+      background: '0 0% 90%',
+      mainBackground: '0 0% 90%',
+      calendarBackground: '0 0% 100%',
+      foreground: '24 95% 11.2%',
+      muted: '24 40% 98.1%',
+      mutedForeground: '24 16.3% 46.9%',
+      border: '24 15.8% 50.4%',
+      input: '24 31.8% 91.4%',
+      ring: '24 95% 11.2%',
+      chart1: '12 76% 61%',
+      chart2: '173 58% 39%',
+      chart3: '197 37% 24%',
+      chart4: '43 74% 66%',
+      chart5: '27 87% 67%',
+      // Custom colors for light mode
+      sidebar: '24 5% 95%',
+      sidebarItemColor: '24 40% 96%',
+      header: '0 0% 100%',
+      card: '0 0% 100%',
+      button: '24 95% 11.2%',
+      link: '24 83.2% 53.3%',
     },
-    darkVariables: {
-      primary: '24 95% 70%',
-      secondary: '24 60% 20%',
-      accent: '24 80% 40%',
-      chart1: '24 90% 70%',
-      chart2: '44 80% 65%',
-      chart3: '4 80% 60%',
-      chart4: '64 75% 75%',
-      chart5: '354 75% 65%',
+    dark: {
+      primary: '25 15% 85%',           // Light grayish text for contrast
+      secondary: '25 10% 30%',         // Darker but subtle section bg
+      accent: '24 100% 68%',           // Calmer sunset for accents
+      background: '25 10% %',         // Near-black with a hint of sunset
+      foreground: '25 10% 85%',        // Matches primary text
+      muted: '25 8% 18%',              // Soft background elements
+      mutedForeground: '25 10% 55%',   // Muted text (descriptions, placeholders)
+      darkerborder: '25 8% 20%',             // Subtle borders
+      border: '25 10% 40%',             // Slightly lighter than background
+      
+      input: '25 10% 15%',             // Input field bg
+      ring: '24 100% 68%',             // Accent color for focus rings
+
+      chart1: '12 70% 55%',             // Warm orange-red
+      chart2: '160 50% 45%',            // Teal-green
+      chart3: '200 40% 50%',            // Steel blue
+      chart4: '45 90% 60%',             // Golden yellow
+      chart5: '30 80% 60%',             // Soft orange
+
+      mainBackground: '25 20% 7%',
+      sidebarItemColor: '25 10% 15%',
+      calendarBackground: '0 0% 0%',   // ACTUALLY SIDEBAR BACKGEROUND
+
+      sidebar: '25 10% 10%',           // Slightly lighter than bg
+      header: '25 50% 5%',             // Very dark header
+      card: '25 12% 14%',              // Lighter than background
+      button: '24 100% 68%',           // Matches accent
+      link: '24 100% 75%',             // Brighter link color
     }
   },
   {
     id: 'royal',
     name: 'Royal',
     colors: ['#7c3aed', '#5b21b6'],
-    variables: {
-      primary: '265 93% 58%',
-      secondary: '265 93% 90%',
-      accent: '265 93% 75%',
-      background: '0 0% 100%',
-      chart1: '265 85% 60%',
-      chart2: '285 75% 55%',
-      chart3: '245 75% 50%',
-      chart4: '305 70% 60%',
-      chart5: '225 70% 55%',
+    light: {
+      primary: '265 93% 30.2%',
+      secondary: '265 40% 96.1%',
+      accent: '265 40% 96.1%',
+      background: '0 0% 90%',
+      mainBackground: '0 0% 90%',
+      calendarBackground: '0 0% 100%',
+      foreground: '265 93% 11.2%',
+      muted: '265 40% 98.1%',
+      mutedForeground: '265 16.3% 46.9%',
+      border: '265 15.8% 50.4%',
+      input: '265 31.8% 91.4%',
+      ring: '265 93% 11.2%',
+      chart1: '12 76% 61%',
+      chart2: '173 58% 39%',
+      chart3: '197 37% 24%',
+      chart4: '43 74% 66%',
+      chart5: '27 87% 67%',
+      // Custom colors for light mode
+      sidebar: '265 5% 95%',
+      sidebarItemColor: '265 40% 96%',
+      header: '0 0% 100%',
+      card: '0 0% 100%',
+      button: '265 93% 11.2%',
+      link: '265 83.2% 53.3%',
     },
-    darkVariables: {
-      primary: '265 93% 70%',
-      secondary: '265 60% 20%',
-      accent: '265 75% 40%',
-      chart1: '265 85% 70%',
-      chart2: '285 75% 65%',
-      chart3: '245 75% 60%',
-      chart4: '305 70% 70%',
-      chart5: '225 70% 65%',
+    dark: {
+      primary: '265 15% 85%',           // Light grayish text for contrast
+      secondary: '265 10% 30%',         // Darker but subtle section bg
+      accent: '265 100% 68%',           // Calmer royal for accents
+      background: '265 10% %',         // Near-black with a hint of royal
+      foreground: '265 10% 85%',        // Matches primary text
+      muted: '265 8% 18%',              // Soft background elements
+      mutedForeground: '265 10% 55%',   // Muted text (descriptions, placeholders)
+      darkerborder: '265 8% 20%',             // Subtle borders
+      border: '265 10% 60%',             // Slightly lighter than background
+      
+      input: '265 10% 15%',             // Input field bg
+      ring: '265 100% 68%',             // Accent color for focus rings
+
+      chart1: '12 70% 55%',             // Warm orange-red
+      chart2: '160 50% 45%',            // Teal-green
+      chart3: '200 40% 50%',            // Steel blue
+      chart4: '45 90% 60%',             // Golden yellow
+      chart5: '30 80% 60%',             // Soft orange
+
+      mainBackground: '265 20% 7%',
+      sidebarItemColor: '265 10% 15%',
+      calendarBackground: '0 0% 0%',   // ACTUALLY SIDEBAR BACKGEROUND
+
+      sidebar: '265 10% 10%',           // Slightly lighter than bg
+      header: '265 50% 5%',             // Very dark header
+      card: '265 12% 14%',              // Lighter than background
+      button: '265 100% 68%',           // Matches accent
+      link: '265 100% 75%',             // Brighter link color
     }
   },
   {
     id: 'monochrome',
     name: 'Monochrome',
-    colors: ['#171717', '#404040'],
-    variables: {
-      primary: '0 0% 9%',
-      secondary: '0 0% 90%',
-      accent: '0 0% 70%',
-      background: '0 0% 100%',
-      chart1: '0 0% 20%',
-      chart2: '0 0% 35%',
-      chart3: '0 0% 50%',
-      chart4: '0 0% 65%',
-      chart5: '0 0% 80%',
+    colors: ['#6b7280', '#374151'],
+    light: {
+      primary: '0 0% 30.2%',
+      secondary: '0 40% 96.1%',
+      accent: '0 40% 96.1%',
+      background: '0 0% 90%',
+      mainBackground: '0 0% 90%',
+      calendarBackground: '0 0% 100%',
+      foreground: '0 0% 11.2%',
+      muted: '0 40% 98.1%',
+      mutedForeground: '0 16.3% 46.9%',
+      border: '0 15.8% 50.4%',
+      input: '0 31.8% 91.4%',
+      ring: '0 0% 11.2%',
+      chart1: '12 76% 61%',
+      chart2: '173 58% 39%',
+      chart3: '197 37% 24%',
+      chart4: '43 74% 66%',
+      chart5: '27 87% 67%',
+      // Custom colors for light mode
+      sidebar: '0 5% 95%',
+      sidebarItemColor: '0 40% 96%',
+      header: '0 0% 100%',
+      card: '0 0% 100%',
+      button: '0 0% 11.2%',
+      link: '0 83.2% 53.3%',
     },
-    darkVariables: {
-      primary: '0 0% 90%',
-      secondary: '0 0% 20%',
-      accent: '0 0% 40%',
-      chart1: '0 0% 75%',
-      chart2: '0 0% 60%',
-      chart3: '0 0% 45%',
-      chart4: '0 0% 30%',
-      chart5: '0 0% 15%',
+    dark: {
+      primary: '0 15% 85%',           // Light grayish text for contrast
+      secondary: '0 10% 30%',         // Darker but subtle section bg
+      accent: '0 100% 68%',           // Calmer monochrome for accents
+      background: '0 10% %',         // Near-black with a hint of monochrome
+      foreground: '0 10% 85%',        // Matches primary text
+      muted: '0 8% 18%',              // Soft background elements
+      mutedForeground: '0 10% 55%',   // Muted text (descriptions, placeholders)
+      darkerborder: '0 8% 20%',             // Subtle borders
+      border: '0 10% 60%',             // Slightly lighter than background
+      
+      input: '0 10% 15%',             // Input field bg
+      ring: '0 100% 68%',             // Accent color for focus rings
+
+      chart1: '12 70% 55%',             // Warm orange-red
+      chart2: '160 50% 45%',            // Teal-green
+      chart3: '200 40% 50%',            // Steel blue
+      chart4: '45 90% 60%',             // Golden yellow
+      chart5: '30 80% 60%',             // Soft orange
+
+      mainBackground: '0 20% 7%',
+      sidebarItemColor: '0 10% 15%',
+      calendarBackground: '0 0% 0%',   // ACTUALLY SIDEBAR BACKGEROUND
+
+      sidebar: '0 10% 10%',           // Slightly lighter than bg
+      header: '0 50% 5%',             // Very dark header
+      card: '0 12% 14%',              // Lighter than background
+      button: '0 100% 68%',           // Matches accent
+      link: '0 100% 75%',             // Brighter link color
     }
   },
 ];
@@ -196,6 +432,7 @@ type ThemeContextType = {
   setTheme: (themeId: string) => void;
   isDarkMode: boolean;
   toggleDarkMode: () => void;
+  isLoading: boolean;
 };
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
@@ -212,154 +449,130 @@ export const ThemeProvider: React.FC<{children: React.ReactNode}> = ({ children 
     try {
       setIsLoading(true);
       const response = await authAPI.authenticatedFetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/user-settings/`
+        `${process.env.NEXT_PUBLIC_API_URL}/api/user-settings/`,
+        { headers: { 'Accept': 'application/json' } }
       );
       
       if (response.ok) {
         const settings = await response.json();
         
-        // Update theme settings from backend
-        if (settings.theme) {
+        if (settings.theme && themes.find(t => t.id === settings.theme)) {
           setCurrentThemeId(settings.theme);
         }
         
-        if (typeof settings.darkMode === 'boolean') {
-          setIsDarkMode(settings.darkMode);
-          
-          // Apply dark mode class immediately
-          if (settings.darkMode) {
-            document.documentElement.classList.add('dark');
-          } else {
-            document.documentElement.classList.remove('dark');
-          }
+        const darkModeValue = settings.darkMode ?? settings.dark_mode ?? settings.isDarkMode;
+        if (darkModeValue !== undefined) {
+          setIsDarkMode(Boolean(darkModeValue));
         }
-      } else {
-        // Fallback to default values if API call fails
-        console.warn('Failed to fetch user settings, using defaults');
-        setCurrentThemeId('classic');
-        setIsDarkMode(false);
       }
     } catch (error) {
       console.error('Error fetching user settings:', error);
-      // Fallback to default values
-      setCurrentThemeId('classic');
-      setIsDarkMode(false);
     } finally {
       setIsLoading(false);
     }
   };
 
   // Save settings to backend
-  const saveUserSettings = async (themeId?: string, darkMode?: boolean) => {
+  const saveUserSettings = async (updates: { theme?: string; darkMode?: boolean }) => {
     try {
-      const settingsToUpdate: any = {};
-      
-      if (themeId !== undefined) {
-        settingsToUpdate.theme = themeId;
-      }
-      
-      if (darkMode !== undefined) {
-        settingsToUpdate.darkMode = darkMode;
-      }
-
       const response = await authAPI.authenticatedFetch(
         `${process.env.NEXT_PUBLIC_API_URL}/api/user-settings/`,
         {
-          method: 'PATCH', // or PUT depending on your API
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(settingsToUpdate),
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(updates),
         }
       );
 
       if (!response.ok) {
-        throw new Error('Failed to save user settings');
+        throw new Error(`Failed to save user settings: ${response.status}`);
       }
     } catch (error) {
       console.error('Error saving user settings:', error);
-      // You might want to show a toast notification here
-      throw error; // Re-throw to handle in the calling function
+      throw error;
     }
   };
 
-  const setTheme = async (themeId: string) => {
+  const setTheme = useCallback(async (themeId: string) => {
+    setCurrentThemeId(themeId);
     try {
-      // Optimistically update the UI
-      setCurrentThemeId(themeId);
-      
-      // Save to backend
-      await saveUserSettings(themeId, undefined);
+      await saveUserSettings({ theme: themeId });
     } catch (error) {
-      // Revert on failure
       console.error('Failed to save theme:', error);
-      // You might want to show an error message to the user
     }
-  };
+  }, []);
 
-  const toggleDarkMode = async () => {
-    const newMode = !isDarkMode;
+  const toggleDarkMode = useCallback(() => {
+    setIsDarkMode(prevMode => {
+      const newMode = !prevMode;
+      saveUserSettings({ darkMode: newMode }).catch(console.error);
+      return newMode;
+    });
+  }, []);
+
+  // Apply theme to CSS variables AND body background
+  useEffect(() => {
+    if (isLoading) return;
     
-    try {
-      // Optimistically update the UI
-      setIsDarkMode(newMode);
-      
-      // Toggle the dark class on the document
-      if (newMode) {
-        document.documentElement.classList.add('dark');
-      } else {
-        document.documentElement.classList.remove('dark');
-      }
-      
-      // Save to backend
-      await saveUserSettings(undefined, newMode);
-    } catch (error) {
-      // Revert on failure
-      setIsDarkMode(!newMode);
-      if (!newMode) {
-        document.documentElement.classList.add('dark');
-      } else {
-        document.documentElement.classList.remove('dark');
-      }
-      console.error('Failed to save dark mode setting:', error);
-      // You might want to show an error message to the user
-    }
-  };
+    const root = document.documentElement;
+    
+    // Toggle dark class
+    root.classList.toggle('dark', isDarkMode);
+    
+    // Get the appropriate theme variant
+    const variables = isDarkMode ? currentTheme.dark : currentTheme.light;
+
+    // Apply CSS variables with proper structure
+    const cssVariables = {
+      '--primary': variables.primary,
+      '--primary-foreground': isDarkMode ? variables.background : '210 40% 98%',
+      '--secondary': variables.secondary,
+      '--secondary-foreground': variables.foreground,
+      '--accent': variables.accent,
+      '--accent-foreground': variables.foreground,
+      '--background': variables.background,
+      '--calendar-background': variables.calendarBackground,
+      '--foreground': variables.foreground,
+      '--muted': variables.muted,
+      '--muted-foreground': variables.mutedForeground,
+      '--border': variables.border,
+      '--darker-border': variables.darkerborder,
+      '--input': variables.input,
+      '--ring': variables.ring,
+      '--card': variables.background,
+      '--card-foreground': variables.foreground,
+      '--popover': variables.background,
+      '--popover-foreground': variables.foreground,
+      '--destructive': isDarkMode ? '0 62.8% 50.6%' : '0 62.8% 30.6%',
+      '--destructive-foreground': isDarkMode ? '0 85.7% 97.3%' : '210 40% 98%',
+      '--chart-1': variables.chart1,
+      '--chart-2': variables.chart2,
+      '--chart-3': variables.chart3,
+      '--chart-4': variables.chart4,
+      '--chart-5': variables.chart5,
+      // Custom component variables
+      '--sidebar': variables.sidebar,
+      '--header': variables.header,
+      '--card-custom': variables.card,
+      '--button-custom': variables.button,
+      '--link-custom': variables.link,
+      '--sidebar-item-color': variables.sidebarItemColor,
+    };
+    
+    Object.entries(cssVariables).forEach(([property, value]) => {
+      root.style.setProperty(property, value);
+    });
+
+    // Apply background color to body
+    document.body.style.backgroundColor = `hsl(${variables.mainBackground})`;
+    document.body.style.color = `hsl(${variables.foreground})`;
+    
+  }, [currentTheme, isDarkMode, isLoading]);
 
   // Load settings on mount
   useEffect(() => {
     fetchUserSettings();
   }, []);
-
-  // Apply theme colors to CSS variables
-  useEffect(() => {
-    if (isLoading) return; // Don't apply themes while loading
-    
-    const root = document.documentElement;
-    
-    // Set theme variables based on current mode
-    if (isDarkMode && currentTheme.darkVariables) {
-      // Apply dark mode variables from the theme
-      root.style.setProperty('--primary', currentTheme.darkVariables.primary || currentTheme.variables.primary);
-      root.style.setProperty('--secondary', currentTheme.darkVariables.secondary || currentTheme.variables.secondary);
-      root.style.setProperty('--accent', currentTheme.darkVariables.accent || currentTheme.variables.accent);
-      root.style.setProperty('--chart-1', currentTheme.darkVariables.chart1 || currentTheme.variables.chart1);
-      root.style.setProperty('--chart-2', currentTheme.darkVariables.chart2 || currentTheme.variables.chart2);
-      root.style.setProperty('--chart-3', currentTheme.darkVariables.chart3 || currentTheme.variables.chart3);
-      root.style.setProperty('--chart-4', currentTheme.darkVariables.chart4 || currentTheme.variables.chart4);
-      root.style.setProperty('--chart-5', currentTheme.darkVariables.chart5 || currentTheme.variables.chart5);
-    } else {
-      // Apply light mode variables
-      root.style.setProperty('--primary', currentTheme.variables.primary);
-      root.style.setProperty('--secondary', currentTheme.variables.secondary);
-      root.style.setProperty('--accent', currentTheme.variables.accent);
-      root.style.setProperty('--chart-1', currentTheme.variables.chart1);
-      root.style.setProperty('--chart-2', currentTheme.variables.chart2);
-      root.style.setProperty('--chart-3', currentTheme.variables.chart3);
-      root.style.setProperty('--chart-4', currentTheme.variables.chart4);
-      root.style.setProperty('--chart-5', currentTheme.variables.chart5);
-    }
-  }, [currentTheme, isDarkMode, isLoading]);
 
   return (
     <ThemeContext.Provider value={{ 

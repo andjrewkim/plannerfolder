@@ -25,22 +25,6 @@ export default function GeneralPreferences({ settings, onSettingsChange }: Gener
 
   return (
     <div className="settings-section">
-      <div className="form-group">
-        <label className="form-label">Default Calendar View</label>
-        <select 
-          className="form-input"
-          value={settings.default_calendar_view}
-          onChange={handleViewChange}
-        >
-          <option value="month">Month</option>
-          <option value="week">Week</option>
-          <option value="day">Day</option>
-          <option value="agenda">Agenda</option>
-        </select>
-        <p className="form-helper">
-          Choose which view to show when you first open the calendar.
-        </p>
-      </div>
 
       <div className="form-group">
         <label className="form-label">Week Starts On</label>

@@ -8,13 +8,14 @@
   --spacing-lg: 16px;
   --text-primary: hsl(var(--foreground));
   --text-secondary: hsl(var(--muted-foreground));
-  --surface: hsl(var(--background));
-  background: #f8f9fa;        /* Light gray */
+  --sidebarItem: hsl(var(--sidebar-item-color));
+  --sidebarBackground: hsl(var(--sidebar));
+  background: hsl(var(--sidebar));        /* Changed from hardcoded #f8f9fa */
   
   width: var(--sidebar-width);
   height: calc(100vh - 32px);
   border-radius: var(--border-radius);
-  border: 1px solid hsl(var(--border) / 0.1);
+  border: 1px solid hsl(var(--darker-border) / 10);
   position: fixed;
   top: var(--spacing-lg);
   left: var(--spacing-lg);
@@ -24,8 +25,8 @@
   font-family: 'Google Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   overflow: hidden;
   box-sizing: border-box;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-
+  box-shadow: 0 2px 4px hsl(var(--darker-border) / 0.2);  /* Changed from hardcoded rgba */
+  
 }
 
 /* Content container */
@@ -36,9 +37,9 @@
 
 /* Section containers - no separation */
 .sidebar-section {
-  background: transparent;
+  /*background: var(--sidebarBackground);*/
   overflow: hidden;
-  border-bottom: 1px solid hsl(var(--border) / 0.1);
+  border-bottom: 1px solid hsl(var(--darker-border) / 0.1);
   display: flex;
   flex-direction: column;
   min-height: 120px;
@@ -55,8 +56,8 @@
   font-weight: 500;
   color: var(--text-primary);
   padding: var(--spacing-md) var(--spacing-lg);
-  background: transparent;
-  border-bottom: 1px solid hsl(var(--border) / 0.1);
+  background: var(--sidebarBackground);
+  border-bottom: 1px solid hsl(var(--darker-border) / 0.1);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -93,17 +94,17 @@
   justify-content: space-between;
   align-items: center;
   padding: var(--spacing-sm) var(--spacing-md);
-  background: var(--surface);
+  background: var(--sidebarItem);
   border-radius: 8px;
-  border: 1px solid hsl(var(--border) / 0.1);
+  border: 1px solid color-mix(in srgb, hsl(var(--darker-border)) 70%, rgb(0, 0, 0) 15%);
   transition: all 0.15s ease;
   cursor: pointer;
-  
 }
 
 .event-item:hover {
   background: hsl(var(--muted) / 0.5);
   transform: translateY(-1px);
+  
 }
 
 .event-name {
@@ -134,12 +135,13 @@
 }
 
 .task-item {
-  background: var(--surface);
+  background: var(--sidebarItem);
   border-radius: 8px;
-  border: 1px solid hsl(var(--border) / 0.1);
+  border: 1px solid color-mix(in srgb, hsl(var(--darker-border)) 70%, rgb(0, 0, 0) 15%);
   transition: all 0.15s ease;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-
+  box-shadow: 0 2px 4px hsl(var(--darker-border) / 0.2);  /* Changed from hardcoded rgba */
+  margin-top: 2px;
+  
 }
 
 .task-item:hover {
@@ -159,7 +161,7 @@
 .task-checkbox {
   width: 16px;
   height: 16px;
-  border: 2px solid hsl(var(--border));
+  border: 1.5px solid color-mix(in srgb, hsl(var(--border)) 70%, rgb(0, 0, 0) 30%);
   border-radius: 2px;
   cursor: pointer;
   appearance: none;
@@ -179,16 +181,18 @@
 }
 
 .task-checkbox:checked::after {
-  content: '';
+  content: ''; /* Necessary for the pseudo-element */
   position: absolute;
-  left: 4px;
-  top: 1px;
-  width: 3px;
-  height: 6px;
-  border: solid white;
-  border-width: 0 2px 2px 0;
-  transform: rotate(45deg);
+  left: 50%; /* Center horizontally */
+  top: 50%; /* Center vertically */
+  width: 6px; /* Increased width for a thicker line */
+  height: 12px; /* Increased height for a more prominent checkmark */
+  border: solid hsl(var(--primary-foreground)); /* Checkmark color */
+  border-width: 0 3px 3px 0; /* Thicker and more visible line */
+  transform: translate(-50%, -50%) rotate(45deg); /* Centers and rotates the line to form the checkmark */
+  transition: transform 0.2s ease, opacity 0.2s ease; /* Smooth transition effect */
 }
+
 
 .task-text {
   flex: 1;
@@ -242,7 +246,7 @@
   height: 32px;
   border-radius: 50%;
   background: hsl(var(--primary));
-  color: white;
+  color: hsl(var(--primary-foreground));  /* Changed from hardcoded white */
   font-size: 18px;
   border: none;
   display: flex;
@@ -273,7 +277,7 @@
 .task-input {
   width: 100%;
   padding: var(--spacing-sm) var(--spacing-md);
-  border: 1px solid hsl(var(--border));
+  border: 1px solid hsl(var(--darker-border));
   border-radius: 6px;
   font-size: 0.875rem;
   color: var(--text-primary);
@@ -306,7 +310,7 @@
 
 .btn-save {
   background: hsl(var(--primary));
-  color: white;
+  color: hsl(var(--calendar-background));  /* Changed from hardcoded white */
 }
 
 .btn-save:hover {
@@ -351,7 +355,7 @@
 }
 
 .resize-handle:hover {
-  background: hsl(var(--border) / 0.3);
+  background: hsl(var(--darker-border) / 0.3);
 }
 
 /* Responsive */
@@ -382,12 +386,6 @@
 .task-item.category-3 { border-left: 3px solid hsl(var(--chart-3)); }
 .task-item.category-4 { border-left: 3px solid hsl(var(--chart-4)); }
 .task-item.category-5 { border-left: 3px solid hsl(var(--chart-5)); }
-
-
-
-
-
-
 
 /*EVENTFORM SETTINGS*/
 .sidebar-section .event-form-container {

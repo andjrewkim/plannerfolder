@@ -759,342 +759,355 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange, onViewChange, refres
 
 
 
-    return (
-      <div
-        className="popup-details fixed z-50 bg-white shadow-lg rounded-lg p-4 border border-gray-200"
-        style={{
-          left: `${info.position.x}px`,
-          top: `${info.position.y}px`,
-          width: '320px',
-          maxHeight: '300px',
-          overflowY: 'auto'
-        }}
-        onMouseEnter={() => {
-          if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
-        }}
-        onMouseLeave={() => {
-          if (!document.querySelector('.fc-daygrid-day')?.matches(':hover')) {
-            setHoveredDay(null);
-          }
-        }}
-      >
-        <h3 className="text-lg font-semibold mb-3">
-          {info.date.toLocaleDateString('en-US', {
-            weekday: 'long',
-            month: 'long',
-            day: 'numeric'
-          })}
-        </h3>
-
-        {dayMarkings.length > 0 && (
-          <div className="mb-3">
-            <h4 className="text-sm font-semibold text-gray-600 mb-1">Day Markings</h4>
-            {dayMarkings.map((event) => (
-              <div
-                key={event.id}
-                className={`p-2 rounded mb-2 day-marking-${event.extendedProps?.urgency?.toLowerCase() || 'low'}`}
-                style={{
-                  borderLeft: `4px solid var(--day-marking-${event.extendedProps?.urgency?.toLowerCase() || 'low'}-color)`,
-                  backgroundColor: `var(--day-marking-${event.extendedProps?.urgency?.toLowerCase() || 'low'}-bg)`
-                }}
-              >
-                {editMode === event.id && updatedMarking ? (
-                  <div className="marking-edit-form">
-                    <div className="mb-2">
-                      <input
-                        type="text"
-                        className="w-full border rounded px-2 py-1 text-sm"
-                        value={updatedMarking.day_marking_title}
-                        onChange={(e) => setUpdatedMarking({...updatedMarking, day_marking_title: e.target.value})}
-                        placeholder="Marking Title"
-                      />
-                    </div>
-                    <div className="mb-2">
-                      <select
-                        className="w-full border rounded px-2 py-1 text-sm"
-                        value={updatedMarking.urgency}
-                        onChange={(e) => setUpdatedMarking({...updatedMarking, urgency: e.target.value})}
-                      >
-                        <option value="low">Low Importance</option>
-                        <option value="medium">Medium Importance</option>
-                        <option value="high">High Importance</option>
-                      </select>
-                    </div>
-                    <div className="flex justify-end space-x-2 mt-2">
-                      <button
-                        className="px-3 py-1 bg-gray-200 text-gray-800 rounded text-xs"
-                        onClick={handleCancel}
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        className="px-3 py-1 bg-blue-500 text-white rounded text-xs"
-                        onClick={() => handleSaveMarking(event)}
-                      >
-                        Save
-                      </button>
-                    </div>
-                  </div>
-                ) : deleteConfirmId === event.id ? (
-                  <div className="delete-confirmation">
-                    <p className="text-sm mb-2">Delete this day marking?</p>
-                    <div className="flex justify-end space-x-2">
-                      <button
-                        className="px-3 py-1 bg-gray-200 text-gray-800 rounded text-xs"
-                        onClick={handleCancel}
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        className="px-3 py-1 bg-red-500 text-white rounded text-xs"
-                        onClick={() => confirmDelete(event.id)}
-                      >
-                        Delete
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="flex justify-between items-start">
-                    <div className="font-medium">
-                      {event.extendedProps?.day_marking_title || event.title}
-                    </div>
-                    <div className="flex space-x-1">
-                      <button
-                        className="text-gray-500 hover:text-blue-500"
-                        onClick={() => handleEditMarking(event)}
-                        title="Edit"
-                      >
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                        </svg>
-                      </button>
-                      <button
-                        className="text-gray-500 hover:text-red-500"
-                        onClick={() => handleDeleteMarkingClick(event.id)}
-                        title="Delete"
-                      >
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                        </svg>
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
-
-        {regularEvents.length > 0 && (
-          <div>
-            <h4 className="text-sm font-semibold text-gray-600 mb-1">Events</h4>
-            {regularEvents.map((event) => (
-              <div
-                key={event.id}
-                className="p-2 rounded mb-2"
-                style={{
-                  borderLeft: `4px solid ${event.backgroundColor}`,
-                  backgroundColor: `${event.backgroundColor}15`
-                }}
-              >
-                {deleteConfirmId === event.id ? (
-                  <div className="delete-confirmation">
-                    <p className="text-sm mb-2">Delete this event?</p>
-                    <div className="flex justify-end space-x-2">
-                      <button
-                        className="px-3 py-1 bg-gray-200 text-gray-800 rounded text-xs"
-                        onClick={handleCancel}
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        className="px-3 py-1 bg-red-500 text-white rounded text-xs"
-                        onClick={() => confirmDelete(event.id)}
-                      >
-                        Delete
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <div>
-                    <div className="flex justify-between items-start">
-                      <div className="font-medium">{event.title}</div>
-                      <button
-                        className="text-gray-500 hover:text-red-500 ml-2"
-                        onClick={() => setDeleteConfirmId(event.id)}
-                        title="Delete Event"
-                      >
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                        </svg>
-                      </button>
-                    </div>
-                    <div className="text-sm text-gray-600">
-                      {new Date(event.start!).toLocaleTimeString('en-US', {
-                        hour: 'numeric',
-                        minute: '2-digit'
-                      })}
-                      {event.end && ` - ${new Date(event.end).toLocaleTimeString('en-US', {
-                        hour: 'numeric',
-                        minute: '2-digit'
-                      })}`}
-                    </div>
-                    {event.extendedProps?.location && (
-                      <div className="text-sm text-gray-600 mt-1">
-                        📍 {event.extendedProps.location}
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-    );
-  };
-
-  const allEvents = [
-    ...(currentEvents || []).map(event => ({
-      id: event.id,
-      title: event.title,
-      start: event.start ? new Date(event.start).toISOString() : undefined,
-      end: event.end ? new Date(event.end).toISOString() : undefined,
-      backgroundColor: event.backgroundColor,
-      borderColor: event.borderColor,
-      extendedProps: event.extendedProps,
-    })),
-    ...(Array.isArray(dayMarkings) ? dayMarkings : [])
-  ];
-
   return (
-    <div className='big-container'>'
-      <div className="flex h-screen">
-        <div className="w-[306px] ">
-          {/* Your existing sidebar content */}
+    <div
+      className="popup-details fixed z-50 bg-white dark:bg-gray-800 shadow-xl rounded-lg p-4 border border-gray-300 dark:border-gray-600"
+      style={{
+        left: `${info.position.x}px`,
+        top: `${info.position.y}px`,
+        width: '320px',
+        maxHeight: '300px',
+        overflowY: 'auto',
+        backdropFilter: 'blur(8px)',
+        backgroundColor: 'rgba(255, 255, 255, 0.95)', // Light mode: 95% opaque white
+        // In dark mode, this will be overridden by dark:bg-gray-800
+      }}
+      onMouseEnter={() => {
+        if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
+      }}
+      onMouseLeave={() => {
+        if (!document.querySelector('.fc-daygrid-day')?.matches(':hover')) {
+          setHoveredDay(null);
+        }
+      }}
+    >
+      <style jsx>{`
+        .popup-details.dark {
+          background-color: rgba(31, 41, 55, 0.95) !important; /* Dark mode: 95% opaque gray-800 */
+        }
+      `}</style>
+
+      <h3 className="text-lg font-semibold mb-3 text-gray-900 dark:text-gray-100">
+        {info.date.toLocaleDateString('en-US', {
+          weekday: 'long',
+          month: 'long',
+          day: 'numeric'
+        })}
+      </h3>
+
+      {dayMarkings.length > 0 && (
+        <div className="mb-3">
+          <h4 className="text-sm font-semibold text-gray-600 dark:text-gray-300 mb-1">
+            Day Markings
+          </h4>
+          {dayMarkings.map((event) => (
+            <div
+              key={event.id}
+              className={`p-2 rounded mb-2 day-marking-${event.extendedProps?.urgency?.toLowerCase() || 'low'} bg-gray-50 dark:bg-gray-700`}
+              style={{
+                borderLeft: `4px solid var(--day-marking-${event.extendedProps?.urgency?.toLowerCase() || 'low'}-color)`,
+              }}
+            >
+              {editMode === event.id && updatedMarking ? (
+                <div className="marking-edit-form">
+                  <div className="mb-2">
+                    <input
+                      type="text"
+                      className="w-full border border-gray-300 dark:border-gray-600 rounded px-2 py-1 text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+                      value={updatedMarking.day_marking_title}
+                      onChange={(e) => setUpdatedMarking({...updatedMarking, day_marking_title: e.target.value})}
+                      placeholder="Marking Title"
+                    />
+                  </div>
+                  <div className="mb-2">
+                    <select
+                      className="w-full border border-gray-300 dark:border-gray-600 rounded px-2 py-1 text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+                      value={updatedMarking.urgency}
+                      onChange={(e) => setUpdatedMarking({...updatedMarking, urgency: e.target.value})}
+                    >
+                      <option value="low">Low Importance</option>
+                      <option value="medium">Medium Importance</option>
+                      <option value="high">High Importance</option>
+                    </select>
+                  </div>
+                  <div className="flex justify-end space-x-2 mt-2">
+                    <button
+                      className="px-3 py-1 bg-gray-200 dark:bg-gray-600 text-gray-800 dark:text-gray-200 rounded text-xs hover:bg-gray-300 dark:hover:bg-gray-500 transition-colors"
+                      onClick={handleCancel}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      className="px-3 py-1 bg-blue-500 hover:bg-blue-600 text-white rounded text-xs transition-colors"
+                      onClick={() => handleSaveMarking(event)}
+                    >
+                      Save
+                    </button>
+                  </div>
+                </div>
+              ) : deleteConfirmId === event.id ? (
+                <div className="delete-confirmation">
+                  <p className="text-sm mb-2 text-gray-700 dark:text-gray-300">
+                    Delete this day marking?
+                  </p>
+                  <div className="flex justify-end space-x-2">
+                    <button
+                      className="px-3 py-1 bg-gray-200 dark:bg-gray-600 text-gray-800 dark:text-gray-200 rounded text-xs hover:bg-gray-300 dark:hover:bg-gray-500 transition-colors"
+                      onClick={handleCancel}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      className="px-3 py-1 bg-red-500 hover:bg-red-600 text-white rounded text-xs transition-colors"
+                      onClick={() => confirmDelete(event.id)}
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex justify-between items-start">
+                  <div className="font-medium text-gray-800 dark:text-gray-200">
+                    {event.extendedProps?.day_marking_title || event.title}
+                  </div>
+                  <div className="flex space-x-1">
+                    <button
+                      className="text-gray-500 hover:text-blue-500 dark:text-gray-400 dark:hover:text-blue-400 transition-colors"
+                      onClick={() => handleEditMarking(event)}
+                      title="Edit"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                      </svg>
+                    </button>
+                    <button
+                      className="text-gray-500 hover:text-red-500 dark:text-gray-400 dark:hover:text-red-400 transition-colors"
+                      onClick={() => handleDeleteMarkingClick(event.id)}
+                      title="Delete"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          ))}
         </div>
+      )}
 
-        <div className="flex-1 flex flex-col">
-          <DayMarkingHighlighter
-            onMarkingsLoaded={handleDayMarkingsLoaded}
-          />
-
-          {/* Custom Header */}
-          <CustomCalendarHeader 
-            calendarRef={calendarRef}
-            currentTitle={currentTitle}
-            onViewChange={onViewChange}
-          />
-
-          {/* Calendar Container */}
-          <div className="flex-1">
-            <FullCalendar
-              ref={calendarRef}
-              plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
-              headerToolbar={false} // Disable the default header
-              initialView="dayGridMonth"
-              editable={!isLoading}
-              selectable={!isLoading}
-              selectMirror={true}
-              dayMaxEvents={true}
-              displayEventEnd={false}
-              events={allEvents}
-              select={handleDateSelect}
-              eventClick={(clickInfo) => {
-                if (clickInfo.event.extendedProps?.event_type === 'marking') {
-                  return;
-                }
-
-                const event = clickInfo.event;
-                const startDate = new Date(event.start!);
-                const endDate = event.end ? new Date(event.end) : startDate;
-
-                const eventEl = clickInfo.el;
-                const rect = eventEl.getBoundingClientRect();
-                const viewportWidth = window.innerWidth;
-                const modalWidth = 400;
-
-                let x = rect.right + 10;
-                if (rect.right + modalWidth + 20 > viewportWidth) {
-                  x = Math.max(10, rect.left - modalWidth - 10);
-                }
-
-                setModalPosition({
-                  x: x + window.scrollX,
-                  y: rect.top + window.scrollY
-                });
-
-                setSelectedEvent({
-                  eventId: event.extendedProps?.originalId || event.id,
-                  event_name: event.title,
-                  date: `${startDate.getFullYear()}-${String(startDate.getMonth() + 1).padStart(2, '0')}-${String(startDate.getDate()).padStart(2, '0')}`,
-                  start_time: startDate.toLocaleTimeString('en-US', {
-                    hour12: false,
-                    hour: '2-digit',
-                    minute: '2-digit',
-                  }),
-                  end_time: endDate.toLocaleTimeString('en-US', {
-                    hour12: false,
-                    hour: '2-digit',
-                    minute: '2-digit',
-                  }),
-                  location: event.extendedProps?.location || '',
-                  virtual: event.extendedProps?.virtual || false,
-                  urgency: event.extendedProps?.urgency || 'medium',
-                  notes: event.extendedProps?.notes || '',
-                  event_type: event.extendedProps?.event_type || '',
-                  category: event.extendedProps?.category || '',
-                  subcategories: event.extendedProps?.subcategories || '',
-                  recurrence_pattern: event.extendedProps?.recurrence_pattern || '',
-                  color: event.backgroundColor || '#3788d8'
-                });
-                setIsModalOpen(true);
+      {regularEvents.length > 0 && (
+        <div>
+          <h4 className="text-sm font-semibold text-gray-600 dark:text-gray-300 mb-1">
+            Events
+          </h4>
+          {regularEvents.map((event) => (
+            <div
+              key={event.id}
+              className="p-3 rounded-md mb-2 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600"
+              style={{
+                borderLeft: `4px solid ${event.backgroundColor}`,
               }}
-              eventDrop={handleEventDrop}
-              height="100%"
-              allDaySlot={false}
-              slotMinTime="00:00:00"
-              slotMaxTime="24:00:00"
-              dayCellDidMount={handleDayCellDidMount}
-              viewDidMount={(viewInfo) => {
-                // Update the title when view changes
-                setCurrentTitle(viewInfo.view.title);
-                if (onViewChange) {
-                  onViewChange(viewInfo.view.type);
-                }
-              }}
-              datesSet={(dateInfo) => {
-                // Update title when dates change (navigation)
-                setCurrentTitle(dateInfo.view.title);
-              }}
-              fixedWeekCount={false}  // This prevents showing extra weeks
-              dayMaxEventRows={3}  // Optional: limits events per day for better spacing
-            />
-            
-          </div>
-
-          {hoveredDay && <DayDetailPopup info={hoveredDay} />}
-
-          {selectedEvent && (
-            <EventModal
-              isOpen={isModalOpen}
-              onClose={() => setIsModalOpen(false)}
-              selectedEvent={{
-                ...selectedEvent,
-                eventId: selectedEvent.eventId || '',
-                start_time: selectedEvent.start_time ?? '',
-                end_time: selectedEvent.end_time ?? ''
-              }}
-              position={modalPosition}
-              onChange={handleEventChange}
-              onSubmit={handleEventSubmit}
-              onDelete={handleDeleteEvent}
-            />
-          )}
+            >
+              {deleteConfirmId === event.id ? (
+                <div className="delete-confirmation">
+                  <p className="text-sm mb-2 text-gray-700 dark:text-gray-300">
+                    Delete this event?
+                  </p>
+                  <div className="flex justify-end space-x-2">
+                    <button
+                      className="px-3 py-1 bg-gray-200 dark:bg-gray-600 text-gray-800 dark:text-gray-200 rounded text-xs hover:bg-gray-300 dark:hover:bg-gray-500 transition-colors"
+                      onClick={handleCancel}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      className="px-3 py-1 bg-red-500 hover:bg-red-600 text-white rounded text-xs transition-colors"
+                      onClick={() => confirmDelete(event.id)}
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div>
+                  <div className="flex justify-between items-start">
+                    <div className="font-medium text-gray-800 dark:text-gray-200">
+                      {event.title}
+                    </div>
+                    <button
+                      className="text-gray-500 hover:text-red-500 dark:text-gray-400 dark:hover:text-red-400 ml-2 transition-colors"
+                      onClick={() => setDeleteConfirmId(event.id)}
+                      title="Delete Event"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                    </button>
+                  </div>
+                  <div className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                    {new Date(event.start!).toLocaleTimeString('en-US', {
+                      hour: 'numeric',
+                      minute: '2-digit'
+                    })}
+                    {event.end && ` - ${new Date(event.end).toLocaleTimeString('en-US', {
+                      hour: 'numeric',
+                      minute: '2-digit'
+                    })}`}
+                  </div>
+                  {event.extendedProps?.location && (
+                    <div className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                      📍 {event.extendedProps.location}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          ))}
         </div>
-      </div>
+      )}
     </div>
   );
 };
 
+const allEvents = [
+  ...(currentEvents || []).map(event => ({
+    id: event.id,
+    title: event.title,
+    start: event.start ? new Date(event.start).toISOString() : undefined,
+    end: event.end ? new Date(event.end).toISOString() : undefined,
+    backgroundColor: event.backgroundColor,
+    borderColor: event.borderColor,
+    extendedProps: event.extendedProps,
+  })),
+  ...(Array.isArray(dayMarkings) ? dayMarkings : [])
+];
+
+return (
+  <div className='big-container'>
+    <div className="flex h-screen">
+      <div className="w-[306px]">
+        {/* Your existing sidebar content */}
+      </div>
+
+      <div className="flex-1 flex flex-col">
+        <DayMarkingHighlighter
+          onMarkingsLoaded={handleDayMarkingsLoaded}
+        />
+
+        {/* Custom Header */}
+        <CustomCalendarHeader 
+          calendarRef={calendarRef}
+          currentTitle={currentTitle}
+          onViewChange={onViewChange}
+        />
+
+        {/* Calendar Container */}
+        <div className="flex-1">
+          <FullCalendar
+            ref={calendarRef}
+            plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
+            headerToolbar={false}
+            initialView="dayGridMonth"
+            editable={!isLoading}
+            selectable={!isLoading}
+            selectMirror={true}
+            dayMaxEvents={true}
+            displayEventEnd={false}
+            events={allEvents}
+            select={handleDateSelect}
+            eventClick={(clickInfo) => {
+              if (clickInfo.event.extendedProps?.event_type === 'marking') {
+                return;
+              }
+
+              const event = clickInfo.event;
+              const startDate = new Date(event.start!);
+              const endDate = event.end ? new Date(event.end) : startDate;
+
+              const eventEl = clickInfo.el;
+              const rect = eventEl.getBoundingClientRect();
+              const viewportWidth = window.innerWidth;
+              const modalWidth = 400;
+
+              let x = rect.right + 10;
+              if (rect.right + modalWidth + 20 > viewportWidth) {
+                x = Math.max(10, rect.left - modalWidth - 10);
+              }
+
+              setModalPosition({
+                x: x + window.scrollX,
+                y: rect.top + window.scrollY
+              });
+
+              setSelectedEvent({
+                eventId: event.extendedProps?.originalId || event.id,
+                event_name: event.title,
+                date: `${startDate.getFullYear()}-${String(startDate.getMonth() + 1).padStart(2, '0')}-${String(startDate.getDate()).padStart(2, '0')}`,
+                start_time: startDate.toLocaleTimeString('en-US', {
+                  hour12: false,
+                  hour: '2-digit',
+                  minute: '2-digit',
+                }),
+                end_time: endDate.toLocaleTimeString('en-US', {
+                  hour12: false,
+                  hour: '2-digit',
+                  minute: '2-digit',
+                }),
+                location: event.extendedProps?.location || '',
+                virtual: event.extendedProps?.virtual || false,
+                urgency: event.extendedProps?.urgency || 'medium',
+                notes: event.extendedProps?.notes || '',
+                event_type: event.extendedProps?.event_type || '',
+                category: event.extendedProps?.category || '',
+                subcategories: event.extendedProps?.subcategories || '',
+                recurrence_pattern: event.extendedProps?.recurrence_pattern || '',
+                color: event.backgroundColor || '#3788d8'
+              });
+              setIsModalOpen(true);
+            }}
+            eventDrop={handleEventDrop}
+            height="100%"
+            allDaySlot={false}
+            slotMinTime="00:00:00"
+            slotMaxTime="24:00:00"
+            dayCellDidMount={handleDayCellDidMount}
+            viewDidMount={(viewInfo) => {
+              setCurrentTitle(viewInfo.view.title);
+              if (onViewChange) {
+                onViewChange(viewInfo.view.type);
+              }
+            }}
+            datesSet={(dateInfo) => {
+              setCurrentTitle(dateInfo.view.title);
+            }}
+            fixedWeekCount={false}
+            dayMaxEventRows={3}
+          />
+        </div>
+
+        {hoveredDay && <DayDetailPopup info={hoveredDay} />}
+
+        {selectedEvent && (
+          <EventModal
+            isOpen={isModalOpen}
+            onClose={() => setIsModalOpen(false)}
+            selectedEvent={{
+              ...selectedEvent,
+              eventId: selectedEvent.eventId || '',
+              start_time: selectedEvent.start_time ?? '',
+              end_time: selectedEvent.end_time ?? ''
+            }}
+            position={modalPosition}
+            onChange={handleEventChange}
+            onSubmit={handleEventSubmit}
+            onDelete={handleDeleteEvent}
+          />
+        )}
+      </div>
+    </div>
+  </div>
+);
+}
 export default Calendar;
