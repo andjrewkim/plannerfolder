@@ -141,12 +141,11 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange, onViewChange, refres
       
       let initialDate = null;
       if (dateFromUrl) {
-        const parsedDate = new Date(dateFromUrl);
+        const parsedDate = new Date(dateFromUrl + 'T12:00:00'); // 💡 Force into middle of day
         if (!isNaN(parsedDate.getTime())) {
           initialDate = parsedDate;
         }
       }
-      
       // Set both state and mark as initialized atomically
       setCurrentView(initialView);
       if (initialDate) {
