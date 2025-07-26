@@ -121,7 +121,6 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange, onViewChange, refres
     'day': 'timeGridDay'
   } as const;
 
-  // Initialize view from URL or localStorage only once
   useEffect(() => {
     if (typeof window !== 'undefined' && !hasInitialized) {
       const urlParams = new URLSearchParams(window.location.search);
@@ -140,18 +139,22 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange, onViewChange, refres
         }
       }
       
-      setCurrentView(initialView);
-      
+      let initialDate = null;
       if (dateFromUrl) {
         const parsedDate = new Date(dateFromUrl);
         if (!isNaN(parsedDate.getTime())) {
-          setCurrentDate(parsedDate);
+          initialDate = parsedDate;
         }
       }
       
+      // Set both state and mark as initialized atomically
+      setCurrentView(initialView);
+      if (initialDate) {
+        setCurrentDate(initialDate);
+      }
       setHasInitialized(true);
     }
-  }, [hasInitialized]);
+  }, []); // Remove hasInitialized dependency
 
   // Update URL when view changes (but not from FullCalendar events)
   useEffect(() => {
@@ -966,11 +969,13 @@ return (
         <CustomCalendarHeader 
           calendarRef={calendarRef}
           currentTitle={currentTitle}
+          currentView={currentView}
           onViewChange={onViewChange}
         />
 
         {/* Calendar Container */}
         <div className="flex-1">
+          {hasInitialized && (
           <FullCalendar
             ref={calendarRef}
             plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
@@ -1066,6 +1071,8 @@ return (
               
               if (newView !== currentView) {
                 setCurrentView(newView);
+                // Notify parent component about view change
+                if (onViewChange) onViewChange(newView);
               }
               if (Math.abs(newDate.getTime() - (currentDate?.getTime() || 0)) > 24 * 60 * 60 * 1000) {
                 setCurrentDate(newDate);
@@ -1075,6 +1082,7 @@ return (
             dayMaxEventRows={3}
             eventOrder="start,-duration,title"
           />
+          )}
         </div>
 
         {hoveredDay && !isModalOpen && (

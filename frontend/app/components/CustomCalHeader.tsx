@@ -18,15 +18,16 @@ interface CalendarRef {
 interface CustomCalendarHeaderProps {
   calendarRef: RefObject<CalendarRef | null>;
   currentTitle: string;
+  currentView: string; // Add this prop
   onViewChange?: (view: string) => void;
 }
 
 const CustomCalendarHeader: React.FC<CustomCalendarHeaderProps> = ({ 
   calendarRef, 
-  currentTitle, 
+  currentTitle,
+  currentView, // Use this instead of internal state
   onViewChange 
 }) => {
-  const [activeView, setActiveView] = useState<string>('dayGridMonth');
   const [isAnimating, setIsAnimating] = useState<boolean>(false);
 
   const handlePrevious = (): void => {
@@ -56,7 +57,6 @@ const CustomCalendarHeader: React.FC<CustomCalendarHeaderProps> = ({
   const handleViewChange = (view: string): void => {
     if (calendarRef.current) {
       calendarRef.current.getApi().changeView(view);
-      setActiveView(view);
     }
     if (onViewChange) {
       onViewChange(view);
@@ -138,14 +138,14 @@ const CustomCalendarHeader: React.FC<CustomCalendarHeaderProps> = ({
             <div 
               className="slider-indicator"
               style={{
-                transform: `translateX(${viewOptions.findIndex(v => v.key === activeView) * 100}%)`
+                transform: `translateX(${viewOptions.findIndex(v => v.key === currentView) * 100}%)`
               }}
             ></div>
             {viewOptions.map((view: ViewOption) => (
               <button
                 key={view.key}
                 onClick={() => handleViewChange(view.key)}
-                className={`view-btn ${activeView === view.key ? 'active' : ''}`}
+                className={`view-btn ${currentView === view.key ? 'active' : ''}`}
               >
                 <span className="view-icon">{view.icon}</span>
                 <span className="view-label">{view.label}</span>
