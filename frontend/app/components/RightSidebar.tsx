@@ -303,10 +303,10 @@ return (
                   }`}
                   style={{
                     backgroundColor: message.sender === 'user' 
-                      ? 'hsl(var(--primary))' 
-                      : 'hsl(var(--muted))',
+                      ? 'hsl(var(--muted))' 
+                      : 'hsl(var(--muted) / 0.6)',
                     color: message.sender === 'user' 
-                      ? 'hsl(var(--primary-foreground))' 
+                      ? 'hsl(var(--foreground))' 
                       : 'hsl(var(--foreground))'
                   }}
                 >
@@ -389,17 +389,19 @@ return (
             className="p-4 border-t"
             style={{
               backgroundColor: 'hsl(var(--muted) / 0.3)',
-              borderTopColor: 'hsl(var(--border))'
+              borderTopColor: 'hsl(var(--border))',
+              overflow: 'hidden',
+              maxHeight: '200px'
             }}
           >
-            <div className="flex gap-2">
+            <div className="flex gap-2 overflow-hidden">
               <textarea
                 value={inputMessage}
                 onChange={(e) => setInputMessage(e.target.value)}
                 onKeyPress={handleKeyPress}
                 placeholder="Ask me about your calendar..."
                 disabled={isTyping || !!error}
-                className="flex-1 p-3 border rounded-lg resize-none focus:outline-none focus:ring-2 focus:border-transparent disabled:cursor-not-allowed"
+                className="flex-1 p-3 border rounded-lg resize-none focus:outline-none focus:border-transparent disabled:cursor-not-allowed"
                 style={{
                   borderColor: 'hsl(var(--border))',
                   backgroundColor: 'hsl(var(--background))',
@@ -416,7 +418,7 @@ return (
                 style={{
                   backgroundColor: !inputMessage.trim() || isTyping || !!error 
                     ? 'hsl(var(--muted))' 
-                    : 'hsl(var(--primary))',
+                    : '#1A73E8',
                   color: !inputMessage.trim() || isTyping || !!error 
                     ? 'hsl(var(--muted-foreground))' 
                     : 'hsl(var(--primary-foreground))',

@@ -7,6 +7,15 @@ body {
 
 }
 
+textarea {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none;  /* IE/Edge */
+}
+
+textarea::-webkit-scrollbar {
+  display: none; /* Chrome/Safari */
+}
+
 /* Defining custom properties (CSS variables) for light mode */
 @layer base {
 
