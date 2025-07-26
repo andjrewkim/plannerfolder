@@ -228,7 +228,6 @@
 }
 
 
-
 /* Month View Events - Enhanced bubbles */
 .fc-daygrid-event {
   background: linear-gradient(135deg, hsl(var(--muted) / 0.8) 0%, hsl(var(--muted) / 0.6) 100%);
@@ -260,75 +259,34 @@
   color: hsl(var(--foreground));
 }
 
-/* Week/Day View Events - Enhanced bars */
-.fc-timegrid-event {
-  background: linear-gradient(135deg, hsl(var(--card)) 0%, hsl(var(--card) / 0.95) 100%) !important;
-  color: hsl(var(--card-foreground)) !important;
-  border: 1px solid hsl(var(--darker-border) / 0.4) !important;
-  border-left: 4px solid hsl(var(--primary)) !important;
-  border-radius: 6px !important;
-  padding: 6px 10px !important;
-  font-size: 14px !important;
-  font-weight: 500 !important;
-
-  cursor: pointer !important;
-  position: relative !important;
-  overflow: hidden !important;
-  margin: 2px !important;
-  
-  box-shadow: 
-    0 2px 4px -1px hsl(var(--foreground) / 0.1) !important,
-    0 4px 8px -2px hsl(var(--foreground) / 0.05) !important;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
-}
-
-.fc-timegrid-event:hover {
-  background: linear-gradient(135deg, hsl(var(--muted) / 0.3) 0%, hsl(var(--muted) / 0.1) 100%) !important;
-  border-left-color: hsl(var(--primary) / 0.9) !important;
-  transform: translateX(3px) translateY(-1px) !important;
-  box-shadow: 
-    0 4px 8px -1px hsl(var(--foreground) / 0.15) !important,
-    0 8px 16px -4px hsl(var(--foreground) / 0.1) !important;
-}
-
-.fc-timegrid-event{
-  font-weight: 500;
-  line-height: 1.4;
-  font-family: 'Inter', sans-serif;
-
-
-  color: hsl(var(--card-foreground));
-}
-
-.fc-event-title {
-  font-weight: 500 !important;
-  font-size: 12px;
-  font-family: 'Segoe UI', sans-serif;
-  position: relative;
-  filter:invert(1);
-  color: hsl(var(--calendar-background));
-  margin-top: -2px;
-}
 
 
 
 
-.fc-timegrid-event .fc-event-time {
-  font-size: 12px;
-  color: hsl(var(--muted-foreground));
-  font-weight: 400;
-}
 
-/* All-day events in week view */
-.fc-timegrid-event.fc-event-start.fc-event-end {
-  background: linear-gradient(135deg, hsl(var(--primary) / 0.1) 0%, hsl(var(--primary) / 0.05) 100%) !important;
-  border-left: 4px solid hsl(var(--primary)) !important;
-  color: hsl(var(--foreground)) !important;
-}
 
-.fc-timegrid-event.fc-event-start.fc-event-end:hover {
-  background: linear-gradient(135deg, hsl(var(--primary) / 0.15) 0%, hsl(var(--primary) / 0.08) 100%) !important;
-}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 /* Time grid slots - Enhanced */
 .fc-timegrid-slot {
@@ -523,4 +481,188 @@
   background: linear-gradient(135deg, hsl(var(--chart-5) / 0.15) 0%, hsl(var(--chart-5) / 0.08) 100%);
   border-left: 4px solid hsl(var(--chart-5)) !important;
   border-color: hsl(var(--chart-5) / 0.3) !important;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/* Week/Day View Events - Enhanced Frosted Glass (Safe for FullCalendar) */
+.fc-timegrid-event {
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  /* Base glass effect - colors will be set via JavaScript */
+  backdrop-filter: blur(3px) saturate(160%);
+  -webkit-backdrop-filter: blur(3px) saturate(160%);
+  box-shadow: 
+    0 4px 12px rgba(0, 0, 0, 0.08),
+    0 2px 4px rgba(0, 0, 0, 0.05),
+    inset 0 1px 1px rgba(255, 255, 255, 0.1);
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Frosted glass overlay with shine effect */
+.fc-timegrid-event::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.12) 0%,
+    rgba(255, 255, 255, 0.03) 30%,
+    rgba(255, 255, 255, 0.08) 70%,
+    rgba(255, 255, 255, 0.15) 100%
+  );
+  pointer-events: none;
+  z-index: 1;
+  border-radius: inherit;
+  opacity: 0.8;
+}
+
+/* Inner depth shadow */
+.fc-timegrid-event::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.06);
+  pointer-events: none;
+  z-index: 1;
+  border-radius: inherit;
+}
+
+/* Content container - DON'T override FullCalendar's layout properties */
+.fc-timegrid-event .fc-event-main {
+  position: relative;
+  z-index: 3;
+  padding: 6px 8px;
+  /* Let FullCalendar handle height, display, and flex properties */
+}
+
+/* Enhanced hover state */
+.fc-timegrid-event:hover {
+  backdrop-filter: blur(16px) saturate(180%) brightness(105%);
+  -webkit-backdrop-filter: blur(16px) saturate(180%) brightness(105%);
+  transform: translateY(-1px) scale(1.008);
+  box-shadow: 
+    0 8px 20px rgba(0, 0, 0, 0.12),
+    0 4px 8px rgba(0, 0, 0, 0.08),
+    inset 0 1px 2px rgba(255, 255, 255, 0.15);
+}
+
+.fc-timegrid-event:hover::before {
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.18) 0%,
+    rgba(255, 255, 255, 0.05) 30%,
+    rgba(255, 255, 255, 0.12) 70%,
+    rgba(255, 255, 255, 0.22) 100%
+  );
+  opacity: 0.9;
+}
+
+/* Event title styling - use consistent foreground color */
+.fc-timegrid-event .fc-event-title {
+  font-weight: 600;
+  font-size: 12px;
+  line-height: 1.3;
+  position: relative;
+  z-index: 4;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+  color: hsl(var(--foreground)) !important;
+}
+
+/* Event time styling - use consistent foreground color */
+.fc-timegrid-event .fc-event-time {
+  font-size: 11px;
+  font-weight: 500;
+  position: relative;
+  z-index: 4;
+  opacity: 0.9;
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.08);
+  color: hsl(var(--foreground)) !important;
+}
+
+/* Month view and all other event text consistency */
+.fc-event-title {
+  color: hsl(var(--foreground)) !important;
+}
+
+.fc-event-time {
+  color: hsl(var(--foreground)) !important;
+}
+
+/* All event text elements should use foreground color */
+.fc-event .fc-event-main {
+  color: hsl(var(--foreground)) !important;
+}
+
+/* Multi-day and all-day events in time grid */
+.fc-timegrid-event.fc-event-mirror {
+  opacity: 0.8;
+}
+
+/* Selected/Active state */
+.fc-timegrid-event.fc-event-selected {
+  box-shadow: 
+    0 0 0 2px rgba(255, 255, 255, 0.3),
+    0 8px 20px rgba(0, 0, 0, 0.15),
+    inset 0 1px 2px rgba(255, 255, 255, 0.2);
+}
+
+/* Resizing handles */
+.fc-timegrid-event .fc-event-resizer {
+  background: rgba(255, 255, 255, 0.3);
+  border: none;
+  border-radius: 2px;
+  height: 4px;
+  z-index: 5;
+}
+
+.fc-timegrid-event .fc-event-resizer:hover {
+  background: rgba(255, 255, 255, 0.5);
 }
