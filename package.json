@@ -1,6 +1,8 @@
 {
   "dependencies": {
     "axios": "^1.7.9",
-    "chrono-node": "^2.8.3"
+    "chrono-node": "^2.8.3",
+    "framer-motion": "^12.23.9",
+    "react-parallax-tilt": "^1.7.301"
   }
 }

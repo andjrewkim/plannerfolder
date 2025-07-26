@@ -69,7 +69,7 @@ body {
 /* Apply Tailwind utilities globally */
 @layer base {
   body {
-    @apply bg-background;
+    @apply bg-background text-foreground;
   }
 }
 
