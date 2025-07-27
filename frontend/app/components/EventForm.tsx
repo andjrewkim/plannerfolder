@@ -27,6 +27,20 @@ interface EventFormProps {
 
 }
 
+
+const recurrenceOptions = [
+  { value: 'none', label: "Doesn't repeat" },
+  { value: 'daily', label: 'Every day' },
+  { value: 'every_other_day', label: 'Every other day' },
+  { value: 'weekdays', label: 'Weekdays only (Mon-Fri)' },
+  { value: 'weekends', label: 'Weekends only (Sat-Sun)' },
+  { value: 'weekly', label: 'Every week' },
+  { value: 'every_other_week', label: 'Every other week' },
+  { value: 'monthly', label: 'Every month' },
+  { value: 'yearly', label: 'Every year' }
+];
+
+
 const EventForm: React.FC<EventFormProps> = ({ setResult, setError, onEventResult }) => {
   const [inputText, setInputText] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -51,6 +65,27 @@ const EventForm: React.FC<EventFormProps> = ({ setResult, setError, onEventResul
   const getTodayDate = (): string => {
     const today = new Date();
     return today.toISOString().split('T')[0];
+  };
+
+  // Helper function to apply default values for missing data
+  const applyDefaults = (data: any): EventData => {
+    const todayDate = getTodayDate();
+    
+    return {
+      ...data,
+      // Set default date to today if missing or invalid
+      date: data.date && data.date.trim() !== '' ? data.date : todayDate,
+      // Set default times to 09:00 (9 AM) if missing - more user-friendly than 00:00
+      start_time: data.start_time && data.start_time.trim() !== '' ? data.start_time : "09:00",
+      end_time: data.end_time && data.end_time.trim() !== '' ? data.end_time : "10:00",
+      // Ensure other required fields have defaults
+      event_name: data.event_name || '',
+      location: data.location || '',
+      event_type: data.event_type || 'event',
+      recurrence_pattern: data.recurrence_pattern || '',
+      color: data.color || '#1A73E8',
+      is_all_day: data.is_all_day || false
+    };
   };
 
   // Helper function to convert simple recurrence options to RRule strings
@@ -157,20 +192,23 @@ const EventForm: React.FC<EventFormProps> = ({ setResult, setError, onEventResul
       // Determine if this is a task
       const isTask = data.type === 'task' || data.event_type === 'task';
       
-      // Process the data
-      const processedData = {
+      // Process the data with defaults applied
+      let processedData = {
         ...data,
         is_all_day: !data.start_time || !data.end_time || false,
         recurrence_pattern: processedRecurrence,
         event_type: isTask ? 'task' : (data.event_type || 'event')
       };
       
-      // Set default times to 00:00 when no time info is available
-      if (!processedData.start_time) processedData.start_time = "00:00";
-      if (!processedData.end_time && !isTask) processedData.end_time = "00:00";
-      if (isTask && !processedData.end_time) processedData.end_time = "";
+      // Apply defaults for missing data
+      processedData = applyDefaults(processedData);
       
-      // Format date
+      // Handle task-specific logic
+      if (isTask && !processedData.end_time) {
+        processedData.end_time = "";
+      }
+      
+      // Format date if it includes time
       if (processedData.date && processedData.date.includes('T')) {
         processedData.date = processedData.date.split('T')[0];
       }
@@ -205,9 +243,9 @@ const EventForm: React.FC<EventFormProps> = ({ setResult, setError, onEventResul
         const formattedData = { ...editedEventData };
         
         if (editedEventData.event_type === 'task') {
-          formattedData.start_time = "00:00";
+          formattedData.start_time = "09:00";
           if (!formattedData.end_time) {
-            formattedData.end_time = "00:00";
+            formattedData.end_time = "09:00";
           }
           formattedData.type = 'task';
           formattedData.location = '';
@@ -310,7 +348,7 @@ const EventForm: React.FC<EventFormProps> = ({ setResult, setError, onEventResul
         updatedData.recurrence_pattern = '';
       } else if (newType === 'event') {
         if (!updatedData.end_time) {
-          updatedData.end_time = "00:00";
+          updatedData.end_time = "10:00";
         }
       }
       
@@ -327,11 +365,17 @@ const EventForm: React.FC<EventFormProps> = ({ setResult, setError, onEventResul
       };
       
       if (newValue) {
+        // For all-day events, set times to 00:00
+        updatedData.start_time = "00:00";
+        updatedData.end_time = "00:00";
         updatedData.day_marking_title = editedEventData.event_name;
         updatedData.event_type = 'marking';
       } else {
         updatedData.day_marking_title = '';
         updatedData.event_type = 'event';
+        // Set default times to 9:00 AM and 10:00 AM when switching back from all-day
+        updatedData.start_time = "09:00";
+        updatedData.end_time = "10:00";
       }
       
       setEditedEventData(updatedData);
@@ -355,7 +399,6 @@ const EventForm: React.FC<EventFormProps> = ({ setResult, setError, onEventResul
 
 
 
-  
 return (
     <div className="event-form-container" style={{ padding: '4px' }}>
       {/* Input Field - Only show when not showing details */}
@@ -593,7 +636,7 @@ return (
                   type="date"
                   value={editedEventData.date || ''}
                   onChange={(e) => handleEdit('date', e.target.value)}
-                  className="detail-input"
+                  className="detail-input date-input"
                   style={{
                     flex: 1,
                     padding: '2px 4px',
@@ -604,7 +647,7 @@ return (
                     margin: 0,
                     backgroundColor: 'hsl(var(--input-field-bg))',
                     color: 'hsl(var(--text-color))',
-                    colorScheme: 'hsl(var(--color-scheme))'
+                    colorScheme: 'dark'
                   }}
                 />
               </div>
@@ -647,12 +690,13 @@ return (
                     gap: '4px', 
                     padding: '4px'
                   }}>
-                    <Clock size={14} color="hsl(var(--icon-color))" />
+                    <Clock size={14} color="hsl(var(--border))" />
                     <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flex: 1 }}>
                       <input
                         type="time"
                         value={editedEventData.start_time || ''}
                         onChange={(e) => handleEdit('start_time', e.target.value)}
+                        className="time-input"
                         style={{
                           padding: '2px 4px',
                           border: '1px solid hsl(var(--border))',
@@ -662,7 +706,7 @@ return (
                           minHeight: '20px',
                           backgroundColor: 'hsl(var(--input-field-bg))',
                           color: 'hsl(var(--text-color))',
-                          colorScheme: 'hsl(var(--color-scheme))'
+                          colorScheme: 'dark'
                         }}
                       />
                       <span style={{ color: 'hsl(var(--text-muted))', fontSize: '12px' }}>to</span>
@@ -670,6 +714,7 @@ return (
                         type="time"
                         value={editedEventData.end_time || ''}
                         onChange={(e) => handleEdit('end_time', e.target.value)}
+                        className="time-input"
                         style={{
                           padding: '2px 4px',
                           border: '1px solid hsl(var(--border))',
@@ -679,7 +724,7 @@ return (
                           minHeight: '20px',
                           backgroundColor: 'hsl(var(--input-field-bg))',
                           color: 'hsl(var(--text-color))',
-                          colorScheme: 'hsl(var(--color-scheme))'
+                          colorScheme: 'dark'
                         }}
                       />
                     </div>
@@ -693,10 +738,11 @@ return (
                   gap: '4px', 
                   padding: '4px'
                 }}>
-                  <Repeat size={14} color="hsl(var(--icon-color))" />
+                  <Repeat size={14} color="hsl(var(--border))" />
                   <select
                     value={getRecurrenceDisplayValue()}
                     onChange={(e) => handleSimpleRecurrenceChange(e.target.value)}
+                    className="recurrence-select"
                     style={{
                       flex: 1,
                       padding: '2px 4px',
@@ -746,24 +792,6 @@ return (
                 fontWeight: '500'
               }}
             >
-              Cancel
-            </button>
-            <button 
-              onClick={handleConfirm} 
-              className="confirm-button"
-              disabled={isSubmitting}
-              style={{
-                padding: '4px 10px',
-                border: 'none',
-                borderRadius: '2px',
-                backgroundColor: 'hsl(var(--accent-foreground)/0.2)',
-                color: 'hsl(var(--primary-text))',
-                cursor: 'pointer',
-                fontSize: '12px',
-                minHeight: '24px',
-                fontWeight: '500'
-              }}
-            >
               {isSubmitting ? 'Saving...' : `Create ${editedEventData.event_type === 'task' ? 'Task' : 'Event'}`}
             </button>
           </div>
@@ -771,7 +799,7 @@ return (
         );
       })()}
 
-      {/* Add global styles for animations */}
+      {/* Add global styles for animations and date/time picker styling */}
       <style dangerouslySetInnerHTML={{
         __html: `
           @keyframes spin {
@@ -783,6 +811,127 @@ return (
             0%, 100% { transform: translateX(0); }
             25% { transform: translateX(-5px); }
             75% { transform: translateX(5px); }
+          }
+
+          /* Date and Time picker icon styling with transparent background */
+          .date-input::-webkit-calendar-picker-indicator,
+          .time-input::-webkit-calendar-picker-indicator {
+            background: transparent !important;
+            border: none !important;
+            cursor: pointer;
+            opacity: 0.8;
+            padding: 2px;
+            border-radius: 2px;
+            transition: opacity 0.2s;
+          }
+
+          .date-input::-webkit-calendar-picker-indicator:hover,
+          .time-input::-webkit-calendar-picker-indicator:hover {
+            opacity: 1;
+          }
+
+          /* Custom SVG icons for date and time pickers */
+          .date-input::-webkit-calendar-picker-indicator {
+            background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23ffffff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3crect x='3' y='4' width='18' height='18' rx='2' ry='2'%3e%3c/rect%3e%3cline x1='16' y1='2' x2='16' y2='6'%3e%3c/line%3e%3cline x1='8' y1='2' x2='8' y2='6'%3e%3c/line%3e%3cline x1='3' y1='10' x2='21' y2='10'%3e%3c/line%3e%3c/svg%3e") !important;
+            background-repeat: no-repeat !important;
+            background-position: center !important;
+            background-size: 14px 14px !important;
+            width: 16px !important;
+            height: 16px !important;
+          }
+
+          .time-input::-webkit-calendar-picker-indicator {
+            background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23ffffff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3ccircle cx='12' cy='12' r='10'%3e%3c/circle%3e%3cpolyline points='12,6 12,12 16,14'%3e%3c/polyline%3e%3c/svg%3e") !important;
+            background-repeat: no-repeat !important;
+            background-position: center !important;
+            background-size: 14px 14px !important;
+            width: 16px !important;
+            height: 16px !important;
+          }
+
+          /* Enhanced select dropdown styling for dark mode */
+          .recurrence-select {
+            appearance: none;
+            background-color: hsl(var(--input-field-bg)) !important;
+            color: hsl(var(--text-color)) !important;
+            border: 1px solid hsl(var(--border)) !important;
+            background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23ffffff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6,9 12,15 18,9'%3e%3c/polyline%3e%3c/svg%3e");
+            background-repeat: no-repeat;
+            background-position: right 4px center;
+            background-size: 16px;
+            padding-right: 24px;
+          }
+
+          /* Force dark mode for select options */
+          .recurrence-select option {
+            background-color: #1a1a1a !important;
+            color: #ffffff !important;
+            padding: 8px !important;
+          }
+
+          .recurrence-select option:checked,
+          .recurrence-select option:hover {
+            background-color: #333333 !important;
+            color: #ffffff !important;
+          }
+
+          /* Firefox specific styles */
+          @-moz-document url-prefix() {
+            .recurrence-select {
+              background: hsl(var(--input-field-bg)) !important;
+              color: hsl(var(--text-color)) !important;
+            }
+            
+            .recurrence-select option {
+              background-color: #1a1a1a !important;
+              color: #ffffff !important;
+            }
+          }
+
+          .recurrence-select:hover {
+            border-color: hsl(var(--border));
+            background-color: hsl(var(--input-field-bg)) !important;
+          }
+
+          .recurrence-select:focus {
+            outline: none;
+            border-color: hsl(var(--accent-foreground));
+            box-shadow: 0 0 0 1px hsl(var(--accent-foreground)/0.2);
+            background-color: hsl(var(--input-field-bg)) !important;
+          }
+
+          /* Dark theme calendar and time picker popup styling */
+          input[type="date"]::-webkit-datetime-edit,
+          input[type="time"]::-webkit-datetime-edit {
+            color: hsl(var(--text-color));
+          }
+
+          input[type="date"]::-webkit-datetime-edit-fields-wrapper,
+          input[type="time"]::-webkit-datetime-edit-fields-wrapper {
+            background: hsl(var(--input-field-bg));
+          }
+
+          input[type="date"]::-webkit-datetime-edit-text,
+          input[type="time"]::-webkit-datetime-edit-text {
+            color: hsl(var(--text-muted));
+            padding: 0 1px;
+          }
+
+          input[type="date"]::-webkit-datetime-edit-month-field,
+          input[type="date"]::-webkit-datetime-edit-day-field,
+          input[type="date"]::-webkit-datetime-edit-year-field,
+          input[type="time"]::-webkit-datetime-edit-hour-field,
+          input[type="time"]::-webkit-datetime-edit-minute-field {
+            color: hsl(var(--text-color));
+          }
+
+          input[type="date"]::-webkit-datetime-edit-month-field:focus,
+          input[type="date"]::-webkit-datetime-edit-day-field:focus,
+          input[type="date"]::-webkit-datetime-edit-year-field:focus,
+          input[type="time"]::-webkit-datetime-edit-hour-field:focus,
+          input[type="time"]::-webkit-datetime-edit-minute-field:focus {
+            background-color: hsl(var(--accent-foreground)/0.1);
+            color: hsl(var(--text-color));
           }
         `
       }} />
