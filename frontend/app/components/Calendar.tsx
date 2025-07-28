@@ -57,7 +57,75 @@ function hexToHSL(hex) {
   };
 }
 
+// Helper functions to save and restore scroll position (moved to top, single definition)
+const saveScrollPosition = (calendarRef: React.RefObject<FullCalendar>) => {
+  const calendar = calendarRef.current;
+  if (!calendar) return null;
+  
+  const calendarApi = calendar.getApi();
+  const view = calendarApi.view;
+  
+  // Find the scrollable container based on the view type
+  let scrollContainer: HTMLElement | null = null;
+  
+  if (view.type === 'timeGridWeek' || view.type === 'timeGridDay') {
+    // For time grid views, find the scroll container
+    const calendarEl = calendar.elRef.current;
+    if (calendarEl) {
+      scrollContainer = calendarEl.querySelector('.fc-scroller-liquid-absolute') as HTMLElement;
+      if (!scrollContainer) {
+        scrollContainer = calendarEl.querySelector('.fc-scroller') as HTMLElement;
+      }
+      if (!scrollContainer) {
+        scrollContainer = calendarEl.querySelector('.fc-timegrid-body') as HTMLElement;
+      }
+    }
+  }
+  
+  if (scrollContainer) {
+    return {
+      scrollTop: scrollContainer.scrollTop,
+      scrollLeft: scrollContainer.scrollLeft
+    };
+  }
+  
+  return null;
+};
 
+const restoreScrollPosition = (calendarRef: React.RefObject<FullCalendar>, scrollPos: { scrollTop: number; scrollLeft: number } | null) => {
+  if (!scrollPos) return;
+  
+  const calendar = calendarRef.current;
+  if (!calendar) return;
+  
+  const calendarApi = calendar.getApi();
+  const view = calendarApi.view;
+  
+  // Use multiple RAF to ensure calendar is fully rendered
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      let scrollContainer: HTMLElement | null = null;
+      
+      if (view.type === 'timeGridWeek' || view.type === 'timeGridDay') {
+        const calendarEl = calendar.elRef.current;
+        if (calendarEl) {
+          scrollContainer = calendarEl.querySelector('.fc-scroller-liquid-absolute') as HTMLElement;
+          if (!scrollContainer) {
+            scrollContainer = calendarEl.querySelector('.fc-scroller') as HTMLElement;
+          }
+          if (!scrollContainer) {
+            scrollContainer = calendarEl.querySelector('.fc-timegrid-body') as HTMLElement;
+          }
+        }
+      }
+      
+      if (scrollContainer) {
+        scrollContainer.scrollTop = scrollPos.scrollTop;
+        scrollContainer.scrollLeft = scrollPos.scrollLeft;
+      }
+    });
+  });
+};
 
 interface EventDetails {
   id?: string;
@@ -271,15 +339,23 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange, onViewChange, refres
 
   const fetchEvents = useCallback(async (preserveView: boolean = false) => {
     try {
-      // Save current view state before fetching
-      const calendar = calendarRef.current;
+      // Save scroll position ONLY for time grid views and ONLY if preserving view
+      let scrollPos = null;
+      if (preserveView && currentView && (currentView === 'timeGridWeek' || currentView === 'timeGridDay')) {
+        scrollPos = saveScrollPosition(calendarRef);
+      }
+
+      // Save current view state before fetching (only if preserving)
       let savedView = currentView;
       let savedDate = currentDate;
       
-      if (preserveView && calendar) {
-        const calendarApi = calendar.getApi();
-        savedView = calendarApi.view.type;
-        savedDate = calendarApi.getDate();
+      if (preserveView) {
+        const calendar = calendarRef.current;
+        if (calendar) {
+          const calendarApi = calendar.getApi();
+          savedView = calendarApi.view.type;
+          savedDate = calendarApi.getDate();
+        }
       }
 
       const response = await authAPI.authenticatedFetch(`${process.env.NEXT_PUBLIC_API_URL}/api/events/`);
@@ -312,27 +388,34 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange, onViewChange, refres
 
       setCurrentEvents(formattedEvents);
       
-      // Restore view state after events are loaded
-      if (preserveView && calendar && savedDate) {
+      // Restore view state and scroll position ONLY if preserving view
+      if (preserveView && savedDate) {
+        // Use a longer timeout to ensure calendar has fully rendered
         setTimeout(() => {
+          const calendar = calendarRef.current;
+          if (!calendar) return;
+          
           const calendarApi = calendar.getApi();
           calendarApi.changeView(savedView);
           calendarApi.gotoDate(savedDate);
-        }, 0);
+          
+          // Restore scroll position only for time grid views and only after view change completes
+          if (scrollPos && (savedView === 'timeGridWeek' || savedView === 'timeGridDay')) {
+            setTimeout(() => {
+              restoreScrollPosition(calendarRef, scrollPos);
+            }, 150); // Increased timeout for better stability
+          }
+        }, 50); // Increased initial timeout
       }
       
-      setHasInitialized(true);
+      if (!hasInitialized) {
+        setHasInitialized(true);
+      }
     } catch (err) {
       console.error('Error fetching events:', err);
       setError(err instanceof Error ? err.message : 'An unexpected error occurred');
     }
-  }, [currentView, currentDate]);
-
-  useEffect(() => {
-    if (refreshTrigger && refreshTrigger > 0) {
-      fetchEvents(true); // Preserve current view when refreshing
-    }
-  }, [refreshTrigger, fetchEvents]);
+  }, [currentView, currentDate, hasInitialized]);
 
   useEffect(() => {
     fetchEvents(false);
@@ -491,6 +574,9 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange, onViewChange, refres
     }
   };
 
+
+
+// Updated handleEventDrop function - removed scroll preservation during drag
   const handleEventDrop = useCallback((dropInfo: EventDropArg) => {
     const event = dropInfo.event;
     const startDate = new Date(event.start!);
@@ -523,10 +609,19 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange, onViewChange, refres
       day_marking_title: event.extendedProps.day_marking_title
     };
 
-    // Update the event in place immediately for better UX
-    updateEventInPlace(updatedEvent, eventId);
+    // Update the event in the state immediately (no scroll interference)
+    setCurrentEvents(prevEvents => prevEvents.map(evt => {
+      if (evt.id === event.id || evt.extendedProps?.originalId === eventId) {
+        return {
+          ...evt,
+          start: startDate.toISOString(),
+          end: endDate.toISOString(),
+        };
+      }
+      return evt;
+    }));
 
-    // Then sync with backend
+    // Sync with backend without interfering with the drag operation
     authAPI.authenticatedFetch(`${process.env.NEXT_PUBLIC_API_URL}/api/events/${eventId}/`, {
       method: 'PUT',
       headers: {
@@ -536,10 +631,11 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange, onViewChange, refres
     })
       .then(response => {
         if (!response.ok) {
-          // Revert the UI change if backend fails
+          // Revert on failure
           dropInfo.revert();
           throw new Error('Failed to update event');
         }
+        
         if (onEventChange) onEventChange();
       })
       .catch(err => {
@@ -548,7 +644,7 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange, onViewChange, refres
         dropInfo.revert();
         setError('Failed to update event position');
       });
-  }, [onEventChange, updateEventInPlace]);
+  }, [onEventChange]);
 
   const handleDateSelect = useCallback((selectInfo: DateSelectArg) => {
     // Hide day hover popup when creating event
