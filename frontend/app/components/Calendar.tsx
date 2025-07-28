@@ -189,6 +189,7 @@ interface CalendarProps {
   onViewChange?: (newView: string) => void;
 }
 
+
 const Calendar: React.FC<CalendarProps> = ({ onEventChange, onViewChange, refreshTrigger }) => {
   
   // Change to use CustomEventInput[] instead of EventApi[]
@@ -230,46 +231,47 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange, onViewChange, refres
     if (typeof window !== 'undefined' && !hasInitialized) {
       const urlParams = new URLSearchParams(window.location.search);
       const viewFromUrl = urlParams.get('view');
-      const dateFromUrl = urlParams.get('date');
       
+      // Get today's date - this was working perfectly
+      const today = new Date();
+      console.log('Today is:', today);
+      
+      // Only read VIEW from URL, ignore any date params
       let initialView = 'dayGridMonth';
       
       if (viewFromUrl && viewFromUrl in urlToViewMap) {
         initialView = urlToViewMap[viewFromUrl as keyof typeof urlToViewMap];
+        console.log('Using view from URL:', initialView);
       } else {
-        // Fallback to localStorage if no URL param
+        // Fallback to localStorage for view only
         const savedView = localStorage.getItem('calendar-view');
         if (savedView && ['dayGridMonth', 'timeGridWeek', 'timeGridDay'].includes(savedView)) {
           initialView = savedView;
+          console.log('Using view from localStorage:', initialView);
         }
       }
       
-      let initialDate = null;
-      if (dateFromUrl) {
-        const parsedDate = new Date(dateFromUrl + 'T12:00:00'); // 💡 Force into middle of day
-        if (!isNaN(parsedDate.getTime())) {
-          initialDate = parsedDate;
-        }
-      }
-      // Set both state and mark as initialized atomically
+      // ALWAYS use today's date - this was working
       setCurrentView(initialView);
-      if (initialDate) {
-        setCurrentDate(initialDate);
-      }
+      setCurrentDate(today);
       setHasInitialized(true);
+      
+      console.log('Initialization - view:', initialView, 'date:', today);
     }
-  }, []); // Remove hasInitialized dependency
+  }, []);
 
   // Update URL when view changes (but not from FullCalendar events)
   useEffect(() => {
-    if (typeof window !== 'undefined' && hasInitialized) {
+    if (typeof window !== 'undefined' && hasInitialized && currentDate) {
       const url = new URL(window.location.href);
       const urlView = viewToUrlMap[currentView as keyof typeof viewToUrlMap];
       url.searchParams.set('view', urlView);
       
-      if (currentDate) {
-        url.searchParams.set('date', currentDate.toISOString().split('T')[0]);
-      }
+      // Ensure we're using the correct date format
+      const dateString = currentDate.toISOString().split('T')[0];
+      url.searchParams.set('date', dateString);
+      
+      console.log('Updating URL with view:', urlView, 'and date:', dateString);
       
       // Update URL without reloading
       window.history.replaceState({}, '', url.toString());
@@ -279,7 +281,7 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange, onViewChange, refres
       
       if (onViewChange) onViewChange(currentView);
     }
-  }, [currentView, onViewChange, hasInitialized]);
+  }, [currentView, currentDate, onViewChange, hasInitialized]);
 
   // Helper function to expand recurring events
   const expandRecurringEvents = (events: EventDetails[]): EventDetails[] => {
@@ -502,6 +504,8 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange, onViewChange, refres
       )
     );
   }, []);
+
+
 
   const handleEventSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -743,19 +747,7 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange, onViewChange, refres
     }
   };
 
-  const handleViewChange = useCallback((view: any) => {
-    // Only update state, don't trigger URL updates from FullCalendar events
-    // URL updates will happen from our useEffect above
-    const newView = view.view.type;
-    const newDate = view.view.currentStart;
-    
-    if (newView !== currentView) {
-      setCurrentView(newView);
-    }
-    if (newDate.getTime() !== currentDate?.getTime()) {
-      setCurrentDate(newDate);
-    }
-  }, [currentView, currentDate]);
+
 
   const handleDayCellDidMount = useCallback((info: { el: HTMLElement; date: Date }) => {
     const cell = info.el;
@@ -1084,8 +1076,8 @@ const allEvents = [
   ...sortEventsByTime(currentEvents || []).map(event => ({
     id: event.id,
     title: event.title,
-    start: event.start ? new Date(event.start).toISOString() : undefined,
-    end: event.end ? new Date(event.end).toISOString() : undefined,
+    start: event.start, // Use the formatted string directly - no conversion needed
+    end: event.end, // Use the formatted string directly - no conversion needed
     backgroundColor: event.backgroundColor,
     borderColor: event.borderColor,
     extendedProps: event.extendedProps,
@@ -1094,6 +1086,16 @@ const allEvents = [
 ];
 
 
+useEffect(() => {
+  console.log('Current view:', currentView);
+  console.log('Current date:', currentDate);
+  console.log('Has initialized:', hasInitialized);
+  if (calendarRef.current) {
+    const api = calendarRef.current.getApi();
+    console.log('FullCalendar current date:', api.getDate());
+    console.log('FullCalendar view type:', api.view.type);
+  }
+}, [currentView, currentDate, hasInitialized]);
 
 
 return (
