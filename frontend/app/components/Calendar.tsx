@@ -759,8 +759,23 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange, onViewChange, refres
 
   const handleDayCellDidMount = useCallback((info: { el: HTMLElement; date: Date }) => {
     const cell = info.el;
+    
+    // Force cleanup of any existing listeners first
+    const existingEnter = (cell as any)._mouseEnterHandler;
+    const existingLeave = (cell as any)._mouseLeaveHandler;
+    if (existingEnter) cell.removeEventListener('mouseenter', existingEnter);
+    if (existingLeave) cell.removeEventListener('mouseleave', existingLeave);
 
     const handleMouseEnter = () => {
+      // Check the actual calendar view directly
+      const calendar = calendarRef.current;
+      if (!calendar) return;
+      const calendarApi = calendar.getApi();
+      const currentCalendarView = calendarApi.view.type;
+      
+      // Only show popup for month view
+      if (currentCalendarView !== 'dayGridMonth') return;
+      
       // Don't show hover popup if modal is open
       if (isModalOpen) return;
       
@@ -770,18 +785,17 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange, onViewChange, refres
         // Double check modal isn't open after timeout
         if (isModalOpen) return;
         
-        const date = info.date;
-        // Get events for this day from the calendar API
-        const calendar = calendarRef.current;
+        // Double check view again in case it changed during timeout
         if (!calendar) return;
+        const api = calendar.getApi();
+        if (api.view.type !== 'dayGridMonth') return;
         
-        const calendarApi = calendar.getApi();
-        const dayEvents = calendarApi.getEvents().filter(event => {
+        const date = info.date;
+        const dayEvents = api.getEvents().filter(event => {
           const eventDate = event.start ? new Date(event.start) : null;
           return eventDate && eventDate.toDateString() === date.toDateString();
         });
 
-        // Sort events by start time for the popup
         const sortedEvents = dayEvents.sort((a, b) => {
           const aStart = a.start ? new Date(a.start).getTime() : 0;
           const bStart = b.start ? new Date(b.start).getTime() : 0;
@@ -792,27 +806,19 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange, onViewChange, refres
           const rect = cell.getBoundingClientRect();
           const viewportWidth = window.innerWidth;
           const viewportHeight = window.innerHeight;
-          const sidebarWidth = 320; // Width of the right sidebar
+          const sidebarWidth = 320;
           const popupWidth = 295;
           const popupHeight = Math.min(300, sortedEvents.length * 80 + 60);
-
-          // Calculate available width considering the sidebar
           const availableWidth = viewportWidth - sidebarWidth;
 
-          // Position horizontally
           let x = rect.right + 4;
-          
-          // Check if popup would extend beyond available width (before sidebar)
           if (rect.right + popupWidth + 10 > availableWidth) {
             x = rect.left - popupWidth - 10;
-            
-            // If it still doesn't fit on the left, clamp it to stay within calendar bounds
             if (x < 0) {
               x = Math.max(10, availableWidth - popupWidth - 10);
             }
           }
 
-          // Position vertically
           let y = rect.top;
           if (y + popupHeight > viewportHeight) {
             y = Math.max(0, viewportHeight - popupHeight - 10);
@@ -845,6 +851,10 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange, onViewChange, refres
       }, 100);
     };
 
+    // Store references for cleanup
+    (cell as any)._mouseEnterHandler = handleMouseEnter;
+    (cell as any)._mouseLeaveHandler = handleMouseLeave;
+
     cell.addEventListener('mouseenter', handleMouseEnter);
     cell.addEventListener('mouseleave', handleMouseLeave);
 
@@ -852,21 +862,19 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange, onViewChange, refres
       cell.removeEventListener('mouseenter', handleMouseEnter);
       cell.removeEventListener('mouseleave', handleMouseLeave);
       if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
+      // Clean up references
+      delete (cell as any)._mouseEnterHandler;
+      delete (cell as any)._mouseLeaveHandler;
     };
   }, [setHoveredDay, hoverTimerRef, isModalOpen]);
 
-  const handleEventChange = (field: keyof EventDetails, value: string | boolean | null) => {
-    if (selectedEvent) {
-      setSelectedEvent({
-        ...selectedEvent,
-        [field]: value
-      });
-    }
-  };
+
+
+
 
   const handleDayMarkingsLoaded = useCallback((markings: EventSourceInput) => {
-    setDayMarkings(markings);
-  }, []);
+      setDayMarkings(markings);
+    }, []);
 
   // Enhanced modal handling to clear hover popup
   const handleModalOpen = useCallback(() => {
