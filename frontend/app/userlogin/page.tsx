@@ -258,7 +258,7 @@ const LoginPage: React.FC = () => {
                   type={showPassword ? 'text' : 'password'}
                   value={formData.password}
                   onChange={handleInputChange}
-                  className={`w-full pl-10 pr-12 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200 ${
+                  className={`w-full pl-10 pr-12 py-3 rounded-lg border focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200 text-black ${
                     errors.password ? 'border-red-500' : 'border-gray-300'
                   }`}
                   placeholder="Enter your password"
@@ -288,13 +288,15 @@ const LoginPage: React.FC = () => {
                     type="password"
                     value={formData.password_confirm}
                     onChange={handleInputChange}
-                    className={`w-full pl-10 pr-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200 ${
+                    className={`w-full pl-10 pr-4 py-3 rounded-lg border focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200 text-black ${
                       errors.password_confirm ? 'border-red-500' : 'border-gray-300'
                     }`}
                     placeholder="Confirm your password"
                   />
                 </div>
-                {errors.password_confirm && <p className="mt-1 text-sm text-red-600">{errors.password_confirm}</p>}
+                {errors.password_confirm && (
+                  <p className="mt-1 text-sm text-red-600">{errors.password_confirm}</p>
+                )}
               </div>
             )}
 

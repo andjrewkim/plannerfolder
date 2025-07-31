@@ -1,40 +1,57 @@
+# myapp/apps.py
+
+import os
 from django.apps import AppConfig
 from django.conf import settings
-from .views_llm_text import llm_service, GeminiProvider, update_calendar_event, get_calendar_events
 
 class YourAppConfig(AppConfig):
     default_auto_field = 'django.db.models.BigAutoField'
-    name = 'myapp'  # Replace with your actual app name
-    
+    name = 'myapp'  # Update if your app name is different
+
     def ready(self):
-        # Import here to avoid circular imports
-        
+        from .views_llm_text import (
+            llm_service,
+            OpenAIProvider,
+            GeminiProvider,
+            update_calendar_event
+        )
+
         def get_calendar_events():
-            """Function to fetch calendar events from your database"""
-            # Replace 'CalendarEvent' with your actual model name
-            from .models import CalendarEvent  # Import your actual event model
-            return CalendarEvent.objects.all()  # Or whatever query you need
-        
-    if hasattr(settings, 'GEMINI_API_KEY'):
-        llm_service.register_provider("gemini", GeminiProvider(
-            api_key=settings.GEMINI_API_KEY,
-            model=getattr(settings, 'GEMINI_MODEL', 'gemini-1.5-flash'),
-            events_function=get_calendar_events,        # THIS WAS MISSING
-            update_event_function=update_calendar_event  # THIS WAS MISSING
-        ))
-        print("DEBUG: Registered Gemini provider with update function")
-    else:
-        print("ERROR: GEMINI_API_KEY not found in settings")
-        
-        # You can add other providers here when you implement them
-        # if hasattr(settings, 'OPENAI_API_KEY') and settings.OPENAI_API_KEY:
-        #     llm_service.register_provider("openai", OpenAIProvider(
-        #         api_key=settings.OPENAI_API_KEY,
-        #         model=getattr(settings, 'OPENAI_MODEL', 'gpt-3.5-turbo')
-        #     ))
-        
+            from .models import CalendarEvent
+            return CalendarEvent.objects.all()
+
+        # ✅ Register OpenAI provider
+        if hasattr(settings, 'OPENAI_API_KEY') and settings.OPENAI_API_KEY:
+            try:
+                llm_service.register_provider("openai", OpenAIProvider(
+                    api_key=settings.OPENAI_API_KEY,
+                    model=getattr(settings, 'OPENAI_MODEL', 'gpt-4o-mini'),
+                    events_function=get_calendar_events,
+                    update_event_function=update_calendar_event
+                ))
+                print("✅ Registered OpenAI provider")
+            except Exception as e:
+                print(f"❌ Failed to register OpenAI provider: {e}")
+        else:
+            print("❌ OPENAI_API_KEY not found in settings")
+
+        # ✅ Optionally register Gemini provider
+        if hasattr(settings, 'GEMINI_API_KEY') and settings.GEMINI_API_KEY:
+            try:
+                llm_service.register_provider("gemini", GeminiProvider(
+                    api_key=settings.GEMINI_API_KEY,
+                    model=getattr(settings, 'GEMINI_MODEL', 'gemini-1.5-flash'),
+                    events_function=get_calendar_events,
+                    update_event_function=update_calendar_event
+                ))
+                print("✅ Registered Gemini provider")
+            except Exception as e:
+                print(f"❌ Failed to register Gemini provider: {e}")
+        else:
+            print("⚠️ GEMINI_API_KEY not found in settings (Gemini will not be available)")
+
+        # 🧪 Print all available providers
         providers = llm_service.list_providers()
-        print(f"Available LLM providers: {providers}")
-        
+        print(f"📦 Available LLM providers: {providers}")
         if not providers:
             print("⚠️  WARNING: No LLM providers configured! Check your API keys in settings.py")

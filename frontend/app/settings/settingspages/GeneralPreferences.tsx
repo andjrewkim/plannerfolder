@@ -27,6 +27,7 @@ export default function GeneralPreferences({ settings, onSettingsChange }: Gener
     <div className="settings-section">
 
       <div className="form-group">
+        IN DEVELOPMENT
         <label className="form-label">Week Starts On</label>
         <select 
           className="form-input"

@@ -2,7 +2,9 @@
 from django.db import models
 from django.contrib.auth.models import AbstractUser
 from django.conf import settings
-
+from django.utils import timezone
+from datetime import timedelta
+import pytz
 
 
 
@@ -12,6 +14,8 @@ class CustomUser(AbstractUser):
     
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = ['username']
+
+
 
 
 class CalendarEvent(models.Model):
@@ -86,4 +90,84 @@ class UserSettings(models.Model):
 
     
     
-    
+
+
+
+
+
+
+
+
+
+
+class LLMUsage(models.Model):
+    """Track LLM usage per user per week"""
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    week_start = models.DateField()  # Start of the week (Monday)
+    message_count = models.IntegerField(default=0)
+    last_used = models.DateTimeField(auto_now=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('user', 'week_start')
+        indexes = [
+            models.Index(fields=['user', 'week_start']),
+            models.Index(fields=['week_start']),
+        ]
+
+    def __str__(self):
+        return f"{self.user.email} - Week {self.week_start} - {self.message_count} messages"
+
+    @staticmethod
+    def get_week_start(date=None):
+        """Get the Monday of the current week"""
+        if date is None:
+            # Use Pacific timezone
+            pacific_tz = pytz.timezone('America/Los_Angeles')
+            date = timezone.now().astimezone(pacific_tz).date()
+        
+        # Get Monday of the current week (weekday() returns 0 for Monday)
+        days_since_monday = date.weekday()
+        week_start = date - timedelta(days=days_since_monday)
+        return week_start
+
+    @classmethod
+    def get_or_create_weekly_usage(cls, user):
+        """Get or create usage record for current week"""
+        week_start = cls.get_week_start()
+        usage, created = cls.objects.get_or_create(
+            user=user,
+            week_start=week_start,
+            defaults={'message_count': 0}
+        )
+        return usage
+
+    @classmethod
+    def can_user_send_message(cls, user, limit=5):
+        """Check if user can send another message this week"""
+        usage = cls.get_or_create_weekly_usage(user)
+        return usage.message_count < limit
+
+    @classmethod
+    def increment_usage(cls, user):
+        """Increment message count for user this week"""
+        usage = cls.get_or_create_weekly_usage(user)
+        usage.message_count += 1
+        usage.save()
+        return usage
+
+    @classmethod
+    def get_remaining_messages(cls, user, limit=5):
+        """Get remaining messages for user this week"""
+        usage = cls.get_or_create_weekly_usage(user)
+        return max(0, limit - usage.message_count)
+
+    @classmethod
+    def reset_weekly_usage(cls, user):
+        """Reset usage for current week (admin function)"""
+        usage = cls.get_or_create_weekly_usage(user)
+        usage.message_count = 0
+        usage.save()
+        return usage
+
+

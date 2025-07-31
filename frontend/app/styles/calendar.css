@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Onest:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@100&display=swap');
 
 .fc-view-harness {
   height: 100% !important;
@@ -37,6 +37,15 @@
   border: 1px solid hsl(var(--border) / 0.2) !important;
 }
 
+
+.fc-timegrid-slot-label {
+  font-family: 'Inter', sans-serif;
+  font-size: 13px;
+  font-weight: 300;
+  color: hsl(var(--primary));
+}
+
+
 .fc-scrollgrid {
   border: 1px solid hsl(var(--darker-border) / 0.2) !important;
 
@@ -46,6 +55,7 @@
 .fc-scrollgrid-section > * {
   border-color: hsl(var(--darker-border) / 0.2) !important;
 }
+
 
 /* Header Toolbar */
 .fc-header-toolbar {
@@ -149,8 +159,8 @@
   transition: all 0.3s ease;
 }
 
-.fc-daygrid-day:hover {
-  background: linear-gradient(135deg, hsl(var(--muted) / 0.15) 0%, hsl(var(--muted) / 0.05) 100%);
+.fc-daygrid-day.hovered {
+  background: linear-gradient(180deg, hsl(var(--muted) / 0.15) 0%, hsl(var(--muted) / 0.05) 100%);
 }
 
 /* Plus sign corners for day separation */
@@ -175,12 +185,12 @@
 
 .fc-daygrid-day::before {
   top: -13px;
-  left: -11px;
+  left: -10.1px;
 }
 
 .fc-daygrid-day::after {
   top: -13px;
-  right: -11px;
+  right: -10.1px;
 }
 
 /* Add bottom plus signs */
@@ -627,6 +637,7 @@
 .fc-timegrid-event .fc-event-time {
   font-size: 11px;
   font-weight: 500;
+  
   position: relative;
   z-index: 4;
   opacity: 0.9;

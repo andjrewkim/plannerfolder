@@ -24,7 +24,7 @@ type Theme = {
     chart3: string;
     chart4: string;
     chart5: string;
-
+    sidebarItemColor: string;
     sidebar: string;
     header: string;
     card: string;
@@ -83,7 +83,7 @@ export const themes: Theme[] = [
       chart5: '27 87% 67%',
       // Custom colors for light mode
       sidebar: '210 5% 95%',
-      sidebarItemColor: '210 40% 96%',
+      sidebarItemColor: '210 40% 100%',
       header: '0 0% 100%',
       card: '0 0% 100%',
       button: '222.2 47.4% 11.2%',
@@ -144,7 +144,7 @@ export const themes: Theme[] = [
       chart5: '27 87% 67%',
       // Custom colors for light mode
       sidebar: '142 5% 95%',
-      sidebarItemColor: '142 40% 96%',
+      sidebarItemColor: '142 40% 100%',
       header: '0 0% 100%',
       card: '0 0% 100%',
       button: '142 72% 11.2%',
@@ -205,7 +205,7 @@ export const themes: Theme[] = [
       chart5: '27 87% 67%',
       // Custom colors for light mode
       sidebar: '199 5% 95%',
-      sidebarItemColor: '199 40% 96%',
+      sidebarItemColor: '199 0% 100%',
       header: '0 0% 100%',
       card: '0 0% 100%',
       button: '199 89% 11.2%',
@@ -266,7 +266,7 @@ export const themes: Theme[] = [
       chart5: '27 87% 67%',
       // Custom colors for light mode
       sidebar: '24 5% 95%',
-      sidebarItemColor: '24 40% 96%',
+      sidebarItemColor: '24 40% 100%',
       header: '0 0% 100%',
       card: '0 0% 100%',
       button: '24 95% 11.2%',
@@ -327,7 +327,7 @@ export const themes: Theme[] = [
       chart5: '27 87% 67%',
       // Custom colors for light mode
       sidebar: '265 5% 95%',
-      sidebarItemColor: '265 40% 96%',
+      sidebarItemColor: '265 40% 100%',
       header: '0 0% 100%',
       card: '0 0% 100%',
       button: '265 93% 11.2%',
@@ -388,7 +388,7 @@ export const themes: Theme[] = [
       chart5: '27 87% 67%',
       // Custom colors for light mode
       sidebar: '0 5% 95%',
-      sidebarItemColor: '0 40% 96%',
+      sidebarItemColor: '0 40% 100%',
       header: '0 0% 100%',
       card: '0 0% 100%',
       button: '0 0% 11.2%',
@@ -439,7 +439,7 @@ const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 export const ThemeProvider: React.FC<{children: React.ReactNode}> = ({ children }) => {
   const [currentThemeId, setCurrentThemeId] = useState('classic');
-  const [isDarkMode, setIsDarkMode] = useState(false);
+  const [isDarkMode, setIsDarkMode] = useState(true);
   const [isLoading, setIsLoading] = useState(true);
   
   const currentTheme = themes.find(t => t.id === currentThemeId) || themes[0];

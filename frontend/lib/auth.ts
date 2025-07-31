@@ -147,20 +147,52 @@ class AuthService {
     return !!this.getToken();  
   }
 
+
+  isTokenExpired(): boolean {
+    const token = this.getToken();
+    if (!token) return true;
+    
+    try {
+      // If your token is JWT, decode it to check expiration
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      const currentTime = Date.now() / 1000;
+      return payload.exp < currentTime;
+    } catch {
+      // If not JWT or can't decode, assume it might be expired
+      return false;
+    }
+  }
+
+
   // Helper method for making authenticated API calls
   async authenticatedFetch(url: string, options: RequestInit = {}): Promise<Response> {
+    // Check if we have a token first
+    const token = this.getToken();
+    if (!token) {
+      console.log('No token found, redirecting to login');
+      this.clearAuthData();
+      if (typeof window !== 'undefined') {
+        window.location.href = '/userlogin';
+      }
+      throw new Error('No authentication token');
+    }
+
+
     const response = await fetch(url, {
       ...options,
-        credentials: 'include', // ← Make sure this is here
-
+      credentials: 'include',
       headers: {
         ...this.getAuthHeaders(),
         ...options.headers,
       },
     });
 
-    // If token is invalid, clear auth data and redirect to login
+    
+    // Enhanced 401 handling with more context
     if (response.status === 401) {
+      console.log(`401 error on ${url}`);
+      console.log('Current token:', this.getToken());
+      
       this.clearAuthData();
       if (typeof window !== 'undefined') {
         window.location.href = '/userlogin';

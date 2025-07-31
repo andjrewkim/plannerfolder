@@ -124,25 +124,22 @@ const CalendarSettings: React.FC = () => {
   const [pendingDarkMode, setPendingDarkMode] = useState<boolean | null>(null);
 
   const handleSettingsChange = (newSettings: Partial<UserSettings>) => {
-    setSettings(prev => {
-      const updated = { ...prev, ...newSettings };
-
-      if (newSettings.theme && newSettings.theme !== currentTheme.id) {
-        setTheme(newSettings.theme);
-      }
-
-      // Set pending dark mode instead of toggling directly
-      if (newSettings.dark_mode !== undefined && newSettings.dark_mode !== isDarkMode) {
-        setPendingDarkMode(newSettings.dark_mode);
-      }
-
-      return updated;
-    });
-
-    // Clear any previous error messages when user makes changes
+    setSettings(prev => ({ ...prev, ...newSettings }));
     setSaveError(null);
     setSaveSuccess(false);
   };
+
+  useEffect(() => {
+    if (settings.theme && settings.theme !== currentTheme.id) {
+      setTheme(settings.theme);
+    }
+
+    if (settings.dark_mode !== undefined && settings.dark_mode !== isDarkMode) {
+      setPendingDarkMode(settings.dark_mode);
+    }
+  }, [settings.theme, settings.dark_mode]);
+
+
 
   useEffect(() => {
   if (pendingDarkMode !== null) {

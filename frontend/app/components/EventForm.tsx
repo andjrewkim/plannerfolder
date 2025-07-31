@@ -24,9 +24,7 @@ interface EventFormProps {
   setResult: React.Dispatch<React.SetStateAction<EventData[]>>;
   setError: React.Dispatch<React.SetStateAction<string | null>>;
   onEventResult?: (results: EventData[]) => void;
-
 }
-
 
 const recurrenceOptions = [
   { value: 'none', label: "Doesn't repeat" },
@@ -40,7 +38,6 @@ const recurrenceOptions = [
   { value: 'yearly', label: 'Every year' }
 ];
 
-
 const EventForm: React.FC<EventFormProps> = ({ setResult, setError, onEventResult }) => {
   const [inputText, setInputText] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -51,13 +48,22 @@ const EventForm: React.FC<EventFormProps> = ({ setResult, setError, onEventResul
   const [isTaskToday, setIsTaskToday] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   
+  // Animation states
+  const [isFormFadingOut, setIsFormFadingOut] = useState(false);
+  const [isInputFadingIn, setIsInputFadingIn] = useState(false);
+  
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  // Auto-resize textarea
   useEffect(() => {
-    if (textareaRef.current) {
-      textareaRef.current.style.height = 'auto';
-      textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`;
+    const el = textareaRef.current;
+    if (!el) return;
+
+    // Always set to single line first
+    el.style.height = '40px';
+    
+    // Then expand if needed
+    if (el.scrollHeight > 24) {
+      el.style.height = `${el.scrollHeight}px`;
     }
   }, [inputText]);
 
@@ -162,10 +168,22 @@ const EventForm: React.FC<EventFormProps> = ({ setResult, setError, onEventResul
     }
   };
 
+  // Helper function to reset all form state
+  const resetFormState = () => {
+    setInputText('');
+    setShowDetails(false);
+    setParsedEventData(null);
+    setEditedEventData(null);
+    setIsTaskToday(false);
+    setSuccessMessage(null);
+    setError(null);
+    setIsError(false);
+    setIsSubmitting(false);
+  };
+
   const handleInitialSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
-    setSuccessMessage(null);
     
     try {
       // Parse the event data
@@ -276,21 +294,25 @@ const EventForm: React.FC<EventFormProps> = ({ setResult, setError, onEventResul
         const savedData = await response.json();
         
         setResult((prevState) => Array.isArray(prevState) ? [...prevState, savedData] : [savedData]);
-        setSuccessMessage(`${editedEventData.event_type === 'task' ? 'Task' : 'Event'} created successfully!`);
-        
+
         if (onEventResult) {
-          onEventResult([savedData]); // or whatever format you need
+          onEventResult([savedData]);
         }
 
-        // Clear form after successful submission
+        // Start the fade out animation sequence
+        setIsFormFadingOut(true);
+        
+        // After fade out completes, reset form and start fade in
         setTimeout(() => {
-          setInputText('');
-          setShowDetails(false);
-          setParsedEventData(null);
-          setEditedEventData(null);
-          setIsTaskToday(false);
-          setSuccessMessage(null);
-        }, 1500);
+          resetFormState();
+          setIsFormFadingOut(false);
+          setIsInputFadingIn(true);
+          
+          // Reset fade in state after animation
+          setTimeout(() => {
+            setIsInputFadingIn(false);
+          }, 300);
+        }, 400);
         
       } catch (err) {
         console.error(err);
@@ -302,11 +324,24 @@ const EventForm: React.FC<EventFormProps> = ({ setResult, setError, onEventResul
   };
 
   const handleCancel = () => {
-    setShowDetails(false);
-    setParsedEventData(null);
-    setEditedEventData(null);
-    setIsTaskToday(false);
-    setSuccessMessage(null);
+    // Start fade out animation
+    setIsFormFadingOut(true);
+    
+    // After animation completes, reset everything and show input
+    setTimeout(() => {
+      resetFormState();
+      setIsFormFadingOut(false);
+      setIsInputFadingIn(true);
+      
+      // Focus the textarea after reset
+      setTimeout(() => {
+        setIsInputFadingIn(false);
+        // Focus the input field after the animation
+        if (textareaRef.current) {
+          textareaRef.current.focus();
+        }
+      }, 300);
+    }, 300);
   };
 
   const handleEdit = (field: keyof EventData, value: string | boolean) => {
@@ -396,23 +431,78 @@ const EventForm: React.FC<EventFormProps> = ({ setResult, setError, onEventResul
     }
   };
 
+  // CSS styles with animations
+  const animationStyles = `
+    @keyframes fadeSlideOut {
+      0% {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+      }
+      100% {
+        opacity: 0;
+        transform: translateY(-10px) scale(0.98);
+      }
+    }
 
+    @keyframes fadeSlideIn {
+      0% {
+        opacity: 0;
+        transform: translateY(10px) scale(0.98);
+      }
+      100% {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+      }
+    }
 
+    @keyframes shake {
+      0%, 100% { transform: translateX(0); }
+      25% { transform: translateX(-5px); }
+      75% { transform: translateX(5px); }
+    }
 
-return (
+    @keyframes spin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+
+    .form-fade-out {
+      animation: fadeSlideOut 0.4s ease-out forwards;
+    }
+
+    .input-fade-in {
+      animation: fadeSlideIn 0.3s ease-out forwards;
+    }
+
+    .error-shake {
+      animation: shake 0.5s ease-in-out;
+    }
+
+    .event-form-container * {
+      transition: all 0.2s ease;
+    }
+  `;
+
+  return (
     <div className="event-form-container" style={{ padding: '4px' }}>
+      <style>{animationStyles}</style>
+      
       {/* Input Field - Only show when not showing details */}
       {!showDetails && (
-        <div className={`event-form-wrapper ${isError ? 'error-shake' : ''}`} style={{
-          display: 'flex',
-          alignItems: 'flex-start',
-          gap: '8px',
-          backgroundColor: 'hsl(var(--input-bg))',
-          border: '1px solid hsl(var(--border-color))',
-          borderRadius: '4px',
-          padding: '8px',
-          animation: isError ? 'shake 0.5s' : 'none'
-        }}>
+        <div 
+          className={`event-form-wrapper ${isError ? 'error-shake' : ''} ${isInputFadingIn ? 'input-fade-in' : ''}`} 
+          style={{
+            display: 'flex',
+            alignItems: 'flex-start',
+            gap: '8px',
+            backgroundColor: 'hsl(var(--input-bg))',
+            border: '1px solid hsl(var(--border-color))',
+            borderRadius: '4px',
+            padding: '8px',
+            opacity: isInputFadingIn ? 0 : 1,
+            transform: isInputFadingIn ? 'translateY(10px) scale(0.98)' : 'translateY(0) scale(1)'
+          }}
+        >
           <textarea
             ref={textareaRef}
             value={inputText}
@@ -421,17 +511,7 @@ return (
             className="event-textarea"
             disabled={isSubmitting}
             style={{
-              flex: 1,
-              minHeight: '24px',
-              resize: 'none',
-              overflow: 'hidden',
-              border: 'none',
-              outline: 'none',
-              backgroundColor: 'transparent',
-              fontSize: '14px',
-              fontFamily: 'inherit',
-              lineHeight: '1.4',
-              color: 'hsl(var(--text-color))'
+
             }}
           />
           <button
@@ -445,6 +525,7 @@ return (
               color: !inputText.trim() || isSubmitting 
                 ? 'hsl(var(--muted-foreground))' 
                 : 'hsl(var(--primary-foreground))',
+              transition: 'all 0.2s ease',
               ':hover': {
                 backgroundColor: 'hsl(var(--primary) / 0.9)'
               }
@@ -466,24 +547,6 @@ return (
         </div>
       )}
 
-      {/* Success Message */}
-      {successMessage && (
-        <div className="success-message" style={{
-          backgroundColor: 'hsl(var(--success-bg))',
-          color: 'hsl(var(--success-text))',
-          padding: '8px 12px',
-          borderRadius: '4px',
-          marginTop: '8px',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '8px',
-          fontSize: '14px'
-        }}>
-          <Check size={16} />
-          {successMessage}
-        </div>
-      )}
-
       {/* Event Details Section */}
       {showDetails && editedEventData && (() => {
         const activeType =
@@ -492,14 +555,20 @@ return (
             : editedEventData.event_type;
 
         return (
-        <div className="event-details-section" style={{
-          marginTop: '-14px',
-          padding: '0px',
-          backgroundColor: 'hsl(var(--input-bg))',
-          borderRadius: '4px',
-          border: 'none',
-          width: '100%'
-        }}>
+        <div 
+          className={`event-details-section ${isFormFadingOut ? 'form-fade-out' : ''}`}
+          style={{
+            marginTop: '-14px',
+            padding: '0px',
+            backgroundColor: 'hsl(var(--input-bg))',
+            borderRadius: '4px',
+            border: 'none',
+            width: '100%',
+            opacity: isFormFadingOut ? 0 : 1,
+            transform: isFormFadingOut ? 'translateY(-10px) scale(0.98)' : 'translateY(0) scale(1)',
+            transition: 'all 0.4s ease-out'
+          }}
+        >
                     
           {/* Event Type Switcher */}
           <div className="event-type-switcher" style={{
@@ -522,7 +591,8 @@ return (
                 color: activeType === 'event' ? 'hsl(var(--primary-text))' : 'hsl(var(--text-muted))',
                 cursor: 'pointer',
                 fontSize: '14px',
-                fontWeight: '500'
+                fontWeight: '500',
+                transition: 'all 0.2s ease'
               }}
             >
               Event
@@ -540,7 +610,8 @@ return (
                 color: activeType === 'task' ? 'hsl(var(--primary-text))' : 'hsl(var(--text-muted))',
                 cursor: 'pointer',
                 fontSize: '14px',
-                fontWeight: '500'
+                fontWeight: '500',
+                transition: 'all 0.2s ease'
               }}
             >
               Task
@@ -580,7 +651,8 @@ return (
                   minHeight: '20px',
                   margin: 0,
                   backgroundColor: 'hsl(var(--input-field-bg))',
-                  color: 'hsl(var(--text-color))'
+                  color: 'hsl(var(--text-color))',
+                  transition: 'all 0.2s ease'
                 }}
               />
             </div>
@@ -606,7 +678,8 @@ return (
                     fontSize: '13px',
                     margin: 0,
                     padding: 0,
-                    color: 'hsl(var(--text-color))'
+                    color: 'hsl(var(--text-color))',
+                    transition: 'all 0.2s ease'
                   }}
                 >
                   <input
@@ -647,7 +720,8 @@ return (
                     margin: 0,
                     backgroundColor: 'hsl(var(--input-field-bg))',
                     color: 'hsl(var(--text-color))',
-                    colorScheme: 'dark'
+                    colorScheme: 'dark',
+                    transition: 'all 0.2s ease'
                   }}
                 />
               </div>
@@ -670,7 +744,8 @@ return (
                     gap: '3px', 
                     cursor: 'pointer', 
                     fontSize: '13px',
-                    color: 'hsl(var(--text-color))'
+                    color: 'hsl(var(--text-color))',
+                    transition: 'all 0.2s ease'
                   }}>
                     <input
                       type="checkbox"
@@ -682,6 +757,7 @@ return (
                   </label>
                 </div>
 
+                
                 {/* Time inputs */}
                 {!editedEventData.is_all_day && (
                   <div className="detail-row" style={{ 
@@ -706,7 +782,8 @@ return (
                           minHeight: '20px',
                           backgroundColor: 'hsl(var(--input-field-bg))',
                           color: 'hsl(var(--text-color))',
-                          colorScheme: 'dark'
+                          colorScheme: 'dark',
+                          transition: 'all 0.2s ease'
                         }}
                       />
                       <span style={{ color: 'hsl(var(--text-muted))', fontSize: '12px' }}>to</span>
@@ -724,7 +801,8 @@ return (
                           minHeight: '20px',
                           backgroundColor: 'hsl(var(--input-field-bg))',
                           color: 'hsl(var(--text-color))',
-                          colorScheme: 'dark'
+                          colorScheme: 'dark',
+                          transition: 'all 0.2s ease'
                         }}
                       />
                     </div>
@@ -749,9 +827,6 @@ return (
                       border: '1px solid hsl(var(--border))',
                       borderRadius: '6px',
                       fontSize: '13px',
-                      minHeight: '20px',
-                      backgroundColor: 'hsl(var(--input-field-bg))',
-                      color: 'hsl(var(--text-color))'
                     }}
                   >
                     <option value="none">Doesn't repeat</option>
@@ -789,7 +864,27 @@ return (
                 cursor: 'pointer',
                 fontSize: '12px',
                 minHeight: '24px',
-                fontWeight: '500'
+                fontWeight: '500',
+                transition: 'all 0.2s ease'
+              }}
+            >
+              Cancel
+            </button>
+            <button 
+              onClick={handleConfirm} 
+              className="confirm-button"
+              disabled={isSubmitting}
+              style={{
+                padding: '4px 10px',
+                border: 'none',
+                borderRadius: '2px',
+                backgroundColor: 'hsl(var(--accent-foreground)/0.2)',
+                color: 'hsl(var(--primary-text))',
+                cursor: 'pointer',
+                fontSize: '12px',
+                minHeight: '24px',
+                fontWeight: '500',
+                transition: 'all 0.2s ease'
               }}
             >
               {isSubmitting ? 'Saving...' : `Create ${editedEventData.event_type === 'task' ? 'Task' : 'Event'}`}
@@ -798,6 +893,7 @@ return (
         </div>
         );
       })()}
+
 
       {/* Add global styles for animations and date/time picker styling */}
       <style dangerouslySetInnerHTML={{

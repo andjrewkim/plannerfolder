@@ -304,7 +304,7 @@ return (
                   style={{
                     backgroundColor: message.sender === 'user' 
                       ? 'hsl(var(--muted))' 
-                      : 'hsl(var(--muted) / 0.6)',
+                      : 'hsl(var(--muted)/ 0.6)',
                     color: message.sender === 'user' 
                       ? 'hsl(var(--foreground))' 
                       : 'hsl(var(--foreground))'

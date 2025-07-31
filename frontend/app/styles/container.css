@@ -8,7 +8,7 @@
   --spacing-lg: 16px;
   --text-primary: hsl(var(--foreground));
   --text-secondary: hsl(var(--muted-foreground));
-  --sidebarItem: hsl(var(--sidebar-item-color));
+  --sidebarItem: hsl(var(--sidebar-item-color) / 1);
   --sidebarBackground: hsl(var(--sidebar));
   background: hsl(var(--sidebar));        /* Changed from hardcoded #f8f9fa */
   
@@ -99,6 +99,8 @@
   border: 1px solid color-mix(in srgb, hsl(var(--darker-border)) 70%, rgb(0, 0, 0) 15%);
   transition: all 0.15s ease;
   cursor: pointer;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+
 }
 
 .event-item:hover {
@@ -197,7 +199,7 @@
 .task-text {
   flex: 1;
   font-size: 0.875rem;
-  color: var(--text-primary);
+  color: hsl(var(--text-primary));
   line-height: 1.4;
   transition: all 0.2s ease;
 }
@@ -393,13 +395,5 @@
   margin: 0 !important;
 }
 
-.sidebar-section .event-form {
-  margin: 0 !important;
-  padding: 10px !important;
-}
 
-.sidebar-section .event-textarea {
-  width: 100% !important;
-  min-height: 60px !important;
-  font-size: 16px !important;
-}
+

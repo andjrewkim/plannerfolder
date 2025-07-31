@@ -13,7 +13,11 @@ from pathlib import Path
 from dotenv import load_dotenv
 load_dotenv()  # Load from .env file
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-1.5-flash")
+
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+
+DEFAULT_LLM_PROVIDER = "gemini"
+ENABLED_LLM_PROVIDERS = ["gemini", "openai"]
 
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
