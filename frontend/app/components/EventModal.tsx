@@ -28,6 +28,7 @@ interface EventModalProps {
   onSubmit: (e: React.FormEvent) => void;
   onDelete?: (eventId: string) => void;
   onChange: (field: keyof EventDetails, value: string | boolean) => void;
+  calendarContainerRef?: React.RefObject<HTMLElement>; // Add this prop
 }
 
 const EventModal: React.FC<EventModalProps> = ({
@@ -38,6 +39,7 @@ const EventModal: React.FC<EventModalProps> = ({
   onSubmit,
   onDelete,
   onChange,
+  calendarContainerRef, // Add this prop
 }) => {
   const modalRef = useRef<HTMLDivElement>(null);
   const [finalPosition, setFinalPosition] = useState<React.CSSProperties>({});
@@ -105,45 +107,108 @@ const EventModal: React.FC<EventModalProps> = ({
     const [year, month, day] = dateString.split('-').map(Number);
     return { day, month };
   };
+
+  // Updated function to calculate position with smart left/right positioning
+  const calculateModalPosition = (): React.CSSProperties => {
+    if (!position || !modalRef.current) {
+      return { position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)' };
+    }
+
+    // Get container bounds (calendar or viewport)
+    let containerRect;
+    if (calendarContainerRef?.current) {
+      containerRect = calendarContainerRef.current.getBoundingClientRect();
+    } else {
+      containerRect = {
+        left: 0,
+        top: 0,
+        right: window.innerWidth,
+        bottom: window.innerHeight,
+        width: window.innerWidth,
+        height: window.innerHeight
+      };
+    }
+
+    // Get modal dimensions
+    const modalRect = modalRef.current.getBoundingClientRect();
+    const modalWidth = modalRect.width || 340; // fallback width
+    const modalHeight = modalRect.height || 411; // fallback height
+
+    // Define consistent offset distances
+    const horizontalOffset = 50; // Distance from event horizontally
+    const verticalOffset = 150; // Distance from event vertically (upward)
+    const padding = 20; // Minimum distance from container edges
+
+    // Calculate preferred position (right side of event, above it)
+    let xPos = position.x - horizontalOffset;
+    let yPos = position.y - verticalOffset;
+
+    // Check if modal would go outside the right boundary
+    const wouldExceedRight = (position.x - horizontalOffset + modalWidth) > (containerRect.right - padding);
+    
+    // If it would exceed the right boundary, position it on the left side of the event
+    if (wouldExceedRight) {
+      xPos = position.x - modalWidth - + horizontalOffset; // Left side, maintaining same distance
+    }
+
+    // Vertical positioning with boundary checks
+    if (yPos + modalHeight > containerRect.bottom - padding) {
+      yPos = containerRect.bottom - modalHeight - padding;
+    }
+    
+    if (yPos < containerRect.top + padding) {
+      yPos = containerRect.top + padding;
+    }
+
+    // Final horizontal boundary checks (in case left positioning also doesn't fit)
+    if (xPos < containerRect.left + padding) {
+      xPos = containerRect.left + padding;
+    }
+    
+    if (xPos + modalWidth > containerRect.right - padding) {
+      xPos = containerRect.right - modalWidth - padding;
+    }
+
+    // If using calendar container, convert to absolute positioning within the container
+    if (calendarContainerRef?.current) {
+      const containerStyle = window.getComputedStyle(calendarContainerRef.current);
+      const containerPosition = containerStyle.position;
+      
+      if (containerPosition === 'relative' || containerPosition === 'absolute') {
+        // Position relative to the container
+        xPos = xPos - containerRect.left;
+        yPos = yPos - containerRect.top;
+      }
+    }
+
+    return {
+      position: 'absolute',
+      top: `${Math.max(0, yPos)}px`,
+      left: `${Math.max(0, xPos)}px`,
+      maxHeight: `${Math.min(containerRect.height * 0.8, 600)}px`,
+      overflowY: 'auto'
+    };
+  };
   
   useEffect(() => {
     if (isOpen) {
       document.body.classList.add('modal-open');
       
-      setTimeout(() => {
-        if (modalRef.current && position) {
-          const modalRect = modalRef.current.getBoundingClientRect();
-          const viewportWidth = window.innerWidth;
-          const viewportHeight = window.innerHeight;
-          
-          let xPos = position.x - 60;
-          let yPos = position.y - 150;
-          
-          if (xPos + modalRect.width > viewportWidth) {
-            xPos = Math.max(20, viewportWidth - modalRect.width - 40);
-          }
-          
-          if (xPos < 20) {
-            xPos = 20;
-          }
-          
-          if (yPos + modalRect.height > viewportHeight) {
-            yPos = Math.max(20, viewportHeight - modalRect.height - 60);
-          }
-          
-          if (yPos < 20) {
-            yPos = 20;
-          }
-          
-          setFinalPosition({
-            position: 'absolute',
-            top: `${yPos}px`,
-            left: `${xPos}px`,
-            maxHeight: '80vh',
-            overflowY: 'auto'
-          });
-        }
-      }, 10);
+      // Calculate position immediately without delay
+      if (modalRef.current && position) {
+        const newPosition = calculateModalPosition();
+        setFinalPosition(newPosition);
+      } else {
+        // Fallback for initial render
+        setFinalPosition({
+          position: 'absolute',
+          top: '50%',
+          left: '50%',
+          transform: 'translate(-50%, -50%)',
+          maxHeight: '80vh',
+          overflowY: 'auto'
+        });
+      }
     } else {
       document.body.classList.remove('modal-open');
     }
@@ -152,6 +217,19 @@ const EventModal: React.FC<EventModalProps> = ({
       document.body.classList.remove('modal-open');
     };
   }, [isOpen, position]);
+
+  // Additional useEffect to recalculate position after modal content loads
+  useEffect(() => {
+    if (isOpen && modalRef.current && position) {
+      // Small delay only for recalculation after content loads
+      const timeoutId = setTimeout(() => {
+        const newPosition = calculateModalPosition();
+        setFinalPosition(newPosition);
+      }, 1);
+      
+      return () => clearTimeout(timeoutId);
+    }
+  }, [isOpen, position, showCustomRecurrence]); // Recalculate when content changes
   
   if (!isOpen || !selectedEvent) return null;
   
@@ -290,228 +368,217 @@ const EventModal: React.FC<EventModalProps> = ({
   const currentRecurrenceValue = rruleToHumanReadable(selectedEvent.recurrence_pattern);
 
   return (
-    <div className = "overflow-hidden">
-    <div className="modal-overlay">
-      <div 
-        ref={modalRef} 
-        className="modal-container compact-modal" 
-        style={finalPosition}
-      >
-        <h2 className="modal-header">
-          {selectedEvent.eventId ? "Edit Event" : "Add New Event"}
-        </h2>
-        <form onSubmit={onSubmit}>
-          <div className="form-row">
-            <div className="form-field-full">
-              <label className="form-label">Event Name</label>
-              <input
-                type="text"
-                value={selectedEvent.event_name}
-                onChange={(e) => onChange('event_name', e.target.value)}
-                className="modal-input"
-                required
-              />
-            </div>
-          </div>
-
-          <div className="form-row">
-            <div className="form-field">
-              <label className="form-label">Date</label>
-              <input
-                type="date"
-                value={selectedEvent.date}
-                onChange={(e) => onChange('date', e.target.value)}
-                className="modal-input"
-                required
-              />
-            </div>
-            <div className="form-field">
-              <label className="checkbox-wrapper">
+    <div className="overflow-hidden">
+      <div className="modal-overlay">
+        <div 
+          ref={modalRef} 
+          className="modal-container compact-modal" 
+          style={finalPosition}
+        >
+          <h2 className="modal-header">
+            {selectedEvent.eventId ? "Edit Event" : "Add New Event"}
+          </h2>
+          <form onSubmit={onSubmit}>
+            <div className="form-row">
+              <div className="form-field-full">
+                <label className="form-label">Event Name</label>
                 <input
-                  type="checkbox"
-                  checked={selectedEvent.all_day}
-                  onChange={(e) => onChange('all_day', e.target.checked)}
-                  className="modal-checkbox"
+                  type="text"
+                  value={selectedEvent.event_name}
+                  onChange={(e) => onChange('event_name', e.target.value)}
+                  className="modal-input"
+                  required
                 />
-                <span>All Day</span>
-              </label>
+              </div>
             </div>
-          </div>
 
-          {!selectedEvent.all_day && (
             <div className="form-row">
               <div className="form-field">
-                <label className="form-label">Start Time</label>
+                <label className="form-label">Date</label>
                 <input
-                  type="time"
-                  value={selectedEvent.start_time}
-                  onChange={(e) => onChange('start_time', e.target.value)}
+                  type="date"
+                  value={selectedEvent.date}
+                  onChange={(e) => onChange('date', e.target.value)}
                   className="modal-input"
-                  required={!selectedEvent.all_day}
+                  required
                 />
               </div>
               <div className="form-field">
-                <label className="form-label">End Time</label>
-                <input
-                  type="time"
-                  value={selectedEvent.end_time}
-                  onChange={(e) => onChange('end_time', e.target.value)}
-                  className="modal-input"
-                  required={!selectedEvent.all_day}
-                />
-              </div>
-            </div>
-          )}
-
-          <div className="form-row">
-            <div className="form-field">
-              <label className="form-label">Recurrence</label>
-              <select
-                value={showCustomRecurrence ? "custom" : currentRecurrenceValue}
-                onChange={(e) => handleRecurrenceChange(e.target.value)}
-                className="modal-select"
-              >
-                {recurrenceOptions.map(option => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="form-field">
-              <label className="form-label">Color</label>
-              <div className="color-picker-container">
-                <div 
-                  className="color-swatch"
-                  style={{ backgroundColor: selectedEvent.color || "#FF6B6B" }}
-                  onClick={() => setShowColorPicker(!showColorPicker)}
-                />
-                {showColorPicker && (
-                  <div className="color-picker-modal">
-                    <div className="color-grid">
-                      {presetColors.map((color) => (
-                        <div
-                          key={color}
-                          className="color-option"
-                          style={{ backgroundColor: color }}
-                          onClick={() => handleColorSelect(color)}
-                        />
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {showCustomRecurrence && (
-            <div className="custom-recurrence-section">
-              <label className="form-label">Repeat every</label>
-              <div className="custom-recurrence-controls">
-                <input
-                  type="number"
-                  min="1"
-                  max="52"
-                  value={customInterval}
-                  onChange={(e) => setCustomInterval(parseInt(e.target.value) || 1)}
-                  className="interval-input"
-                />
-                <span>weeks on:</span>
-              </div>
-              <div className="day-selector">
-                {dayOptions.map(day => (
-                  <button
-                    key={day.value}
-                    type="button"
-                    onClick={() => handleWeeklyDayToggle(day.value)}
-                    className={`day-button ${selectedWeeklyDays.includes(day.value) ? 'selected' : ''}`}
-                  >
-                    {day.label}
-                  </button>
-                ))}
-              </div>
-              <div className="custom-recurrence-buttons">
-                <button
-                  type="button"
-                  onClick={handleCustomRecurrenceApply}
-                  className="apply-button"
-                  disabled={selectedWeeklyDays.length === 0}
-                >
-                  Apply
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setShowCustomRecurrence(false)}
-                  className="cancel-button"
-                >
-                  Cancel
-                </button>
-              </div>
-            </div>
-          )}
-          {/*}
-          <div className="form-row">
-            <button
-              type="button"
-              onClick={() => setShowLocationNotes(!showLocationNotes)}
-              className="dropdown-toggle"
-            >
-              {showLocationNotes ? '▲' : '▼'}
-            </button>
-          </div>
-          */}
-          {showLocationNotes && (
-            <div className="poopface">
-              <div className="form-row">
-                <div className="form-field-full">
-                  <label className="form-label">Location</label>
+                <label className="checkbox-wrapper">
                   <input
-                    type="text"
-                    value={selectedEvent.location}
-                    onChange={(e) => onChange('location', e.target.value)}
+                    type="checkbox"
+                    checked={selectedEvent.all_day}
+                    onChange={(e) => onChange('all_day', e.target.checked)}
+                    className="modal-checkbox"
+                  />
+                  <span>All Day</span>
+                </label>
+              </div>
+            </div>
+
+            {!selectedEvent.all_day && (
+              <div className="form-row">
+                <div className="form-field">
+                  <label className="form-label">Start Time</label>
+                  <input
+                    type="time"
+                    value={selectedEvent.start_time}
+                    onChange={(e) => onChange('start_time', e.target.value)}
                     className="modal-input"
+                    required={!selectedEvent.all_day}
+                  />
+                </div>
+                <div className="form-field">
+                  <label className="form-label">End Time</label>
+                  <input
+                    type="time"
+                    value={selectedEvent.end_time}
+                    onChange={(e) => onChange('end_time', e.target.value)}
+                    className="modal-input"
+                    required={!selectedEvent.all_day}
                   />
                 </div>
               </div>
-              <div className="form-row">
-                <div className="form-field-full">
-                  <label className="form-label">Notes</label>
-                  <textarea
-                  
-                    value={selectedEvent.notes}
-                    onChange={(e) => onChange('notes', e.target.value)}
-                    className="modal-textarea"
+            )}
+
+            <div className="form-row">
+              <div className="form-field">
+                <label className="form-label">Recurrence</label>
+                <select
+                  value={showCustomRecurrence ? "custom" : currentRecurrenceValue}
+                  onChange={(e) => handleRecurrenceChange(e.target.value)}
+                  className="modal-select"
+                >
+                  {recurrenceOptions.map(option => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="form-field">
+                <label className="form-label">Color</label>
+                <div className="color-picker-container">
+                  <div 
+                    className="color-swatch"
+                    style={{ backgroundColor: selectedEvent.color || "#FF6B6B" }}
+                    onClick={() => setShowColorPicker(!showColorPicker)}
                   />
+                  {showColorPicker && (
+                    <div className="color-picker-modal">
+                      <div className="color-grid">
+                        {presetColors.map((color) => (
+                          <div
+                            key={color}
+                            className="color-option"
+                            style={{ backgroundColor: color }}
+                            onClick={() => handleColorSelect(color)}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
-          )}
 
-          <div className="modal-buttons">
-            <button type="submit" className="modal-button modal-button-save">
-              {selectedEvent.eventId ? "Save" : "Create"}
-            </button>
-            {selectedEvent.eventId && onDelete && (
+            {showCustomRecurrence && (
+              <div className="custom-recurrence-section">
+                <label className="form-label">Repeat every</label>
+                <div className="custom-recurrence-controls">
+                  <input
+                    type="number"
+                    min="1"
+                    max="52"
+                    value={customInterval}
+                    onChange={(e) => setCustomInterval(parseInt(e.target.value) || 1)}
+                    className="interval-input"
+                  />
+                  <span>weeks on:</span>
+                </div>
+                <div className="day-selector">
+                  {dayOptions.map(day => (
+                    <button
+                      key={day.value}
+                      type="button"
+                      onClick={() => handleWeeklyDayToggle(day.value)}
+                      className={`day-button ${selectedWeeklyDays.includes(day.value) ? 'selected' : ''}`}
+                    >
+                      {day.label}
+                    </button>
+                  ))}
+                </div>
+                <div className="custom-recurrence-buttons">
+                  <button
+                    type="button"
+                    onClick={handleCustomRecurrenceApply}
+                    className="apply-button"
+                    disabled={selectedWeeklyDays.length === 0}
+                  >
+                    Apply
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowCustomRecurrence(false)}
+                    className="cancel-button"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {showLocationNotes && (
+              <div className="poopface">
+                <div className="form-row">
+                  <div className="form-field-full">
+                    <label className="form-label">Location</label>
+                    <input
+                      type="text"
+                      value={selectedEvent.location}
+                      onChange={(e) => onChange('location', e.target.value)}
+                      className="modal-input"
+                    />
+                  </div>
+                </div>
+                <div className="form-row">
+                  <div className="form-field-full">
+                    <label className="form-label">Notes</label>
+                    <textarea
+                      value={selectedEvent.notes}
+                      onChange={(e) => onChange('notes', e.target.value)}
+                      className="modal-textarea"
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <div className="modal-buttons">
+              <button type="submit" className="modal-button modal-button-save">
+                {selectedEvent.eventId ? "Save" : "Create"}
+              </button>
+              {selectedEvent.eventId && onDelete && (
+                <button
+                  type="button"
+                  onClick={() => onDelete(selectedEvent.eventId)}
+                  className="modal-button modal-button-delete"
+                >
+                  Delete
+                </button>
+              )}
               <button
                 type="button"
-                onClick={() => onDelete(selectedEvent.eventId)}
-                className="modal-button modal-button-delete"
+                onClick={handleClose}
+                className="modal-button modal-button-close"
               >
-                Delete
+                Close
               </button>
-            )}
-            <button
-              type="button"
-              onClick={handleClose}
-              className="modal-button modal-button-close"
-            >
-              Close
-            </button>
-          </div>
-        </form>
+            </div>
+          </form>
+        </div>
       </div>
     </div>
-  </div>
   );
 };
 

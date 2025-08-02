@@ -155,7 +155,7 @@
   overflow: visible;
   background: hsl(var(--sidebar) / 0.95);
   min-height: 120px;
-  
+  height: 120px !important;
   transition: all 0.3s ease;
 }
 
@@ -281,7 +281,10 @@
 
 
 
-
+.fc-more-link {
+  pointer-events: none;
+  opacity: 0.6;
+}
 
 
 

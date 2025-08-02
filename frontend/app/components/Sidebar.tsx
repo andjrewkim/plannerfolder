@@ -24,6 +24,7 @@ interface APIEvent {
   event_name: string;
   date: string;
   start_time: string;
+  end_time: string;
   color: string;
 }
 
@@ -84,6 +85,91 @@ const Sidebar: React.FC<SidebarProps> = ({
     };
   }, []);
 
+  // Calculate hours until event
+  const calculateHoursUntil = useCallback((date: string, startTime: string, endTime?: string): { hoursUntil: number | null, status: 'upcoming' | 'ongoing' | 'past' } => {
+    try {
+      // Parse the date and time more carefully
+      const dateStr = date.split('T')[0]; // Get YYYY-MM-DD
+      let startTimeStr = startTime;
+      
+      // Handle different time formats
+      if (startTime && !startTime.includes(':')) {
+        console.warn('Invalid time format:', startTime);
+        return { hoursUntil: null, status: 'past' };
+      }
+      
+      // Ensure time has seconds
+      if (startTimeStr && startTimeStr.split(':').length === 2) {
+        startTimeStr += ':00';
+      }
+      
+      const eventStartDateTime = new Date(`${dateStr}T${startTimeStr}`);
+      console.log('Event start datetime:', eventStartDateTime, 'from', dateStr, startTimeStr);
+      
+      if (isNaN(eventStartDateTime.getTime())) {
+        console.error('Invalid date/time:', dateStr, startTimeStr);
+        return { hoursUntil: null, status: 'past' };
+      }
+      
+      const now = new Date();
+      const startDiffMs = eventStartDateTime.getTime() - now.getTime();
+      const startDiffHours = startDiffMs / (1000 * 60 * 60);
+      
+      // Check if we have end time for ongoing detection
+      if (endTime && endTime.trim()) {
+        let endTimeStr = endTime;
+        if (endTimeStr.split(':').length === 2) {
+          endTimeStr += ':00';
+        }
+        const eventEndDateTime = new Date(`${dateStr}T${endTimeStr}`);
+        
+        if (!isNaN(eventEndDateTime.getTime())) {
+          const endDiffMs = eventEndDateTime.getTime() - now.getTime();
+          
+          console.log('Event end datetime:', eventEndDateTime, 'Start diff hours:', startDiffHours, 'End diff hours:', endDiffMs / (1000 * 60 * 60));
+          
+          // Event is ongoing if we're past start time but before end time
+          if (startDiffHours <= 0 && endDiffMs > 0) {
+            return { hoursUntil: startDiffHours, status: 'ongoing' };
+          }
+        }
+      }
+      
+      console.log('Hours until event:', startDiffHours, 'for event at', eventStartDateTime);
+      
+      if (startDiffHours > 0) {
+        return { hoursUntil: startDiffHours, status: 'upcoming' };
+      } else {
+        return { hoursUntil: startDiffHours, status: 'past' };
+      }
+    } catch (error) {
+      console.error('Error calculating hours until event:', error, { date, startTime, endTime });
+      return { hoursUntil: null, status: 'past' };
+    }
+  }, []);
+
+  // Format hours until display
+  const formatHoursUntil = useCallback((hours: number): string => {
+    if (hours < 1) {
+      const minutes = Math.round(hours * 60);
+      return `${minutes}m`;
+    } else if (hours < 24) {
+      const wholeHours = Math.floor(hours);
+      const minutes = Math.round((hours - wholeHours) * 60);
+      if (minutes === 0) {
+        return `${wholeHours}h`;
+      }
+      return `${wholeHours}h ${minutes}m`;
+    } else {
+      const days = Math.floor(hours / 24);
+      const remainingHours = Math.floor(hours % 24);
+      if (remainingHours === 0) {
+        return `${days}d`;
+      }
+      return `${days}d ${remainingHours}h`;
+    }
+  }, []);
+
   // Update today's events when events change
   useEffect(() => {
     if (!isMountedRef.current) return;
@@ -102,14 +188,18 @@ const Sidebar: React.FC<SidebarProps> = ({
           event_name: event.event_name,
           date: event.date,
           start_time: event.start_time || '',
+          end_time: event.end_time || '', // ✅ Add this line
           color: event.color
-        }));
+        }))
+        .sort((a, b) => {
+          return a.start_time.localeCompare(b.start_time);
+        });
 
       setTodayEvents(filteredEvents);
     } else {
       setTodayEvents([]);
     }
-  }, [events]);
+  }, [events, calculateHoursUntil]);
 
   // Handle refresh trigger
   useEffect(() => {
@@ -509,20 +599,82 @@ const Sidebar: React.FC<SidebarProps> = ({
               <div className="loading-message">Loading events...</div>
             ) : todayEvents.length > 0 ? (
               <ul className="event-list">
-                {todayEvents.map(event => (
-                  <li
-                    key={event.id}
-                    className="event-item"
-                    style={{
-                      '--event-color': event.color
-                    } as React.CSSProperties}
-                  >
-                    <span className="event-name">{event.event_name}</span>
-                    <span className="event-time">
-                      {formatEventTime(event.date, event.start_time)}
-                    </span>
-                  </li>
-                ))}
+                {todayEvents.map((event, index) => {
+                  const result = calculateHoursUntil(event.date, event.start_time, event.end_time);
+                  const { hoursUntil, status } = result;
+                  
+                  // Find the first upcoming event for timer display
+                  const firstUpcomingIndex = todayEvents.findIndex(e => {
+                    const eventResult = calculateHoursUntil(e.date, e.start_time, e.end_time);
+                    return eventResult.status === 'upcoming';
+                  });
+                  
+                  const showTimer = status === 'upcoming' && index === firstUpcomingIndex && hoursUntil !== null;
+                  
+                  console.log('Event:', event.event_name, 'Status:', status, 'Hours until:', hoursUntil, 'Show timer:', showTimer, 'End time:', event.end_time);
+                  
+                  return (
+                    <li
+                      key={event.id}
+                      className="event-item"
+                      style={{
+                        '--event-color': event.color,
+                        ...(status === 'past' && {
+                          opacity: 0.5
+                        }),
+                        ...(status === 'ongoing' && {
+                          backgroundColor: 'rgba(0, 123, 255, 0.1)',
+                        })
+                      } as React.CSSProperties}
+                    >
+                      <span 
+                        className="event-name"
+                        style={{
+                          ...(status === 'past' && {
+                            textDecoration: 'line-through',
+                            color: '#888'
+                          })
+                        }}
+                      >
+                        {event.event_name}
+                        {status === 'ongoing' && (
+                          <span style={{
+                            marginLeft: '8px',
+                            fontSize: '11px',
+                            color: '#007bff',
+                            fontWeight: 'bold'
+                          }}>
+                            LIVE
+                          </span>
+                        )}
+                      </span>
+                      <span 
+                        className="event-time"
+                        style={{
+                          ...(status === 'past' && {
+                            textDecoration: 'line-through',
+                            color: '#888'
+                          })
+                        }}
+                      >
+                        {showTimer && (
+                          <span style={{ 
+                            fontSize: '11px', 
+                            fontWeight: 'bold', 
+                            color: '#007bff',
+                            marginRight: '8px'
+                          }}>
+                            (in {formatHoursUntil(hoursUntil)})
+                          </span>
+                        )}
+                        {status === 'ongoing' && event.end_time ? 
+                          `ends at: ${formatEventTime(event.date, event.end_time)}` :
+                          formatEventTime(event.date, event.start_time)
+                        }
+                      </span>
+                    </li>
+                  );
+                })}
               </ul>
             ) : (
               <div className="empty-state">No events for today</div>

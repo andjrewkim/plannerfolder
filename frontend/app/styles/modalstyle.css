@@ -1,14 +1,13 @@
-/* REFINED EVENT MODAL - SUBTLE & CLEAN */
 .modal-overlay {
   position: fixed;
   inset: 0;
   z-index: 1000;
-  display: flex;
-  justify-content: center;
-  align-items: center;
+  /* Remove these centering properties: */
+  /* display: flex; */
+  /* justify-content: center; */ 
+  /* align-items: center; */
   animation: overlayFade 150ms ease-out;
   background: rgba(20, 20, 20, 0.2);
-
 }
 
 .modal-container {
@@ -25,7 +24,8 @@
   overflow: hidden;
   animation: modalSlide 200ms ease-out;
   font-family: system-ui, -apple-system, sans-serif;
-  position: relative;
+  position: absolute; /* ← Change from relative to absolute */
+  /* Now your modalPosition.x and modalPosition.y will work */
 }
 
 .modal-header {
