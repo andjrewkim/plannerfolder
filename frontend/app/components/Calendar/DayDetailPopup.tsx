@@ -50,14 +50,6 @@ export const DayDetailPopup: React.FC<DayDetailPopupProps> = ({
   const [isEventModalOpen, setIsEventModalOpen] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<EventDetails | null>(null);
   const [eventModalPosition, setEventModalPosition] = useState<{ x: number; y: number } | null>(null);
-  
-  // Local events state for instant updates
-  const [localEvents, setLocalEvents] = useState(info.events);
-
-  // Sync local events with props when info changes
-  useEffect(() => {
-    setLocalEvents(info.events);
-  }, [info.events]);
 
   // Parallax tilt
   useEffect(() => {
@@ -121,40 +113,15 @@ export const DayDetailPopup: React.FC<DayDetailPopupProps> = ({
     }
   };
 
-  // Handle event modal submit
+  // Handle event modal submit - simplified to just call parent update
   const handleEventModalSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (selectedEvent && onEventUpdate) {
       try {
-        // Call the parent's update function
+        // Just call the parent's update function and let it handle everything
         await onEventUpdate(selectedEvent);
         
-        // Update the local events immediately for instant UI feedback
-        setLocalEvents(prevEvents => 
-          prevEvents.map(event => {
-            if (event.id === selectedEvent.eventId) {
-              return {
-                ...event,
-                title: selectedEvent.event_name,
-                start: selectedEvent.all_day 
-                  ? selectedEvent.date 
-                  : `${selectedEvent.date}T${selectedEvent.start_time}`,
-                end: selectedEvent.all_day 
-                  ? selectedEvent.date 
-                  : (selectedEvent.end_time ? `${selectedEvent.date}T${selectedEvent.end_time}` : undefined),
-                allDay: selectedEvent.all_day,
-                backgroundColor: selectedEvent.color,
-                borderColor: selectedEvent.color,
-                location: selectedEvent.location,
-                notes: selectedEvent.notes,
-                description: selectedEvent.notes,
-                recurrence_pattern: selectedEvent.recurrence_pattern,
-              };
-            }
-            return event;
-          })
-        );
-        
+        // Close the modal
         setIsEventModalOpen(false);
         setSelectedEvent(null);
         setEventModalPosition(null);
@@ -181,15 +148,11 @@ export const DayDetailPopup: React.FC<DayDetailPopupProps> = ({
     }
   };
 
-  // Handle event modal delete
+  // Handle event modal delete - simplified to just call parent delete
   const handleEventModalDelete = async (eventId: string) => {
     const success = await handleDeleteEvent(eventId);
     if (success) {
-      // Remove from local events immediately for instant UI feedback
-      setLocalEvents(prevEvents => 
-        prevEvents.filter(event => event.id !== eventId)
-      );
-      
+      // Close the modal
       setIsEventModalOpen(false);
       setSelectedEvent(null);
       setEventModalPosition(null);
@@ -249,7 +212,7 @@ export const DayDetailPopup: React.FC<DayDetailPopupProps> = ({
           }}
         >
           <AnimatePresence>
-            {localEvents.map((ev, i) => {
+            {info.events.map((ev, i) => {
               const start = ev.start ? new Date(ev.start) : null;
               const end = ev.end ? new Date(ev.end) : null;
               const eventColor = ev.backgroundColor || ev.borderColor || `hsl(var(--chart${(i % 4) + 1}))`;
@@ -324,7 +287,7 @@ export const DayDetailPopup: React.FC<DayDetailPopupProps> = ({
           </AnimatePresence>
 
           {/* Empty state */}
-          {localEvents.length === 0 && (
+          {info.events.length === 0 && (
             <div className="py-6 text-center" style={{ color: 'hsl(var(--muted) / 0.5)' }}>
               <Calendar className="w-6 h-6 mx-auto mb-1" />
               <div style={{ fontSize: 14, fontWeight: 500 }}>No events</div>

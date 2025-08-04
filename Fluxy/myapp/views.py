@@ -224,7 +224,6 @@ if __name__ == "__main__":
         result = handler.parse_date(test)
         print(f"{test}: {result}")
         
-        
 import re
 from typing import Dict, Optional, List, Any
 from datetime import datetime, timedelta
@@ -233,429 +232,622 @@ import re
 
 class TimeParser:
     
-    
     def __init__(self):
-        """Initialize time parser with comprehensive patterns"""
-        # Core time patterns (ordered by specificity)
-        self.time_patterns = [
-            # Enhanced 24-hour format with optional seconds
-            r'(?P<hour>2[0-3]|[01]\d)(?::?(?P<minute>[0-5]\d))(?:[:](?P<second>[0-5]\d))?\b',
-            
-            # Word-based hours with meridian
-            r'(?P<hour>one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)\s+'
-            r'(?P<meridian>am|pm|a\.m\.|p\.m\.|noon|midnight)\b',
-            
-            # Enhanced AM/PM formats with flexible spacing
-            r'(?P<hour>\d{1,2})(?:[:. ]?(?P<minute>\d{2}))?\s*'
-            r'(?P<meridian>am|pm|a\.m\.|p\.m\.|noon|midnight)\b',
-            
-            # Cross-meridian range handling
-            r'(?P<start_hour>\d{1,2})(?::(?P<start_minute>\d{2}))?'
-            r'(?:\s*(?P<start_meridian>am|pm|a\.m\.|p\.m\.))?\s*-\s*'
-            r'(?P<end_hour>\d{1,2})(?::(?P<end_minute>\d{2}))?'
-            r'(?:\s*(?P<end_meridian>am|pm|a\.m\.|p\.m\.))?',
-            
-            # Explicit range indicators
-            r'(?P<start_time>(\d{1,2}(?::\d{2})?)\s*(?:am|pm|a\.m\.|p\.m\.)?)\s+'
-            r'(?:to|until|through|thru|-|–|—)\s+'
-            r'(?P<end_time>(\d{1,2}(?::\d{2})?)\s*(?:am|pm|a\.m\.|p\.m\.)?)',
-        ]
-
-        # Enhanced date patterns
-        self.date_patterns = [
-            r'\b(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\s+\d{1,2}\b',
-            r'\b\d{1,2}\s+(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\b',
-            r'\b\d{1,2}[/-]\d{1,2}(?:[/-]\d{2,4})?\b',  # MM/DD/YY or DD-MM-YYYY
-            r'\b\d{4}-\d{1,2}-\d{1,2}\b',  # ISO format
-        ]
-
-        # Add weekday patterns
-        self.weekday_patterns = [
-            r'\b(?:mon|tues|wed|thurs|fri|sat|sun)[a-z]*\b',  # Weekday abbreviations
-            r'\b(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b',  # Full weekday names
-        ]
-
-        # Event indicator terms (for day markings)
-        self.event_indicators = {
-            r'\bexam\b': 'Exam', 
-            r'\btest\b': 'Test', 
-            r'\bquiz\b': 'Quiz', 
-            r'\bassignment\b': 'Assignment', 
-            r'\bdue\b': 'Due Date', 
-            r'\bdeadline\b': 'Deadline',
-            r'\bmeeting\b': 'Meeting', 
-            r'\bappointment\b': 'Appointment', 
-            r'\binterview\b': 'Interview', 
-            r'\bpresentation\b': 'Presentation',
-            r'\bconcert\b': 'Concert', 
-            r'\bshow\b': 'Show', 
-            r'\bevent\b': 'Event', 
-            r'\bparty\b': 'Party', 
-            r'\bcelebration\b': 'Celebration',
-            r'\bconference\b': 'Conference', 
-            r'\bworkshop\b': 'Workshop', 
-            r'\bseminar\b': 'Seminar', 
-            r'\blecture\b': 'Lecture',
-            r'\bholiday\b': 'Holiday', 
-            r'\bvacation\b': 'Vacation', 
-            r'\btrip\b': 'Trip', 
-            r'\bvisit\b': 'Visit',
-            r'\bbirthday\b': 'Birthday', 
-            r'\banniversary\b': 'Anniversary', 
-            r'\bwedding\b': 'Wedding', 
-            r'\bgraduation\b': 'Graduation',
-            r'\bpapers\b': 'Papers Due',
-            r'\bproject\b': 'Project',
-            r'\bresearch\b': 'Research',
-            r'\blabs\b': 'Laboratory',
-            r'\bstudy\b': 'Study Session',
-            r'\breview\b': 'Review Session',
-            r'\bconsultation\b': 'Consultation',
-            r'\bcheckup\b': 'Checkup',
-            r'\bappointment\b': 'Appointment',
-            r'\bflight\b': 'Flight',
-            r'\bdemo\b': 'Demo',
-            r'\bdemonstration\b': 'Demonstration',
-            r'\blaunch\b': 'Launch',
-            r'\breleases?\b': 'Release'
+        """Initialize time parser with comprehensive patterns for natural language input including typos and variations"""
+        
+        # Enhanced number words mapping including written fractions
+        self.number_words = {
+            'zero': 0, 'one': 1, 'two': 2, 'three': 3, 'four': 4, 'five': 5,
+            'six': 6, 'seven': 7, 'eight': 8, 'nine': 9, 'ten': 10,
+            'eleven': 11, 'twelve': 12, 'thirteen': 13, 'fourteen': 14,
+            'fifteen': 15, 'sixteen': 16, 'seventeen': 17, 'eighteen': 18,
+            'nineteen': 19, 'twenty': 20, 'twenty-one': 21, 'twenty-two': 22,
+            'twenty-three': 23, 'twenty-four': 24, 'twenty-five': 25, 'twenty-six': 26,
+            'twenty-seven': 27, 'twenty-eight': 28, 'twenty-nine': 29, 'thirty': 30,
+            'thirty-five': 35, 'forty': 40, 'forty-five': 45, 'fifty': 50,
+            'fifty-five': 55, 'sixty': 60
         }
 
-        # Subject/category patterns (to describe the type of event)
-        self.subject_patterns = {
-            r'\bmath\b|\bmathematics\b': 'Math',
-            r'\bchem\b|\bchemistry\b': 'Chemistry',
-            r'\bphysics\b': 'Physics',
-            r'\bbio\b|\bbiology\b': 'Biology',
-            r'\bhistory\b': 'History',
-            r'\bliterature\b|\benglish\b': 'English/Literature',
-            r'\bcomputer\b|\bcs\b|\bprogramming\b': 'Computer Science',
-            r'\bart\b|\bdrawing\b|\bpainting\b': 'Art',
-            r'\bmusic\b': 'Music',
-            r'\bdoctor\b|\bmedical\b|\bhealth\b': 'Medical',
-            r'\bdental\b|\bdentist\b': 'Dental',
-            r'\blegal\b|\blawyer\b|\blaw\b': 'Legal',
-            r'\bfinancial\b|\bfinance\b|\baccounting\b': 'Financial',
-            r'\bsocial\b': 'Social',
-            r'\bfamily\b': 'Family',
-            r'\bbusiness\b': 'Business',
-            r'\bwork\b': 'Work',
-            r'\bschool\b|\bcollege\b|\buniversity\b|\bacademic\b': 'School',
-            r'\bsports?\b|\bgym\b|\bfitness\b|\bexercise\b': 'Sports/Fitness',
-            r'\btravel\b': 'Travel'
+        # Fraction mappings for time calculations
+        self.fraction_minutes = {
+            'half': 30, 'quarter': 15, 'three-quarters': 45, 'three quarters': 45,
+            'three-quarter': 45, 'three quarter': 45
         }
 
         # Enhanced special times
         self.special_times = {
-            'noon': '12:00', 'midnight': '00:00', 'morning': '09:00',
-            'afternoon': '14:00', 'evening': '19:00', 'night': '22:00',
-            'dawn': '06:00', 'dusk': '18:00', 'midday': '12:00',
-            'lunchtime': '12:00', 'sunrise': '06:00', 'sunset': '18:00'
+            'noon': '12:00', 'midnight': '00:00', 'midday': '12:00',
+            'morning': '09:00', 'afternoon': '14:00', 'evening': '19:00', 'night': '22:00',
+            'dawn': '06:00', 'dusk': '18:00', 'sunrise': '06:00', 'sunset': '18:00',
+            'lunchtime': '12:00', 'dinnertime': '18:00', 'breakfast': '08:00',
+            'early morning': '06:00', 'late morning': '10:00', 'early afternoon': '13:00',
+            'late afternoon': '16:00', 'early evening': '17:00', 'late evening': '21:00',
+            'late night': '23:00', 'early night': '20:00'
         }
 
-        # Enhanced number words mapping
-        self.number_words = {
-            'one': 1, 'two': 2, 'three': 3, 'four': 4, 'five': 5, 
-            'six': 6, 'seven': 7, 'eight': 8, 'nine': 9, 'ten': 10,
-            'eleven': 11, 'twelve': 12, 'thirteen': 13, 'fourteen': 14,
-            'fifteen': 15, 'sixteen': 16, 'seventeen': 17, 'eighteen': 18,
-            'nineteen': 19, 'twenty': 20, 'thirty': 30, 'forty': 40,
-            'fifty': 50
-        }
-
-        # Enhanced duration patterns
-        self.duration_patterns = [
-            # Standard patterns
-            r'(?:\bfor\s+)?(?P<hours>\d+\.?\d*)\s*(?:h|hr|hour|hours)s?'
-            r'(?:\s+(?:and\s+)?(?P<minutes>\d+)\s*(?:m|min|minute|minutes)s?)?\b',
+        # Comprehensive time patterns (ordered by specificity)
+        self.time_patterns = [
+            # Military/concatenated time (545am, 330pm, 1015, etc.)
+            r'\b(?P<hour>\d{1,2})(?P<minute>\d{2})(?P<meridian>am|pm|a\.m\.|p\.m\.)?\b',
             
-            # Word-based durations
-            r'(?:\bfor\s+)?(?P<hours>one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)'
-            r'(?:\s+and\s+(?:a\s+)?(?P<fraction>half|quarter))?\s*(?:hour|hours)s?\b',
+            # Standard time with colon/space separators (3:30pm, 3 30, 10:15am, etc.)
+            r'\b(?P<hour>\d{1,2})(?:[:.\s]+(?P<minute>\d{2}))?\s*(?P<meridian>am|pm|a\.m\.|p\.m\.|noon|midnight)?\b',
             
-            # Fractional durations
-            r'\b(?:a\s+)?half(?:\s+an?\s+hour)?\b',
-            r'\b(?:a\s+)?quarter(?:\s+of\s+an?\s+hour)?\b',
+            # Word-based hours with meridian
+            r'\b(?P<hour>one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)\s*(?:o\'?clock)?\s*(?P<meridian>am|pm|a\.m\.|p\.m\.|noon|midnight)?\b',
+            
+            # Time ranges with various separators (8-9am, 2:00-3:30, etc.)
+            r'\b(?P<start_hour>\d{1,2})(?:[:.\s](?P<start_minute>\d{2}))?\s*(?P<start_meridian>am|pm|a\.m\.|p\.m\.)?\s*[-–—to|until|through|thru]\s*(?P<end_hour>\d{1,2})(?:[:.\s](?P<end_minute>\d{2}))?\s*(?P<end_meridian>am|pm|a\.m\.|p\.m\.)?\b',
+            
+            # Special times
+            r'\b(?P<special>noon|midnight|midday|morning|afternoon|evening|night|dawn|dusk|sunrise|sunset|lunchtime|dinnertime|breakfast)\b',
+            
+            # Approximate times (around 6:30, 4ish, etc.)
+            r'\b(?:around|about|approximately|roughly|~)?\s*(?P<hour>\d{1,2})(?:[:.\s](?P<minute>\d{2}))?\s*(?:ish|or\s+so)?\s*(?P<meridian>am|pm|a\.m\.|p\.m\.)?\b',
+            
+            # Basic hour only with context clues
+            r'\b(?P<hour>\d{1,2})\s*(?P<meridian>am|pm|a\.m\.|p\.m\.)\b',
         ]
 
-        # Enhanced special durations
+        # ULTRA-ROBUST duration patterns - handles ALL typos and variations
+        self.duration_patterns = [
+            # TYPO-TOLERANT "hour half" patterns (highest priority)
+            # Handles: "and hour half", "an hour half", "a hour half", "hour half", etc.
+            r'\b(?:and|an?|one)?\s*hours?\s+(?:and\s+)?(?:a\s+)?half\b',
+            r'\b(?:for\s+)?(?:and|an?|one)?\s*hours?\s+(?:and\s+)?(?:a\s+)?half\b',
+            
+            # More specific hour+half patterns with numbers
+            r'\b(?:for\s+)?(?P<hours>\d+)\s*hours?\s+(?:and\s+)?(?:a\s+)?half\b',
+            r'\b(?P<hours>\d+)\s*hours?\s+(?:and\s+)?(?:a\s+)?half\b',
+            
+            # Word-based hour+half patterns
+            r'\b(?:for\s+)?(?P<word_hours>one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)\s*hours?\s+(?:and\s+)?(?:a\s+)?half\b',
+            r'\b(?P<word_hours>one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)\s*hours?\s+(?:and\s+)?(?:a\s+)?half\b',
+            
+            # TYPO-TOLERANT hour+quarter patterns
+            r'\b(?:and|an?|one)?\s*hours?\s+(?:and\s+)?(?:a\s+)?quarter\b',
+            r'\b(?:for\s+)?(?:and|an?|one)?\s*hours?\s+(?:and\s+)?(?:a\s+)?quarter\b',
+            r'\b(?:for\s+)?(?P<hours>\d+)\s*hours?\s+(?:and\s+)?(?:a\s+)?quarter\b',
+            r'\b(?P<hours>\d+)\s*hours?\s+(?:and\s+)?(?:a\s+)?quarter\b',
+            
+            # "X and half hours" variations
+            r'\b(?:for\s+)?(?P<hours>\d+(?:\.\d+)?)\s+(?:and\s+)?(?:a\s+)?half\s+hours?\b',
+            r'\b(?P<word_hours>one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)\s+(?:and\s+)?(?:a\s+)?half\s+hours?\b',
+            
+            # Standard "for X hour(s)" patterns
+            r'\b(?:for\s+)?(?P<hours>\d+(?:\.\d+)?)\s*(?:h|hr|hour|hours)\b',
+            r'\b(?:for\s+)?(?P<word_hours>one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)\s*(?:h|hr|hour|hours)\b',
+            
+            # Minutes patterns with typo tolerance
+            r'\b(?:for\s+)?(?P<minutes>\d+)\s*(?:m|min|mins|minute|minutes)\b',
+            r'\b(?:for\s+)?(?P<word_minutes>five|ten|fifteen|twenty|twenty-five|thirty|thirty-five|forty|forty-five|fifty|fifty-five)\s*(?:m|min|mins|minute|minutes)\b',
+            
+            # "like X min" patterns (casual language)
+            r'\b(?:like|about|around|roughly)\s+(?P<minutes>\d+)\s*(?:m|min|mins|minute|minutes)\b',
+            r'\b(?:like|about|around|roughly)\s+(?P<word_minutes>five|ten|fifteen|twenty|twenty-five|thirty|thirty-five|forty|forty-five|fifty|fifty-five)\s*(?:m|min|mins|minute|minutes)\b',
+            
+            # Fraction-only durations with typo tolerance
+            r'\b(?:for\s+)?(?:and|an?|a)?\s*(?P<fraction>half|quarter|three[\s-]?quarters?)\s*(?:of\s+)?(?:and|an?|a)?\s*(?:hour|hours)\b',
+            r'\b(?:and|an?|a)?\s*(?P<fraction>half|quarter|three[\s-]?quarters?)\s*(?:of\s+)?(?:and|an?|a)?\s*(?:hour|hours)\b',
+        ]
+
+        # MASSIVELY expanded special durations with typo variations
         self.special_durations = {
-            'an hour': 60, 'a hour': 60, 'half hour': 30, 'half an hour': 30,
-            'quarter hour': 15, 'quarter of an hour': 15, 'an hour and a half': 90,
-            'a half hour': 30, 'quarter hour': 15
+            # Basic hour expressions with typos
+            'an hour': 60, 'a hour': 60, 'and hour': 60, 'one hour': 60, 'hour': 60, '1 hr': 60,
+            'two hours': 120, 'three hours': 180, 'four hours': 240, 'five hours': 300,
+            
+            # COMPREHENSIVE hour and half variations - covers ALL possible typos/mistakes
+            'an hour and a half': 90, 'an hour and half': 90, 'a hour and a half': 90, 'a hour and half': 90,
+            'and hour and a half': 90, 'and hour and half': 90, 'and hour half': 90,  # TYPO COVERAGE
+            'one hour and a half': 90, 'one hour and half': 90, 'hour and a half': 90, 'hour and half': 90,
+            'one and a half hours': 90, 'one and half hours': 90, 'one and a half hour': 90, 'one and half hour': 90,
+            'hour half': 90, 'hours half': 90, 'hour and half': 90, 'hours and half': 90,  # MORE TYPOS
+            
+            # Two hours and variations with typos
+            'two hours and a half': 150, 'two hours and half': 150, 'two hour and a half': 150, 'two hour and half': 150,
+            'two and a half hours': 150, 'two and half hours': 150, 'two hours half': 150, 'two hour half': 150,
+            
+            # Three hours and variations with typos  
+            'three hours and a half': 210, 'three hours and half': 210, 'three hour and half': 210,
+            'three and a half hours': 210, 'three and half hours': 210, 'three hours half': 210,
+            
+            # Quarter combinations with typos
+            'an hour and a quarter': 75, 'an hour and quarter': 75, 'a hour and quarter': 75,
+            'and hour and quarter': 75, 'and hour quarter': 75, 'hour and quarter': 75, 'hour quarter': 75,
+            'one and a quarter hours': 75, 'one and quarter hours': 75,
+            'two hours and a quarter': 135, 'two hours and quarter': 135, 'two hour and quarter': 135,
+            'two and a quarter hours': 135, 'two and quarter hours': 135,
+            
+            # Basic fractions with typos
+            'half hour': 30, 'half an hour': 30, 'a half hour': 30, 'and half hour': 30,
+            'quarter hour': 15, 'quarter of an hour': 15, 'a quarter hour': 15, 'and quarter hour': 15,
+            'three quarters of an hour': 45, 'three quarter hour': 45, 'three quarters hour': 45,
+            
+            # Common minute expressions
+            '45 min': 45, '30 min': 30, '15 min': 15, '20 min': 20, '10 min': 10, '5 min': 5,
+            'fifteen minutes': 15, 'thirty minutes': 30, 'forty-five minutes': 45,
+            'twenty minutes': 20, 'ten minutes': 10, 'five minutes': 5,
+            'forty five minutes': 45, 'twenty five minutes': 25,  # Space variations
+            
+            # Informal/casual expressions
+            'couple hours': 120, 'couple of hours': 120, 'few hours': 180, 'coupla hours': 120,
+            
+            # Extended durations with typos
+            'four and a half hours': 270, 'five and a half hours': 330, 'six and a half hours': 390,
+            'four hours and half': 270, 'five hours and half': 330, 'six hours and half': 390,
+            'four hour and half': 270, 'five hour and half': 330, 'six hour and half': 390,
         }
 
-        # Compile all patterns
+        # Date patterns to avoid false time matches
+        self.date_patterns = [
+            r'\b(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\s+\d{1,2}(?:st|nd|rd|th)?\b',
+            r'\b\d{1,2}(?:st|nd|rd|th)?\s+(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\b',
+            r'\b\d{1,2}[/-]\d{1,2}(?:[/-]\d{2,4})?\b',
+            r'\b\d{4}-\d{1,2}-\d{1,2}\b',
+        ]
+
+        # Compile patterns
         self.compiled_time_patterns = [re.compile(p, re.IGNORECASE) for p in self.time_patterns]
         self.compiled_duration_patterns = [re.compile(p, re.IGNORECASE) for p in self.duration_patterns]
         self.compiled_date_patterns = [re.compile(p, re.IGNORECASE) for p in self.date_patterns]
-        self.compiled_weekday_patterns = [re.compile(p, re.IGNORECASE) for p in self.weekday_patterns]
-        self.compiled_event_indicators = {re.compile(p, re.IGNORECASE): label for p, label in self.event_indicators.items()}
-        self.compiled_subject_patterns = {re.compile(p, re.IGNORECASE): label for p, label in self.subject_patterns.items()}
-        self.special_times_pattern = re.compile(
-            r'\b(' + '|'.join(self.special_times.keys()) + r')\b',
-            re.IGNORECASE
-        )
 
     def parse_time(self, text: str) -> Dict[str, Optional[str]]:
-        """
-        Parse time and duration from text and return start and end times.
-        
-        Args:
-            text: Input text containing time information
-            
-        Returns:
-            Dictionary with 'start_time', 'end_time', and 'day_marking_title' keys (values may be None)
-        """
+        """Parse time and duration from natural language text"""
         if not isinstance(text, str):
             return {'start_time': None, 'end_time': None, 'day_marking_title': None}
 
+        normalized_text = self._normalize_text(text)
+        
         result = {
             'start_time': None,
             'end_time': None,
             'day_marking_title': None
         }
 
-        # Check for special times first
-        special_match = self.special_times_pattern.search(text)
-        if special_match:
-            result['start_time'] = self.special_times[special_match.group().lower()]
-
-        # Process time patterns
-        for pattern in self.compiled_time_patterns:
-            matches = pattern.finditer(text)
-            for match in matches:
-                # Skip if part of a date
-                if self._is_part_of_date(text, match.start(), match.end()):
-                    continue
-
-                groups = match.groupdict()
+        # Find all potential time matches
+        time_matches = self._find_all_times(normalized_text)
+        
+        if time_matches:
+            # Use the best time match
+            best_match = time_matches[0]  # Already sorted by confidence
+            
+            if 'start_time' in best_match and 'end_time' in best_match:
+                # Range found
+                result['start_time'] = best_match['start_time']
+                result['end_time'] = best_match['end_time']
+            else:
+                # Single time found, look for duration
+                result['start_time'] = best_match.get('time')
                 
-                # Handle explicit time ranges
-                if all(key in groups for key in ['start_hour', 'end_hour']):
-                    range_result = self._handle_range(
-                        groups.get('start_hour', ''),
-                        groups.get('end_hour', ''),
-                        groups.get('start_meridian', ''),
-                        groups.get('end_meridian', ''),
-                        groups.get('start_minute', '0'),
-                        groups.get('end_minute', '0')
-                    )
-                    if range_result:
-                        result.update(range_result)
-                        return result
-                
-                # Handle single time
-                time = self._parse_time_match(match)
-                if time:
-                    if not result['start_time']:
-                        result['start_time'] = time
-                    elif not result['end_time']:
-                        result['end_time'] = time
+                if result['start_time']:
+                    duration = self._extract_duration(normalized_text)
+                    if duration:
+                        result['end_time'] = self._add_duration_to_time(result['start_time'], duration)
+                    else:
+                        # Default to 1 hour
+                        result['end_time'] = self._add_duration_to_time(result['start_time'], 60)
 
-        # Process duration if we have start time but no end time
-        if result['start_time'] and not result['end_time']:
-            duration_minutes = self._extract_duration(text)
-            if duration_minutes:
-                try:
-                    start_dt = datetime.strptime(result['start_time'], '%H:%M')
-                    end_dt = start_dt + timedelta(minutes=duration_minutes)
-                    result['end_time'] = end_dt.strftime('%H:%M')
-                except ValueError:
-                    pass
-
-
-
+        # Check for day marking if no time found
         is_day_marking = not result.get('start_time') and not result.get('end_time')
-        # Check for day marking if no time was found
-        print(is_day_marking)
         result['day_marking_title'] = is_day_marking
-            
-            
+
         return result
 
-        
-    def _is_part_of_date(self, text: str, start_pos: int, end_pos: int) -> bool:
-        """Check if the matched text is part of a date"""
+    def _normalize_text(self, text: str) -> str:
+        """Normalize text for better pattern matching with typo tolerance"""
         try:
-            for pattern in self.compiled_date_patterns:
-                for match in pattern.finditer(text):
-                    if start_pos >= match.start() and end_pos <= match.end():
-                        return True
-            return False
-        except (TypeError, AttributeError):
-            return False
-
-    def _parse_time_match(self, match: re.Match) -> Optional[str]:
-        """Parse a time match and return in 24-hour format"""
-        try:
-            groups = match.groupdict()
-            if not groups or 'hour' not in groups:
-                return None
-                
-            hour_str = groups.get('hour')
-            if not hour_str:
-                return None
+            # Replace common variations and typos
+            text = re.sub(r'\bthru\b', 'through', text, flags=re.IGNORECASE)
+            text = re.sub(r'\btil\b|\btill\b', 'until', text, flags=re.IGNORECASE)
+            text = re.sub(r'\b&\b', 'and', text)
             
-            # Convert word numbers to digits
-            if isinstance(hour_str, str) and hour_str.lower() in self.number_words:
+            # Fix common typos in duration expressions
+            text = re.sub(r'\bfor\s+and\s+hour\b', 'for an hour', text, flags=re.IGNORECASE)
+            text = re.sub(r'\band\s+hour\s+half\b', 'an hour and half', text, flags=re.IGNORECASE)
+            text = re.sub(r'\bhour\s+half\b', 'hour and half', text, flags=re.IGNORECASE)
+            text = re.sub(r'\bhours\s+half\b', 'hour and half', text, flags=re.IGNORECASE)
+            
+            # Normalize spacing around time separators
+            text = re.sub(r'(\d)([ap]m)', r'\1 \2', text, flags=re.IGNORECASE)
+            text = re.sub(r'(\d)\s*-\s*(\d)', r'\1-\2', text)  # Normalize ranges
+            text = re.sub(r'(\d)\s*–\s*(\d)', r'\1-\2', text)  # Em dash ranges
+            text = re.sub(r'(\d)\s*—\s*(\d)', r'\1-\2', text)  # En dash ranges
+            
+            # Handle concatenated times (545am -> 5:45am) but be careful with 330 -> 3:30
+            text = re.sub(r'\b(\d)(\d{2})(am|pm)\b', r'\1:\2\3', text, flags=re.IGNORECASE)
+            
+            # Normalize multiple spaces
+            text = re.sub(r'\s+', ' ', text)
+            
+            return text.strip()
+        except:
+            return str(text) if text else ""
+
+    def _find_all_times(self, text: str) -> List[Dict]:
+        """Find all time expressions in text and return sorted by confidence"""
+        times = []
+        
+        # Check for time ranges first (highest priority)
+        range_match = self._find_time_range(text)
+        if range_match:
+            times.append({'confidence': 100, **range_match})
+        
+        # Check for single times
+        for pattern in self.compiled_time_patterns:
+            for match in pattern.finditer(text):
+                if self._is_part_of_date(text, match.start(), match.end()):
+                    continue
+                    
+                parsed_time = self._parse_single_time(match)
+                if parsed_time:
+                    confidence = self._calculate_confidence(match, text)
+                    times.append({'confidence': confidence, 'time': parsed_time})
+        
+        # Check special times
+        for special, time_val in self.special_times.items():
+            if re.search(r'\b' + re.escape(special) + r'\b', text, re.IGNORECASE):
+                times.append({'confidence': 80, 'time': time_val})
+        
+        # Sort by confidence and return
+        return sorted(times, key=lambda x: x['confidence'], reverse=True)
+
+    def _find_time_range(self, text: str) -> Optional[Dict]:
+        """Find time ranges like '8-9am', '2:00-3:30', etc."""
+        # Enhanced range pattern
+        range_pattern = r'\b(\d{1,2})(?:[:.\s](\d{2}))?\s*(am|pm)?\s*[-–—]\s*(\d{1,2})(?:[:.\s](\d{2}))?\s*(am|pm)?\b'
+        
+        match = re.search(range_pattern, text, re.IGNORECASE)
+        if not match:
+            return None
+        
+        start_hour, start_min, start_mer, end_hour, end_min, end_mer = match.groups()
+        
+        # Convert to 24-hour format
+        start_time = self._convert_to_24h(
+            int(start_hour), 
+            int(start_min or 0), 
+            start_mer
+        )
+        
+        end_time = self._convert_to_24h(
+            int(end_hour), 
+            int(end_min or 0), 
+            end_mer or start_mer  # Use start meridian if end not specified
+        )
+        
+        if start_time and end_time:
+            return {'start_time': start_time, 'end_time': end_time}
+        
+        return None
+
+    def _parse_single_time(self, match: re.Match) -> Optional[str]:
+        """Parse a single time match"""
+        groups = match.groupdict()
+        
+        # Handle special times
+        if groups.get('special'):
+            special = groups['special'].lower()
+            return self.special_times.get(special)
+        
+        hour_str = groups.get('hour')
+        if not hour_str:
+            return None
+        
+        # Handle concatenated times (330 -> 3:30, 1015 -> 10:15)
+        if len(hour_str) >= 3 and hour_str.isdigit():
+            if len(hour_str) == 3:  # 330 -> 3:30
+                hour = int(hour_str[0])
+                minute = int(hour_str[1:])
+            elif len(hour_str) == 4:  # 1015 -> 10:15
+                hour = int(hour_str[:2])
+                minute = int(hour_str[2:])
+            else:
+                return None
+        else:
+            # Standard parsing
+            if hour_str.lower() in self.number_words:
                 hour = self.number_words[hour_str.lower()]
             else:
                 try:
                     hour = int(hour_str)
-                except (ValueError, TypeError):
+                except:
                     return None
-                
-            # Safely convert minute with default
-            try:
-                minute = int(groups.get('minute', '0') or '0')
-            except (ValueError, TypeError):
-                minute = 0
-                
-            meridian = (groups.get('meridian') or '').lower().replace('.', '')
+            
+            minute = int(groups.get('minute', 0) or 0)
+        
+        meridian = (groups.get('meridian') or '').lower().replace('.', '').strip()
+        
+        return self._convert_to_24h(hour, minute, meridian)
 
-            # Handle special cases
-            if meridian in ['noon', 'midnight']:
-                return '12:00' if meridian == 'noon' else '00:00'
-
-            # Convert to 24-hour format
+    def _convert_to_24h(self, hour: int, minute: int, meridian: str) -> Optional[str]:
+        """Convert hour/minute/meridian to 24-hour format"""
+        try:
+            # Validate inputs - handle both 12-hour and 24-hour formats
+            if not (1 <= hour <= 12 or 0 <= hour <= 23) or not (0 <= minute <= 59):
+                return None
+            
+            # Handle meridian
             if meridian:
                 if meridian.startswith('p') and hour != 12:
                     hour += 12
                 elif meridian.startswith('a') and hour == 12:
                     hour = 0
-
-            # Validate time
-            if not (0 <= hour <= 23 and 0 <= minute <= 59):
-                return None
-
-            return f"{hour:02d}:{minute:02d}"
-
-        except (ValueError, AttributeError, TypeError):
-            return None
-
-    def _extract_duration(self, text: str) -> Optional[int]:
-        """Extract duration from text and return total minutes"""
-        try:
-            # Check special durations first
-            for special, minutes in self.special_durations.items():
-                if special in text.lower():
-                    return minutes
-
-            # Process duration patterns
-            for pattern in self.compiled_duration_patterns:
-                match = pattern.search(text)
-                if match:
-                    groups = match.groupdict()
-                    total_minutes = 0
-                    
-                    # Handle hours
-                    if groups.get('hours'):
-                        hours_str = groups['hours']
-                        if hours_str.isdigit():
-                            hours = float(hours_str)
-                        else:
-                            hours = self.number_words.get(hours_str.lower(), 0)
-                        total_minutes += int(hours * 60)
-                    
-                    # Handle minutes
-                    if groups.get('minutes'):
-                        try:
-                            minutes = int(groups['minutes'])
-                            total_minutes += minutes
-                        except (ValueError, TypeError):
-                            pass
-                    
-                    # Handle fractions
-                    if groups.get('fraction'):
-                        fraction = groups['fraction'].lower()
-                        if fraction == 'half':
-                            total_minutes += 30
-                        elif fraction == 'quarter':
-                            total_minutes += 15
-                    
-                    return total_minutes
-
-            return None
-        except (ValueError, AttributeError, TypeError):
-            return None
-
-    def _handle_range(self, start_hour_str: str, end_hour_str: str, 
-                     start_meridian: str, end_meridian: str,
-                     start_minute_str: str = '0', end_minute_str: str = '0') -> Optional[Dict[str, str]]:
-        """Handle time ranges with enhanced meridian handling and None checks"""
-        try:
-            # Early validation of inputs
-            if not all(isinstance(x, str) for x in [start_hour_str, end_hour_str]):
-                return None
-                
-            # Convert word numbers if necessary
-            if start_hour_str.lower() in self.number_words:
-                start_hour = self.number_words[start_hour_str.lower()]
+                elif meridian in ['noon', 'midnight']:
+                    hour = 12 if meridian == 'noon' else 0
+                    minute = 0
             else:
-                try:
-                    start_hour = int(start_hour_str)
-                except (ValueError, TypeError):
-                    return None
-                
-            if end_hour_str.lower() in self.number_words:
-                end_hour = self.number_words[end_hour_str.lower()]
-            else:
-                try:
-                    end_hour = int(end_hour_str)
-                except (ValueError, TypeError):
-                    return None
-            
-            # Safely convert minutes with defaults
-            try:
-                start_minute = int(start_minute_str or '0')
-                end_minute = int(end_minute_str or '0')
-            except (ValueError, TypeError):
-                start_minute = 0
-                end_minute = 0
-            
-            # Process meridians with None handling
-            start_meridian = (start_meridian or '').lower().replace('.', '')
-            end_meridian = (end_meridian or '').lower().replace('.', '')
-            
-            # Convert start time to 24-hour format
-            if start_meridian.startswith('p'):
-                if start_hour != 12:
-                    start_hour += 12
-            elif start_meridian.startswith('a'):
-                if start_hour == 12:
-                    start_hour = 0
-                    
-            # Convert end time to 24-hour format
-            if end_meridian.startswith('p'):
-                if end_hour != 12:
-                    end_hour += 12
-            elif end_meridian.startswith('a'):
-                if end_hour == 12:
-                    end_hour = 0
-            
-            # Handle cross-meridian ranges (e.g., 11pm-1am)
-            if not end_meridian and start_meridian:
-                if start_hour > end_hour:
-                    if start_meridian.startswith('p'):
-                        end_hour += 12
-                else:
-                    if start_meridian.startswith('p'):
-                        end_hour += 12
-                    elif start_meridian.startswith('a'):
-                        end_hour = end_hour % 12
+                # Smart guessing based on context - events are usually PM for 1-7, AM for 8-11
+                if 1 <= hour <= 7:
+                    hour += 12  # Assume PM for afternoon/evening events
+                elif hour == 12:
+                    hour = 12  # Assume noon
+                # 8-11 stay as AM, which is already correct
             
             # Final validation
-            if not (0 <= start_hour <= 23 and 0 <= end_hour <= 23 and
-                   0 <= start_minute <= 59 and 0 <= end_minute <= 59):
+            if not (0 <= hour <= 23):
                 return None
+                
+            return f"{hour:02d}:{minute:02d}"
             
-            return {
-                'start_time': f"{start_hour:02d}:{start_minute:02d}",
-                'end_time': f"{end_hour:02d}:{end_minute:02d}"
-            }
-            
-        except (ValueError, AttributeError, TypeError):
+        except:
             return None
+
+    def _calculate_confidence(self, match: re.Match, text: str) -> int:
+        """Calculate confidence score for a time match"""
+        confidence = 50  # Base confidence
+        
+        groups = match.groupdict()
+        
+        # Higher confidence for explicit meridian
+        if groups.get('meridian'):
+            confidence += 30
+        
+        # Higher confidence for minutes specified
+        if groups.get('minute'):
+            confidence += 20
+        
+        # Context clues boost confidence
+        context_before = text[max(0, match.start()-20):match.start()].lower()
+        context_after = text[match.end():match.end()+20].lower()
+        
+        time_context_words = ['at', 'around', 'about', 'from', 'until', 'to', 'for']
+        if any(word in context_before or word in context_after for word in time_context_words):
+            confidence += 15
+        
+        return min(confidence, 100)
+
+    def _extract_duration(self, text: str) -> Optional[int]:
+        """Extract duration from text with ULTRA-ROBUST pattern matching for typos"""
+        text_lower = text.lower()
+        
+        # PRIORITY 1: Check special durations first (exact matches including typos)
+        sorted_specials = sorted(self.special_durations.items(), key=lambda x: len(x[0]), reverse=True)
+        for special, minutes in sorted_specials:
+            # Use word boundaries for exact matching
+            if re.search(r'\b' + re.escape(special) + r'\b', text_lower):
+                return minutes
+        
+        # PRIORITY 2: Advanced pattern-based extraction with typo tolerance
+        best_duration = 0
+        
+        for pattern in self.compiled_duration_patterns:
+            for match in pattern.finditer(text):
+                duration = self._parse_duration_match(match, text_lower)
+                if duration and duration > best_duration:
+                    best_duration = duration
+        
+        # PRIORITY 3: Aggressive fallback for edge cases and typos
+        if best_duration == 0:
+            best_duration = self._ultra_fallback_duration_extraction(text_lower)
+        
+        return best_duration if best_duration > 0 else None
+
+    def _parse_duration_match(self, match: re.Match, full_text: str) -> Optional[int]:
+        """Parse a duration match with enhanced typo handling"""
+        groups = match.groupdict()
+        matched_text = match.group().lower()
+        total_minutes = 0
+        
+        try:
+            # SPECIAL CASE: Detect "hour half" patterns (biggest source of errors)
+            if re.search(r'\bhours?\s+(?:and\s+)?(?:a\s+)?half\b', matched_text):
+                # Look for number before "hour"
+                hour_num = 1  # Default to 1 hour
+                
+                if groups.get('hours'):
+                    hour_num = float(groups['hours'])
+                elif groups.get('word_hours'):
+                    word_hour = groups['word_hours'].lower()
+                    if word_hour in self.number_words:
+                        hour_num = self.number_words[word_hour]
+                elif re.search(r'\b(?:and|an?|one)\s*hours?\b', matched_text):
+                    hour_num = 1
+                
+                total_minutes = int(hour_num * 60) + 30  # Add 30 minutes for "half"
+                return total_minutes
+            
+            # SPECIAL CASE: Detect "hour quarter" patterns
+            elif re.search(r'\bhours?\s+(?:and\s+)?(?:a\s+)?quarter\b', matched_text):
+                hour_num = 1  # Default
+                
+                if groups.get('hours'):
+                    hour_num = float(groups['hours'])
+                elif groups.get('word_hours'):
+                    word_hour = groups['word_hours'].lower()
+                    if word_hour in self.number_words:
+                        hour_num = self.number_words[word_hour]
+                
+                total_minutes = int(hour_num * 60) + 15  # Add 15 minutes for "quarter"
+                return total_minutes
+            
+            # Handle standard hour and fraction combinations
+            elif groups.get('hours') and groups.get('fraction'):
+                hours = float(groups['hours'])
+                fraction = groups['fraction'].lower().replace('-', ' ').strip()
+                fraction_mins = self.fraction_minutes.get(fraction, 0)
+                total_minutes = int(hours * 60) + fraction_mins
+                
+            elif groups.get('word_hours') and groups.get('fraction'):
+                word_hour = groups['word_hours'].lower()
+                if word_hour in self.number_words:
+                    hours = self.number_words[word_hour]
+                    fraction = groups['fraction'].lower().replace('-', ' ').strip()
+                    fraction_mins = self.fraction_minutes.get(fraction, 0)
+                    total_minutes = int(hours * 60) + fraction_mins
+            
+            # Handle simple hours
+            elif groups.get('hours'):
+                total_minutes = int(float(groups['hours']) * 60)
+                
+            elif groups.get('word_hours'):
+                word_hour = groups['word_hours'].lower()
+                if word_hour in self.number_words:
+                    total_minutes = self.number_words[word_hour] * 60
+            
+            # Handle minutes
+            elif groups.get('minutes'):
+                total_minutes = int(groups['minutes'])
+                
+            elif groups.get('word_minutes'):
+                word_minute = groups['word_minutes'].lower().replace('-', ' ')
+                if word_minute in self.number_words:
+                    total_minutes = self.number_words[word_minute]
+            
+            # Handle fraction-only
+            elif groups.get('fraction'):
+                fraction = groups['fraction'].lower().replace('-', ' ').strip()
+                total_minutes = self.fraction_minutes.get(fraction, 0)
+            
+            return total_minutes if total_minutes > 0 else None
+            
+        except (ValueError, TypeError):
+            return None
+
+    def _ultra_fallback_duration_extraction(self, text: str) -> int:
+        """ULTRA-AGGRESSIVE fallback for missed duration patterns including typos"""
+        total_minutes = 0
+        
+        # Look for "hour half" patterns that might have been missed
+        hour_half_patterns = [
+            r'(?:and|an?|one)?\s*hours?\s+(?:and\s+)?(?:a\s+)?half',
+            r'(?:\d+)\s*hours?\s+(?:and\s+)?(?:a\s+)?half',
+            r'hours?\s+half',
+            r'hour\s+half'
+        ]
+        
+        for pattern in hour_half_patterns:
+            matches = re.findall(pattern, text, re.IGNORECASE)
+            if matches:
+                # Found "hour half" pattern - return 90 minutes
+                return 90
+        
+        # Look for "hour quarter" patterns
+        hour_quarter_patterns = [
+            r'(?:and|an?|one)?\s*hours?\s+(?:and\s+)?(?:a\s+)?quarter',
+            r'(?:\d+)\s*hours?\s+(?:and\s+)?(?:a\s+)?quarter',
+            r'hours?\s+quarter',
+            r'hour\s+quarter'
+        ]
+        
+        for pattern in hour_quarter_patterns:
+            matches = re.findall(pattern, text, re.IGNORECASE)
+            if matches:
+                # Found "hour quarter" pattern - return 75 minutes
+                return 75
+        
+        # Look for any "X hours" patterns
+        hour_patterns = [
+            r'(\d+(?:\.\d+)?)\s*(?:h|hr|hour|hours)',
+            r'(one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)\s*(?:hour|hours)'
+        ]
+        
+        for pattern in hour_patterns:
+            matches = re.findall(pattern, text, re.IGNORECASE)
+            for match in matches:
+                try:
+                    if match.isdigit() or '.' in match:
+                        total_minutes += int(float(match) * 60)
+                    elif match in self.number_words:
+                        total_minutes += self.number_words[match] * 60
+                except:
+                    continue
+        
+        # Look for any "X minutes" patterns
+        minute_patterns = [
+            r'(\d+)\s*(?:m|min|mins|minute|minutes)',
+            r'(five|ten|fifteen|twenty|twenty-five|thirty|thirty-five|forty|forty-five|fifty|fifty-five)\s*(?:minute|minutes)'
+        ]
+        
+        for pattern in minute_patterns:
+            matches = re.findall(pattern, text, re.IGNORECASE)
+            for match in matches:
+                try:
+                    if match.isdigit():
+                        total_minutes += int(match)
+                    elif match.replace('-', ' ') in self.number_words:
+                        total_minutes += self.number_words[match.replace('-', ' ')]
+                except:
+                    continue
+        
+        # Look for standalone fractions
+        if 'half hour' in text or 'half an hour' in text:
+            total_minutes += 30
+        elif 'quarter hour' in text or 'quarter of an hour' in text:
+            total_minutes += 15
+        elif 'three quarter' in text and 'hour' in text:
+            total_minutes += 45
+        
+        # Special typo cases
+        if re.search(r'\bhalf\b', text) and re.search(r'\bhours?\b', text) and total_minutes == 0:
+            # Likely "hour half" or similar typo
+            return 90
+        
+        if re.search(r'\bquarter\b', text) and re.search(r'\bhours?\b', text) and total_minutes == 0:
+            # Likely "hour quarter" or similar typo
+            return 75
+        
+        return total_minutes
+
+    def _add_duration_to_time(self, start_time: str, duration_minutes: int) -> str:
+        """Add duration to start time and return end time"""
+        try:
+            start_dt = datetime.strptime(start_time, '%H:%M')
+            end_dt = start_dt + timedelta(minutes=duration_minutes)
+            
+            # Handle day overflow
+            if end_dt.date() > start_dt.date():
+                end_dt = end_dt.replace(hour=23, minute=59)
+            
+            return end_dt.strftime('%H:%M')
+        except:
+            # Fallback: add 1 hour
+            try:
+                start_dt = datetime.strptime(start_time, '%H:%M')
+                end_dt = start_dt + timedelta(hours=1)
+                return end_dt.strftime('%H:%M')
+            except:
+                return start_time
+
+    def _is_part_of_date(self, text: str, start_pos: int, end_pos: int) -> bool:
+        """Check if matched text is part of a date"""
+        try:
+            buffer = 15
+            check_start = max(0, start_pos - buffer)
+            check_end = min(len(text), end_pos + buffer)
+            check_text = text[check_start:check_end]
+            
+            for pattern in self.compiled_date_patterns:
+                for match in pattern.finditer(check_text):
+                    match_start = check_start + match.start()
+                    match_end = check_start + match.end()
+                    if start_pos >= match_start and end_pos <= match_end:
+                        return True
+            return False
+        except:
+            return False
+        
+        
         
 class ScheduleSpellChecker:
     def __init__(self):
@@ -1329,7 +1521,7 @@ class AdvancedScheduleExtractor:
                 r'saturday\s*-\s*sunday',
                 r'sat\s*-\s*sun'
             ]
-    
+
         def _extract_days_from_text(self, text: str) -> List[str]:
             """Extract specific days mentioned in the text."""
             days = []
@@ -1350,7 +1542,7 @@ class AdvancedScheduleExtractor:
                         break
             
             return days
-    
+
         def _extract_monthly_day(self, text: str, event_date: str) -> Optional[int]:
             """Extract specific day of month from text or use event date."""
             text_lower = text.lower()
@@ -1368,7 +1560,7 @@ class AdvancedScheduleExtractor:
             # If no specific day mentioned, use the day from the event date
             event_day = datetime.strptime(event_date, '%Y-%m-%d').day
             return event_day
-    
+
         def _extract_yearly_date(self, text: str, event_date: str) -> tuple:
             """Extract month and day for yearly recurrence."""
             text_lower = text.lower()
@@ -1400,13 +1592,78 @@ class AdvancedScheduleExtractor:
                 day = event_datetime.day
                 
             return month, day
-    
+
+        def _has_recurrence_indicators(self, text: str) -> bool:
+            """Check if text contains clear recurrence indicators."""
+            text_lower = text.lower()
+            
+            # Strong recurrence indicators
+            recurrence_keywords = [
+                r'\bevery\s+(?:day|week|month|year|monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b',
+                r'\beach\s+(?:day|week|month|year|monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b',
+                r'\bdaily\b',
+                r'\bweekly\b',
+                r'\bmonthly\b',
+                r'\byearly\b',
+                r'\bannually\b',
+                r'\brecurring\b',
+                r'\brepeat\b',
+                r'\brepeating\b',
+                r'\bregularly\b',
+                r'\bon\s+(?:mondays|tuesdays|wednesdays|thursdays|fridays|saturdays|sundays)\b',
+                r'\bmultiple\s+times\b',
+                r'\bseveral\s+times\b'
+            ]
+            
+            # Check for weekday/weekend patterns
+            for pattern in self.weekday_patterns + self.weekend_patterns:
+                if re.search(pattern, text_lower):
+                    return True
+            
+            # Check for recurrence keywords
+            for pattern in recurrence_keywords:
+                if re.search(pattern, text_lower):
+                    return True
+            
+            # Check for "and" patterns that might indicate multiple days
+            # But exclude temporal references like "this sunday", "next monday"
+            temporal_refs = [
+                r'\bthis\s+(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b',
+                r'\bnext\s+(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b',
+                r'\blast\s+(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b',
+                r'\btomorrow\b',
+                r'\byesterday\b',
+                r'\btoday\b'
+            ]
+            
+            # If we find temporal references, it's likely not a recurring pattern
+            for pattern in temporal_refs:
+                if re.search(pattern, text_lower):
+                    return False
+            
+            # Check for multiple days mentioned with "and" or commas
+            day_names = list(self.day_mapping.keys())
+            days_mentioned = []
+            for day in day_names:
+                if re.search(r'\b' + day + r's?\b', text_lower):
+                    days_mentioned.append(day)
+            
+            # If multiple days are mentioned, it might be recurring
+            if len(days_mentioned) > 1:
+                return True
+            
+            return False
+
         def convert_to_rrule(self, recurrence_input: str, event_date: str) -> str:
             """Convert human-readable recurrence to RRULE format."""
             if not recurrence_input or recurrence_input.lower().strip() in ['none', 'no', 'never']:
                 return ""
             
             text = recurrence_input.lower().strip()
+            
+            # First check if this text actually indicates recurrence
+            if not self._has_recurrence_indicators(text):
+                return ""
             
             # Daily patterns
             if re.search(r'\bdaily\b|\bevery\s+day\b|\beach\s+day\b', text):
@@ -1423,9 +1680,7 @@ class AdvancedScheduleExtractor:
                     return "FREQ=WEEKLY;BYDAY=SA,SU"
             
             # Weekly with specific days
-            if re.search(r'\bweekly\b|\bevery\s+week\b|\beach\s+week\b', text) or \
-            re.search(r'\b(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b', text):
-                
+            if re.search(r'\bweekly\b|\bevery\s+week\b|\beach\s+week\b', text):
                 days = self._extract_days_from_text(text)
                 if days:
                     return f"FREQ=WEEKLY;BYDAY={','.join(sorted(days))}"
@@ -1445,9 +1700,15 @@ class AdvancedScheduleExtractor:
                 month, day = self._extract_yearly_date(text, event_date)
                 return f"FREQ=YEARLY;BYMONTH={month};BYMONTHDAY={day}"
             
-            # Check for specific day mentions without "weekly" keyword
+            # Check for "every [day]" or "each [day]" patterns
+            if re.search(r'\bevery\s+(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b|\beach\s+(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b', text):
+                days = self._extract_days_from_text(text)
+                if days:
+                    return f"FREQ=WEEKLY;BYDAY={','.join(sorted(days))}"
+            
+            # Check for specific day mentions with clear recurrence context
             days = self._extract_days_from_text(text)
-            if days:
+            if days and len(days) > 1:  # Only if multiple days are mentioned
                 return f"FREQ=WEEKLY;BYDAY={','.join(sorted(days))}"
             
             # Default: no recurrence
@@ -1455,7 +1716,7 @@ class AdvancedScheduleExtractor:
 
     def update_event_recurrence(event_dict: Dict[str, Any], recurrence_input: str) -> Dict[str, Any]:
         """Update event dictionary with RRULE recurrence pattern."""
-        converter = AdvancedScheduleExtractor.RecurrenceToRRULE()
+        converter = RecurrenceToRRULE()
         
         # Create a copy of the event dictionary
         updated_event = event_dict.copy()

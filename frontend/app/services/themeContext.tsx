@@ -110,7 +110,7 @@ export const themes: Theme[] = [
       chart5: '30 80% 60%',             // Soft orange
 
       mainBackground: '222 20% 7%',
-      sidebarItemColor: '222 10% 15%',
+      sidebarItemColor: '222 10% 18%',
       calendarBackground: '0 0% 0%',   // ACTUALLY SIDEBAR BACKGEROUND
 
       sidebar: '220 10% 10%',           // Slightly lighter than bg
@@ -171,7 +171,7 @@ export const themes: Theme[] = [
       chart5: '30 80% 60%',             // Soft orange
 
       mainBackground: '152 20% 7%',
-      sidebarItemColor: '152 10% 15%',
+      sidebarItemColor: '152 10% 18%',
       calendarBackground: '0 0% 0%',   // ACTUALLY SIDEBAR BACKGEROUND
 
       sidebar: '150 10% 10%',           // Slightly lighter than bg
@@ -232,7 +232,7 @@ export const themes: Theme[] = [
       chart5: '30 80% 60%',             // Soft orange
 
       mainBackground: '200 20% 7%',
-      sidebarItemColor: '200 10% 15%',
+      sidebarItemColor: '200 10% 18%',
       calendarBackground: '0 0% 0%',   // ACTUALLY SIDEBAR BACKGEROUND
 
       sidebar: '200 10% 10%',           // Slightly lighter than bg
@@ -293,7 +293,7 @@ export const themes: Theme[] = [
       chart5: '30 80% 60%',             // Soft orange
 
       mainBackground: '25 20% 7%',
-      sidebarItemColor: '25 10% 15%',
+      sidebarItemColor: '25 10% 18%',
       calendarBackground: '0 0% 0%',   // ACTUALLY SIDEBAR BACKGEROUND
 
       sidebar: '25 10% 10%',           // Slightly lighter than bg
@@ -354,7 +354,7 @@ export const themes: Theme[] = [
       chart5: '30 80% 60%',             // Soft orange
 
       mainBackground: '265 20% 7%',
-      sidebarItemColor: '265 10% 15%',
+      sidebarItemColor: '265 10% 18%',
       calendarBackground: '0 0% 0%',   // ACTUALLY SIDEBAR BACKGEROUND
 
       sidebar: '265 10% 10%',           // Slightly lighter than bg
@@ -415,7 +415,7 @@ export const themes: Theme[] = [
       chart5: '30 80% 60%',             // Soft orange
 
       mainBackground: '0 20% 7%',
-      sidebarItemColor: '0 10% 15%',
+      sidebarItemColor: '0 10% 18%',
       calendarBackground: '0 0% 0%',   // ACTUALLY SIDEBAR BACKGEROUND
 
       sidebar: '0 10% 10%',           // Slightly lighter than bg

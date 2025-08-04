@@ -87,19 +87,86 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange, onViewChange, refres
     setHoveredDay
   });
 
-  // Prepare all events for FullCalendar
+  // Prepare all events for FullCalendar - FIXED to use proper IDs
   const allEvents = [
     ...sortEventsByTime(currentEvents || []).map(event => ({
-      id: event.id,
+      // Use frontendId for FullCalendar's internal tracking (prevents duplicates)
+      id: event.extendedProps?.frontendId || event.id,
       title: event.title,
       start: event.start,
       end: event.end,
       backgroundColor: event.backgroundColor,
       borderColor: event.borderColor,
-      extendedProps: event.extendedProps,
+      extendedProps: {
+        ...event.extendedProps,
+        // Ensure we keep track of both IDs
+        eventId: event.extendedProps?.eventId || event.id, // For API calls
+        frontendId: event.extendedProps?.frontendId || event.id, // For React keys
+        originalEventId: event.extendedProps?.originalEventId, // For backend operations
+      },
     })),
     ...(Array.isArray(dayMarkings) ? dayMarkings : [])
   ];
+
+  // Helper function to get current events for a specific day
+  const getEventsForDay = (date: Date) => {
+    if (!currentEvents) return [];
+    
+    // Normalize the target date to avoid timezone issues
+    const targetDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    const targetDateStr = targetDate.toISOString().split('T')[0];
+    
+    return currentEvents.filter(event => {
+      if (!event.start) return false;
+      
+      // Handle different date formats
+      let eventStartDate: Date;
+      if (typeof event.start === 'string') {
+        // If it's a date-only string (all-day event)
+        if (event.start.length === 10 && !event.start.includes('T')) {
+          eventStartDate = new Date(event.start + 'T00:00:00');
+        } else {
+          eventStartDate = new Date(event.start);
+        }
+      } else {
+        eventStartDate = new Date(event.start);
+      }
+      
+      // Normalize event start date
+      const normalizedEventStart = new Date(eventStartDate.getFullYear(), eventStartDate.getMonth(), eventStartDate.getDate());
+      const eventDateStr = normalizedEventStart.toISOString().split('T')[0];
+      
+      // Check if the event is on the target date
+      if (eventDateStr === targetDateStr) return true;
+      
+      // Check if it's a multi-day event that spans the target date
+      if (event.end) {
+        let eventEndDate: Date;
+        if (typeof event.end === 'string') {
+          if (event.end.length === 10 && !event.end.includes('T')) {
+            eventEndDate = new Date(event.end + 'T23:59:59');
+          } else {
+            eventEndDate = new Date(event.end);
+          }
+        } else {
+          eventEndDate = new Date(event.end);
+        }
+        
+        const normalizedEventEnd = new Date(eventEndDate.getFullYear(), eventEndDate.getMonth(), eventEndDate.getDate());
+        const eventEndStr = normalizedEventEnd.toISOString().split('T')[0];
+        
+        return targetDateStr >= eventDateStr && targetDateStr <= eventEndStr;
+      }
+      
+      return false;
+    });
+  };
+
+  // Create updated hoveredDay info with current events
+  const updatedHoveredDayInfo = hoveredDay ? {
+    ...hoveredDay,
+    events: getEventsForDay(hoveredDay.date)
+  } : null;
 
   // Debug logging
   useEffect(() => {
@@ -122,7 +189,7 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange, onViewChange, refres
     // The DayDetailPopup will handle opening its own modal
   };
 
-  // Handle event update from DayDetailPopup
+  // Handle event update from DayDetailPopup - FIXED to use proper event ID
   const handleEventUpdateFromPopup = async (eventDetails: EventDetails) => {
     try {
       console.log('Updating event from popup:', eventDetails);
@@ -146,8 +213,8 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange, onViewChange, refres
         subcategories: '',
       };
 
-      // Use useAppState's updateEvent method
-      const result = await updateEvent(eventDetails.eventId!, updateData);
+      // Use the eventId directly - useAppState will handle extracting the backend ID
+      const result = await updateEvent(eventDetails.eventId, updateData);
       
       if (result) {
         console.log('Event updated successfully');
@@ -195,7 +262,7 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange, onViewChange, refres
               editable={!isLoading}
               selectable={!isLoading}
               selectMirror={true}
-              dayMaxEvents={3} // Show 4 events before "+more"
+              dayMaxEvents={3} // Show 3 events before "+more"
               displayEventEnd={false}
               displayEventTime={true}
               eventResizable={true}
@@ -256,18 +323,17 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange, onViewChange, refres
                 }
               }}
               fixedWeekCount={false}
-              dayMaxEventRows={3} // Show 4 event rows before "+more"
-              dayMaxEvents={3} // Ensure consistent with dayMaxEventRows
+              dayMaxEventRows={3} // Show 3 event rows before "+more"
               aspectRatio={1.35} // Controls height ratio
               eventOrder="start,-duration,title"
             />
             )}
           </div>
 
-          {/* Day Detail Popup - Updated with new props */}
-          {hoveredDay && !isModalOpen && (
+          {/* Day Detail Popup - Now uses updatedHoveredDayInfo with current events */}
+          {updatedHoveredDayInfo && !isModalOpen && (
             <DayDetailPopup 
-              info={hoveredDay} 
+              info={updatedHoveredDayInfo} 
               handleDeleteEvent={handleDeleteEvent}
               hoverTimerRef={hoverTimerRef}
               setHoveredDay={setHoveredDay}

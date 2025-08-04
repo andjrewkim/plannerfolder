@@ -1,4 +1,4 @@
-// hooks/useAppState.ts - ACTUALLY FIXED VERSION WITH UPDATE/DELETE EVENT
+// hooks/useAppState.ts - FIXED VERSION WITH PROPER EVENT ID HANDLING
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { RRule } from 'rrule';
 import { authAPI } from '../../lib/auth';
@@ -21,6 +21,10 @@ export interface EventDetails {
   color: string;
   all_day?: boolean;
   day_marking_title?: string;
+  // Additional fields for expanded events
+  frontendId?: string;
+  occurrenceDate?: string;
+  originalEventId?: string; // Store the original backend ID separately
 }
 
 export interface TaskData {
@@ -85,7 +89,7 @@ export const useAppState = () => {
     updateState({ isLoading });
   }, []);
 
-  // Simplified recurring events expansion
+  // FIXED recurring events expansion with proper ID management
   const expandRecurringEvents = useCallback((events: EventDetails[]): EventDetails[] => {
     const expandedEvents: EventDetails[] = [];
     const today = new Date();
@@ -106,20 +110,38 @@ export const useAppState = () => {
             true
           );
 
-          occurrences.forEach((occurrence, index) => {
+          occurrences.forEach((occurrence) => {
+            const dateString = occurrence.toISOString().split('T')[0];
             expandedEvents.push({
               ...event,
-              id: `${event.id}_${index}`,
-              eventId: event.id,
-              date: occurrence.toISOString().split('T')[0]
+              // Keep the original backend ID clean for API calls
+              id: event.id,
+              originalEventId: event.id, // Store original for reference
+              // Create unique frontend ID for React/FullCalendar
+              frontendId: `${event.id}_${dateString}`,
+              // For the calendar component, use frontendId as the main identifier
+              eventId: `${event.id}_${dateString}`,
+              date: dateString,
+              occurrenceDate: dateString
             });
           });
         } catch (error) {
           console.error('Error parsing recurrence:', error);
-          expandedEvents.push(event);
+          expandedEvents.push({
+            ...event,
+            originalEventId: event.id,
+            frontendId: `${event.id}_${event.date}`,
+            eventId: `${event.id}_${event.date}`
+          });
         }
       } else {
-        expandedEvents.push(event);
+        // For non-recurring events, keep it simple
+        expandedEvents.push({
+          ...event,
+          originalEventId: event.id,
+          frontendId: event.id, // Use original ID for non-recurring
+          eventId: event.id // Use original ID for non-recurring
+        });
       }
     });
 
@@ -144,9 +166,12 @@ export const useAppState = () => {
       }
 
       const events: EventDetails[] = await response.json();
-      console.log(`Fetched ${events.length} events`);
+      console.log(`Fetched ${events.length} raw events from backend`);
       
-      return expandRecurringEvents(events);
+      const expandedEvents = expandRecurringEvents(events);
+      console.log(`Expanded to ${expandedEvents.length} event instances`);
+      
+      return expandedEvents;
     } catch (error) {
       console.error('Event fetch error:', error);
       throw error;
@@ -178,6 +203,41 @@ export const useAppState = () => {
       console.error('Task fetch error:', error);
       throw error;
     }
+  }, []);
+
+  // Helper function to extract clean backend ID
+  const getBackendId = useCallback((eventId: string | number | undefined | null): string => {
+    // Convert to string and handle null/undefined
+    const idStr = String(eventId || '');
+    
+    if (!idStr) {
+      console.error('getBackendId: No eventId provided');
+      return '';
+    }
+    
+    console.log('getBackendId: Processing eventId:', idStr);
+    
+    // If it has originalEventId in the expanded event, use that
+    const event = globalState.events.find(e => 
+      e.eventId === idStr || 
+      e.frontendId === idStr || 
+      e.id === idStr
+    );
+    
+    if (event?.originalEventId) {
+      console.log('getBackendId: Found originalEventId:', event.originalEventId);
+      return event.originalEventId;
+    }
+    
+    // Fallback: extract from frontendId if it has underscore
+    if (idStr.includes('_')) {
+      const backendId = idStr.split('_')[0];
+      console.log('getBackendId: Extracted from composite ID:', backendId);
+      return backendId;
+    }
+    
+    console.log('getBackendId: Using ID as-is:', idStr);
+    return idStr;
   }, []);
 
   // Create event
@@ -217,8 +277,8 @@ export const useAppState = () => {
     }
   }, [fetchEvents, setError, setLoading]);
 
-  // Update event
-  const updateEvent = useCallback(async (eventId: string, eventData: Partial<EventDetails>): Promise<EventDetails | null> => {
+  // Update event - FIXED to use proper backend ID extraction
+  const updateEvent = useCallback(async (eventId: string | number | undefined | null, eventData: Partial<EventDetails>): Promise<EventDetails | null> => {
     if (!authAPI.isAuthenticated()) {
       setError('Not authenticated');
       return null;
@@ -227,8 +287,17 @@ export const useAppState = () => {
     try {
       setLoading(true);
       
+      // Use helper function to get clean backend ID
+      const backendId = getBackendId(eventId);
+      
+      if (!backendId) {
+        throw new Error('Invalid event ID provided');
+      }
+      
+      console.log(`Updating event: ${eventId} -> backend ID: ${backendId}`);
+      
       const response = await authAPI.authenticatedFetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/events/${eventId}/`, 
+        `${process.env.NEXT_PUBLIC_API_URL}/api/events/${backendId}/`, 
         {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
@@ -252,10 +321,10 @@ export const useAppState = () => {
       setError(error instanceof Error ? error.message : 'Failed to update event');
       return null;
     }
-  }, [fetchEvents, setError, setLoading]);
+  }, [fetchEvents, setError, setLoading, getBackendId]);
 
-  // Delete event
-  const deleteEvent = useCallback(async (eventId: string): Promise<boolean> => {
+  // Delete event - FIXED to use proper backend ID extraction
+  const deleteEvent = useCallback(async (eventId: string | number | undefined | null): Promise<boolean> => {
     if (!authAPI.isAuthenticated()) {
       setError('Not authenticated');
       return false;
@@ -264,8 +333,17 @@ export const useAppState = () => {
     try {
       setLoading(true);
       
+      // Use helper function to get clean backend ID
+      const backendId = getBackendId(eventId);
+      
+      if (!backendId) {
+        throw new Error('Invalid event ID provided');
+      }
+      
+      console.log(`Deleting event: ${eventId} -> backend ID: ${backendId}`);
+      
       const response = await authAPI.authenticatedFetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/events/${eventId}/`, 
+        `${process.env.NEXT_PUBLIC_API_URL}/api/events/${backendId}/`, 
         { method: 'DELETE' }
       );
 
@@ -283,7 +361,7 @@ export const useAppState = () => {
       setError(error instanceof Error ? error.message : 'Failed to delete event');
       return false;
     }
-  }, [fetchEvents, setError, setLoading]);
+  }, [fetchEvents, setError, setLoading, getBackendId]);
 
   // Create task
   const createTask = useCallback(async (taskData: Omit<TaskData, 'id'>): Promise<TaskData | null> => {

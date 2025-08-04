@@ -228,65 +228,88 @@ export function useCalendarLogic(refreshTrigger: number, onEventChange?: () => v
     }
   }, [currentView, currentDate, onViewChange, hasInitialized]);
 
-  // Helper function to expand recurring events
-  const expandRecurringEvents = useMemo(() => {
+    // Helper function to expand recurring events
+    const expandRecurringEvents = useMemo(() => {
     return (events: EventDetails[]): EventDetails[] => {
-      if (!events.length) return [];
-      
-      const expandedEvents: EventDetails[] = [];
-      const today = new Date();
-      const futureLimit = new Date(today.getFullYear() + 2, today.getMonth(), today.getDate());
+        if (!events.length) return [];
+        
+        const expandedEvents: EventDetails[] = [];
+        const today = new Date();
+        const futureLimit = new Date(today.getFullYear() + 2, today.getMonth(), today.getDate());
+        
+        // Track which event instances we've already added to prevent duplicates
+        const addedInstances = new Set<string>();
 
-      events.forEach(event => {
+        events.forEach(event => {
         if (event.recurrence_pattern && event.recurrence_pattern.trim() !== '') {
-          try {
+            try {
             const baseDate = new Date(event.date);
             
             const ruleString = event.recurrence_pattern.includes('DTSTART') 
-              ? event.recurrence_pattern 
-              : `DTSTART=${baseDate.toISOString().split('T')[0].replace(/-/g, '')}\n${event.recurrence_pattern}`;
+                ? event.recurrence_pattern 
+                : `DTSTART=${baseDate.toISOString().split('T')[0].replace(/-/g, '')}\n${event.recurrence_pattern}`;
             
             const rule = RRule.fromString(ruleString);
             
             const occurrences = rule.between(
-              new Date(Math.min(baseDate.getTime(), today.getTime() - 30 * 24 * 60 * 60 * 1000)),
-              futureLimit,
-              true
+                new Date(Math.min(baseDate.getTime(), today.getTime() - 30 * 24 * 60 * 60 * 1000)),
+                futureLimit,
+                true
             );
 
             const originalDateString = baseDate.toISOString().split('T')[0];
             const hasOriginalDate = occurrences.some(occ => 
-              occ.toISOString().split('T')[0] === originalDateString
+                occ.toISOString().split('T')[0] === originalDateString
             );
 
             if (!hasOriginalDate) {
-              occurrences.unshift(baseDate);
+                occurrences.unshift(baseDate);
             }
 
-            occurrences.forEach((occurrence, index) => {
-              const eventDate = new Date(occurrence);
-              
-              expandedEvents.push({
-                ...event,
-                id: `${event.id}_${index}`,
-                eventId: event.id,
-                date: eventDate.toISOString().split('T')[0],
-                start_time: event.start_time,
-                end_time: event.end_time
-              });
+            occurrences.forEach((occurrence) => {
+                const eventDate = new Date(occurrence);
+                const dateString = eventDate.toISOString().split('T')[0];
+                
+                // Create a unique identifier based on the original event ID and the specific date
+                const uniqueInstanceId = `${event.id}_${dateString}`;
+                
+                // Only add if we haven't already added this specific instance
+                if (!addedInstances.has(uniqueInstanceId)) {
+                addedInstances.add(uniqueInstanceId);
+                
+                expandedEvents.push({
+                    ...event,
+                    id: uniqueInstanceId, // Use date-based ID instead of index-based
+                    eventId: event.id,
+                    date: dateString,
+                    start_time: event.start_time,
+                    end_time: event.end_time
+                });
+                }
             });
-          } catch (error) {
+            } catch (error) {
             console.error('Error parsing RRule:', event.recurrence_pattern, error);
-            expandedEvents.push(event);
-          }
+            // Only add the original event if we haven't already added it
+            const uniqueInstanceId = `${event.id}_${event.date}`;
+            if (!addedInstances.has(uniqueInstanceId)) {
+                addedInstances.add(uniqueInstanceId);
+                expandedEvents.push(event);
+            }
+            }
         } else {
-          expandedEvents.push(event);
+            // For non-recurring events, use the same pattern for consistency
+            const uniqueInstanceId = `${event.id}_${event.date}`;
+            if (!addedInstances.has(uniqueInstanceId)) {
+            addedInstances.add(uniqueInstanceId);
+            expandedEvents.push(event);
+            }
         }
-      });
+        });
 
-      return expandedEvents;
+        return expandedEvents;
     };
-  }, []);
+    }, [hookEvents]);
+
 
   // Convert events from useAppState to FullCalendar format
   const formattedEvents = useMemo(() => {

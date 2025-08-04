@@ -82,6 +82,21 @@ const EventModal: React.FC<EventModalProps> = ({
     { value: 'SU', label: 'Sun' }
   ];
 
+  // Set default times for new events
+  useEffect(() => {
+    if (isOpen && selectedEvent && !selectedEvent.eventId && !selectedEvent.all_day) {
+      // Only set defaults for new events (no eventId) and if times are empty or 00:00
+      if ((!selectedEvent.start_time || selectedEvent.start_time === '00:00' || selectedEvent.start_time === '') && 
+          (!selectedEvent.end_time || selectedEvent.end_time === '00:00' || selectedEvent.end_time === '')) {
+        // Use setTimeout to ensure this runs after the modal is fully rendered
+        setTimeout(() => {
+          onChange('start_time', '09:00');
+          onChange('end_time', '10:00');
+        }, 0);
+      }
+    }
+  }, [isOpen, selectedEvent, onChange]);
+
   const getDayOfWeekFromDateString = (dateString: string): string => {
     const [year, month, day] = dateString.split('-').map(Number);
     
