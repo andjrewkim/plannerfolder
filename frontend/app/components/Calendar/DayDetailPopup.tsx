@@ -51,6 +51,20 @@ export const DayDetailPopup: React.FC<DayDetailPopupProps> = ({
   const [selectedEvent, setSelectedEvent] = useState<EventDetails | null>(null);
   const [eventModalPosition, setEventModalPosition] = useState<{ x: number; y: number } | null>(null);
 
+  // Sort events by time - earliest to latest
+  const sortedEvents = [...info.events].sort((a, b) => {
+    // All-day events come first
+    if (a.allDay && !b.allDay) return -1;
+    if (!a.allDay && b.allDay) return 1;
+    if (a.allDay && b.allDay) return 0;
+
+    // For timed events, sort by start time
+    const aStart = a.start ? new Date(a.start).getTime() : 0;
+    const bStart = b.start ? new Date(b.start).getTime() : 0;
+    
+    return aStart - bStart;
+  });
+
   // Parallax tilt
   useEffect(() => {
     const el = popupRef.current;
@@ -212,7 +226,7 @@ export const DayDetailPopup: React.FC<DayDetailPopupProps> = ({
           }}
         >
           <AnimatePresence>
-            {info.events.map((ev, i) => {
+            {sortedEvents.map((ev, i) => {
               const start = ev.start ? new Date(ev.start) : null;
               const end = ev.end ? new Date(ev.end) : null;
               const eventColor = ev.backgroundColor || ev.borderColor || `hsl(var(--chart${(i % 4) + 1}))`;
@@ -251,12 +265,25 @@ export const DayDetailPopup: React.FC<DayDetailPopupProps> = ({
                         title={ev.title}
                       >
                         {ev.title}
+                        {ev.allDay && (
+                          <span 
+                            className="ml-2 text-xs px-1.5 py-0.5 rounded"
+                            style={{
+                              backgroundColor: 'hsl(var(--muted))',
+                              color: 'hsl(var(--muted-foreground))',
+                              fontSize: 10,
+                              fontWeight: 500
+                            }}
+                          >
+                            ALL DAY
+                          </span>
+                        )}
                       </div>
                     </div>
 
                     {/* Right side - Time and actions */}
                     <div className="flex items-center space-x-2 flex-shrink-0">
-                      {start && (
+                      {start && !ev.allDay && (
                         <div
                           className="text-xs whitespace-nowrap"
                           style={{ color: 'hsl(var(--muted-foreground))' }}

@@ -2,6 +2,40 @@ import React, { useState, useEffect } from 'react';
 import { ChevronLeft, ChevronRight, Send, Sparkles, User } from 'lucide-react';
 import { authAPI } from '../../lib/auth'; // Adjust path as needed
 
+
+const RotatingGradientAnimation = ({ size = 128 }) => {
+  const [rotation, setRotation] = React.useState(0);
+
+  React.useEffect(() => {
+    const interval = setInterval(() => {
+      setRotation(prev => (prev + 1) % 360);
+    }, 16); // ~60fps
+    return () => clearInterval(interval);
+  }, []);
+
+  const thickness = size * 0.15; // ring thickness
+  const feather = 0.5; // small feather for smoothness
+
+  return (
+    <div
+      style={{
+        width: size,
+        height: size,
+        borderRadius: '50%',
+        background: `conic-gradient(from ${rotation}deg, #8B5CF6, #3B82F6, #06B6D4, #10B981, #8B5CF6)`,
+        WebkitMaskImage: `radial-gradient(
+          circle,
+          transparent ${size/2 - thickness - feather}px,
+          black ${size/2 - thickness}px
+        )`,
+        WebkitMaskRepeat: 'no-repeat',
+        WebkitMaskPosition: 'center',
+      }}
+    />
+  );
+};
+
+
 interface RightSidebarProps {
   isOpen?: boolean;
   onToggle?: () => void;
@@ -224,7 +258,7 @@ return (
           
           {/* Header */}
           <div 
-            className="p-4 border-b"
+            className="p-3 border-b"
             style={{
               backgroundColor: 'hsl(var(--primary) / 0.05)',
               borderBottomColor: 'hsl(var(--border))'
@@ -234,11 +268,10 @@ return (
               <div 
                 className="w-8 h-8 rounded-full flex items-center justify-center"
                 style={{
-                  backgroundColor: 'hsl(var(--calendar-background))',
                   color: 'hsl(var(--primary))'
                 }}
               >
-                <Sparkles className="w-5 h-5" />
+                <RotatingGradientAnimation size={32}/>
               </div>
               <div>
                 <h2 
@@ -258,7 +291,7 @@ return (
           </div>
 
           {/* Chat Messages */}
-          <div className="flex-1 p-4 overflow-y-auto space-y-4">
+          <div className="flex-1 p-3 overflow-y-auto space-y-3" style={{ scrollbarWidth: 'thin', scrollbarColor: 'hsl(var(--muted-foreground)) transparent' }}>
             {error && (
               <div 
                 className="border rounded-lg p-3"
@@ -296,41 +329,50 @@ return (
                 className={`flex ${message.sender === 'user' ? 'justify-end' : 'justify-start'}`}
               >
                 <div 
-                  className={`max-w-[80%] p-3 rounded-lg ${
+                  className={`max-w-[92%] px-3 py-2 rounded-lg shadow-sm ${
                     message.sender === 'user' 
                       ? 'rounded-br-none' 
                       : 'rounded-bl-none'
                   }`}
                   style={{
                     backgroundColor: message.sender === 'user' 
-                      ? 'hsl(var(--muted))' 
-                      : 'hsl(var(--muted)/ 0.6)',
-                    color: message.sender === 'user' 
-                      ? 'hsl(var(--foreground))' 
-                      : 'hsl(var(--foreground))'
+                      ? 'hsl(var(--primary) / 0.1)' 
+                      : 'hsl(var(--muted) / 0.8)',
+                    color: 'hsl(var(--foreground))',
+                    border: `1px solid ${message.sender === 'user' 
+                      ? 'hsl(var(--primary) / 0.2)' 
+                      : 'hsl(var(--border) / 0.5)'}`,
+                    lineHeight: '1.5'
                   }}
                 >
                   <div className="flex items-start gap-2">
                     {message.sender === 'ai' && (
-                      <Sparkles 
-                        className="w-4 h-4 mt-0.5" 
-                        style={{ color: 'hsl(var(--primary))' }}
-                      />
+                      <div className="-ml-1 flex-shrink-0">
+                        <RotatingGradientAnimation size={18} />
+                      </div>
                     )}
                     {message.sender === 'user' && (
                       <User 
-                        className="w-4 h-4 mt-0.5" 
-                        style={{ color: 'hsl(var(--primary-foreground) / 0.7)' }}
+                        className="w-4 h-4 mt-0.5 flex-shrink-0" 
+                        style={{ color: 'hsl(var(--primary))' }}
                       />
                     )}
-                    <div className="flex-1">
-                      <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+                    <div className="flex-1 min-w-0">
                       <p 
-                        className="text-xs mt-1"
+                        className="text-sm whitespace-pre-wrap break-words"
+                        style={{ 
+                          wordBreak: 'break-word',
+                          overflowWrap: 'anywhere',
+                          lineHeight: '1.4',
+                          margin: 0
+                        }}
+                      >
+                        {message.content}
+                      </p>
+                      <p 
+                        className="text-xs mt-1 opacity-70"
                         style={{
-                          color: message.sender === 'user' 
-                            ? 'hsl(var(--primary-foreground) / 0.7)' 
-                            : 'hsl(var(--muted-foreground))'
+                          color: 'hsl(var(--muted-foreground))'
                         }}
                       >
                         {message.timestamp.toLocaleTimeString([], { 
@@ -347,17 +389,17 @@ return (
             {isTyping && (
               <div className="flex justify-start">
                 <div 
-                  className="p-3 rounded-lg rounded-bl-none"
+                  className="px-3 py-2 rounded-lg rounded-bl-none shadow-sm"
                   style={{
-                    backgroundColor: 'hsl(var(--muted))',
-                    color: 'hsl(var(--foreground))'
+                    backgroundColor: 'hsl(var(--muted) / 0.8)',
+                    color: 'hsl(var(--foreground))',
+                    border: '1px solid hsl(var(--border) / 0.5)'
                   }}
                 >
                   <div className="flex items-center gap-2">
-                    <Sparkles 
-                      className="w-4 h-4" 
-                      style={{ color: 'hsl(var(--primary))' }}
-                    />
+                    <div className="flex-shrink-0">
+                      <RotatingGradientAnimation size={18} />
+                    </div>
                     <div className="flex gap-1">
                       <div 
                         className="w-2 h-2 rounded-full animate-bounce"
@@ -386,49 +428,56 @@ return (
 
           {/* Input Area */}
           <div 
-            className="p-4 border-t"
+            className="p-3 border-t"
             style={{
-              backgroundColor: 'hsl(var(--muted) / 0.3)',
+              backgroundColor: 'hsl(var(--background) / 0.5)',
               borderTopColor: 'hsl(var(--border))',
-              overflow: 'hidden',
-              maxHeight: '200px'
+              backdropFilter: 'blur(8px)'
             }}
           >
-            <div className="flex gap-2 overflow-hidden">
-              <textarea
-                value={inputMessage}
-                onChange={(e) => setInputMessage(e.target.value)}
-                onKeyPress={handleKeyPress}
-                placeholder="Ask me about your calendar..."
-                disabled={isTyping || !!error}
-                className="flex-1 p-3 border rounded-lg resize-none focus:outline-none focus:border-transparent disabled:cursor-not-allowed"
-                style={{
-                  borderColor: 'hsl(var(--border))',
-                  backgroundColor: 'hsl(var(--background))',
-                  color: 'hsl(var(--foreground))',
-                  focusRingColor: 'hsl(var(--primary))',
-                  disabledBackgroundColor: 'hsl(var(--muted))',
-                } as React.CSSProperties}
-                rows={1}
-              />
-              <button
-                onClick={handleSendMessage}
-                disabled={!inputMessage.trim() || isTyping || !!error}
-                className="p-3 rounded-lg transition-colors duration-200 disabled:cursor-not-allowed"
-                style={{
-                  backgroundColor: !inputMessage.trim() || isTyping || !!error 
-                    ? 'hsl(var(--muted))' 
-                    : '#1A73E8',
-                  color: !inputMessage.trim() || isTyping || !!error 
-                    ? 'hsl(var(--muted-foreground))' 
-                    : 'hsl(var(--primary-foreground))',
-                  ':hover': {
-                    backgroundColor: 'hsl(var(--primary) / 0.9)'
-                  }
-                } as React.CSSProperties}
-              >
-                <Send className="w-4 h-4" />
-              </button>
+            <div className="flex gap-2">
+              <div className="flex-1 relative">
+                <textarea
+                  value={inputMessage}
+                  onChange={(e) => setInputMessage(e.target.value)}
+                  onKeyPress={handleKeyPress}
+                  placeholder="Ask me about your calendar..."
+                  disabled={isTyping || !!error}
+                  className="w-full p-3 pr-12 border rounded-lg resize-none focus:outline-none focus:ring-2 disabled:cursor-not-allowed transition-all duration-200"
+                  style={{
+                    borderColor: 'hsl(var(--border))',
+                    backgroundColor: 'hsl(var(--background))',
+                    color: 'hsl(var(--foreground))',
+                    focusRingColor: 'hsl(var(--primary))',
+                    boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
+                    lineHeight: '1.4',
+                    minHeight: '44px',
+                    maxHeight: '120px'
+                  } as React.CSSProperties}
+                  rows={1}
+                  onInput={(e) => {
+                    const target = e.target as HTMLTextAreaElement;
+                    target.style.height = 'auto';
+                    target.style.height = Math.min(target.scrollHeight, 120) + 'px';
+                  }}
+                />
+                <button
+                  onClick={handleSendMessage}
+                  disabled={!inputMessage.trim() || isTyping || !!error}
+                  className="absolute right-2 top-1/2 transform -translate-y-1/2 p-2 rounded-md transition-all duration-200 disabled:cursor-not-allowed"
+                  style={{
+                    backgroundColor: !inputMessage.trim() || isTyping || !!error 
+                      ? 'hsl(var(--muted))' 
+                      : 'hsl(var(--primary))',
+                    color: !inputMessage.trim() || isTyping || !!error 
+                      ? 'hsl(var(--muted-foreground))' 
+                      : 'hsl(var(--primary-foreground))',
+                    opacity: !inputMessage.trim() || isTyping || !!error ? 0.5 : 1
+                  } as React.CSSProperties}
+                >
+                  <Send className="w-4 h-4" />
+                </button>
+              </div>
             </div>
           </div>
         </div>
