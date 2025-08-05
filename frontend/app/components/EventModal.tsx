@@ -28,7 +28,7 @@ interface EventModalProps {
   onSubmit: (e: React.FormEvent) => void;
   onDelete?: (eventId: string) => void;
   onChange: (field: keyof EventDetails, value: string | boolean) => void;
-  calendarContainerRef?: React.RefObject<HTMLElement>; // Add this prop
+  calendarContainerRef?: React.RefObject<HTMLElement>;
 }
 
 const EventModal: React.FC<EventModalProps> = ({
@@ -39,10 +39,9 @@ const EventModal: React.FC<EventModalProps> = ({
   onSubmit,
   onDelete,
   onChange,
-  calendarContainerRef, // Add this prop
+  calendarContainerRef,
 }) => {
   const modalRef = useRef<HTMLDivElement>(null);
-  const [finalPosition, setFinalPosition] = useState<React.CSSProperties>({});
   const [showCustomRecurrence, setShowCustomRecurrence] = useState(false);
   const [selectedWeeklyDays, setSelectedWeeklyDays] = useState<string[]>([]);
   const [customInterval, setCustomInterval] = useState<number>(1);
@@ -81,6 +80,79 @@ const EventModal: React.FC<EventModalProps> = ({
     { value: 'SA', label: 'Sat' },
     { value: 'SU', label: 'Sun' }
   ];
+
+  // Calculate modal position using fixed positioning
+  const calculateModalPosition = (clickPosition: Position | null) => {
+    if (!clickPosition) {
+      // Fallback to center if no position provided
+      return {
+        position: 'fixed' as const,
+        top: '50%',
+        left: '50%',
+        transform: 'translate(-50%, -50%)',
+        zIndex: 1000
+      };
+    }
+
+    // Modal dimensions (use estimated values since we can't measure before render)
+    const modalWidth = 340;
+    const modalHeight = 410;
+    
+    // Margin from event box
+    const margin = 15;
+    
+    // Get viewport dimensions
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
+    
+    // Calculate positions for both sides
+    const rightSideX = clickPosition.x + margin - 28;
+    const leftSideX = clickPosition.x - modalWidth - (margin * 14);
+    
+    // Check if modal fits on the right side
+    const fitsOnRight = (rightSideX + modalWidth) <= (viewportWidth - 300);
+    
+    // Check if modal fits on the left side  
+    const fitsOnLeft = leftSideX >= 30;
+    
+    // Determine which side to use
+    let finalX: number;
+    
+    if (fitsOnRight) {
+      finalX = rightSideX;
+    } else if (fitsOnLeft) {
+      finalX = leftSideX;
+    } else {
+      // If neither side fits perfectly, choose the side with more space
+      const rightSpace = viewportWidth - rightSideX;
+      const leftSpace = leftSideX;
+      
+      if (rightSpace > leftSpace) {
+        finalX = Math.min(rightSideX, viewportWidth - modalWidth - 20);
+      } else {
+        finalX = Math.max(leftSideX, 20);
+      }
+    }
+    
+    // Vertical positioning - center on event position
+    let finalY = clickPosition.y - (modalHeight / 2.5);
+    
+    if (finalY < 20) {
+      // Being cut off at top - move down just enough to fit
+      finalY = 20;
+    } else if (finalY + modalHeight > viewportHeight - 20) {
+      // Being cut off at bottom - move up just enough to fit
+      finalY = viewportHeight - modalHeight - 20;
+    }
+    
+    return {
+      position: 'fixed' as const,
+      left: `${finalX}px`,
+      top: `${finalY}px`,
+      zIndex: 1000,
+      transform: 'none'
+    };
+  };
 
   // Set default times for new events
   useEffect(() => {
@@ -123,107 +195,9 @@ const EventModal: React.FC<EventModalProps> = ({
     return { day, month };
   };
 
-  // Updated function to calculate position with smart left/right positioning
-  const calculateModalPosition = (): React.CSSProperties => {
-    if (!position || !modalRef.current) {
-      return { position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)' };
-    }
-
-    // Get container bounds (calendar or viewport)
-    let containerRect;
-    if (calendarContainerRef?.current) {
-      containerRect = calendarContainerRef.current.getBoundingClientRect();
-    } else {
-      containerRect = {
-        left: 0,
-        top: 0,
-        right: window.innerWidth,
-        bottom: window.innerHeight,
-        width: window.innerWidth,
-        height: window.innerHeight
-      };
-    }
-
-    // Get modal dimensions
-    const modalRect = modalRef.current.getBoundingClientRect();
-    const modalWidth = modalRect.width || 340; // fallback width
-    const modalHeight = modalRect.height || 411; // fallback height
-
-    // Define consistent offset distances
-    const horizontalOffset = 50; // Distance from event horizontally
-    const verticalOffset = 150; // Distance from event vertically (upward)
-    const padding = 20; // Minimum distance from container edges
-
-    // Calculate preferred position (right side of event, above it)
-    let xPos = position.x - horizontalOffset;
-    let yPos = position.y - verticalOffset;
-
-    // Check if modal would go outside the right boundary
-    const wouldExceedRight = (position.x - horizontalOffset + modalWidth) > (containerRect.right - padding);
-    
-    // If it would exceed the right boundary, position it on the left side of the event
-    if (wouldExceedRight) {
-      xPos = position.x - modalWidth - + horizontalOffset; // Left side, maintaining same distance
-    }
-
-    // Vertical positioning with boundary checks
-    if (yPos + modalHeight > containerRect.bottom - padding) {
-      yPos = containerRect.bottom - modalHeight - padding;
-    }
-    
-    if (yPos < containerRect.top + padding) {
-      yPos = containerRect.top + padding;
-    }
-
-    // Final horizontal boundary checks (in case left positioning also doesn't fit)
-    if (xPos < containerRect.left + padding) {
-      xPos = containerRect.left + padding;
-    }
-    
-    if (xPos + modalWidth > containerRect.right - padding) {
-      xPos = containerRect.right - modalWidth - padding;
-    }
-
-    // If using calendar container, convert to absolute positioning within the container
-    if (calendarContainerRef?.current) {
-      const containerStyle = window.getComputedStyle(calendarContainerRef.current);
-      const containerPosition = containerStyle.position;
-      
-      if (containerPosition === 'relative' || containerPosition === 'absolute') {
-        // Position relative to the container
-        xPos = xPos - containerRect.left;
-        yPos = yPos - containerRect.top;
-      }
-    }
-
-    return {
-      position: 'absolute',
-      top: `${Math.max(0, yPos)}px`,
-      left: `${Math.max(0, xPos)}px`,
-      maxHeight: `${Math.min(containerRect.height * 0.8, 600)}px`,
-      overflowY: 'auto'
-    };
-  };
-  
   useEffect(() => {
     if (isOpen) {
       document.body.classList.add('modal-open');
-      
-      // Calculate position immediately without delay
-      if (modalRef.current && position) {
-        const newPosition = calculateModalPosition();
-        setFinalPosition(newPosition);
-      } else {
-        // Fallback for initial render
-        setFinalPosition({
-          position: 'absolute',
-          top: '50%',
-          left: '50%',
-          transform: 'translate(-50%, -50%)',
-          maxHeight: '80vh',
-          overflowY: 'auto'
-        });
-      }
     } else {
       document.body.classList.remove('modal-open');
     }
@@ -231,20 +205,7 @@ const EventModal: React.FC<EventModalProps> = ({
     return () => {
       document.body.classList.remove('modal-open');
     };
-  }, [isOpen, position]);
-
-  // Additional useEffect to recalculate position after modal content loads
-  useEffect(() => {
-    if (isOpen && modalRef.current && position) {
-      // Small delay only for recalculation after content loads
-      const timeoutId = setTimeout(() => {
-        const newPosition = calculateModalPosition();
-        setFinalPosition(newPosition);
-      }, 1);
-      
-      return () => clearTimeout(timeoutId);
-    }
-  }, [isOpen, position, showCustomRecurrence]); // Recalculate when content changes
+  }, [isOpen]);
   
   if (!isOpen || !selectedEvent) return null;
   
@@ -382,13 +343,16 @@ const EventModal: React.FC<EventModalProps> = ({
 
   const currentRecurrenceValue = rruleToHumanReadable(selectedEvent.recurrence_pattern);
 
+  // Calculate the modal style immediately - no state needed
+  const modalStyle = calculateModalPosition(position);
+
   return (
     <div className="overflow-hidden">
       <div className="modal-overlay">
         <div 
-          ref={modalRef} 
-          className="modal-container compact-modal" 
-          style={finalPosition}
+          ref={modalRef}
+          className="modal-container compact-modal"
+          style={modalStyle}
         >
           <h2 className="modal-header">
             {selectedEvent.eventId ? "Edit Event" : "Add New Event"}
