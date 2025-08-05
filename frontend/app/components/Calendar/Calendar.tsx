@@ -230,6 +230,14 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange, onViewChange, refres
     }
   };
 
+  const calculateMaxEvents = () => {
+    const screenHeight = window.innerHeight;
+    if (screenHeight >= 2160) return false; // 4K - no limit, fit all events
+    if (screenHeight >= 1440) return 6;     // 1440p - 6 events
+    if (screenHeight >= 600) return 4;     // 1080p - 4 events  
+    return 3;                               // smaller screens - 3 events
+  };
+
   return (
     <div className='big-container'>
       <div className="flex h-screen">
@@ -262,7 +270,8 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange, onViewChange, refres
               editable={!isLoading}
               selectable={!isLoading}
               selectMirror={true}
-              dayMaxEvents={3} // Show 3 events before "+more"
+              dayMaxEvents={true}
+
               displayEventEnd={false}
               displayEventTime={true}
               eventResizable={true}
@@ -323,7 +332,7 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange, onViewChange, refres
                 }
               }}
               fixedWeekCount={false}
-              dayMaxEventRows={3} // Show 3 event rows before "+more"
+
               aspectRatio={1.35} // Controls height ratio
               eventOrder="start,-duration,title"
             />
