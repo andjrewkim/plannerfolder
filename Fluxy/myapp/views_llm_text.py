@@ -5,17 +5,18 @@ from django.contrib.auth.decorators import login_required
 from django.utils.decorators import method_decorator
 from django.views import View
 from django.conf import settings
+from django.utils import timezone
 import json
 import requests
 import os
 from typing import Dict, Any, Optional, Tuple, List
 from abc import ABC, abstractmethod
-from datetime import datetime, timedelta
-from django.utils import timezone
+from datetime import datetime, timedelta, date, time as time_module
 import pytz
 from myapp.models import LLMUsage
 import time
 import re
+
 
 
 class LLMConfig:
@@ -109,9 +110,9 @@ class LLMConfig:
 
 
 class BaseLLMProvider(ABC):
-    """Base class for LLM providers with shared calendar functionality"""
+    """Ultra-efficient token-minimized calendar LLM provider"""
     
-    def __init__(self, api_key: str, model: str, events_function=None, update_event_function=None):
+    def __init__(self, api_key: str, model: str, events_function=None, update_event_function=None, create_event_function=None, delete_event_function=None):
         if not api_key or not api_key.strip():
             raise ValueError(f"{self.__class__.__name__} API key cannot be empty")
         if not model or not model.strip():
@@ -121,409 +122,582 @@ class BaseLLMProvider(ABC):
         self.model = model.strip()
         self.events_function = events_function
         self.update_event_function = update_event_function
+        self.create_event_function = create_event_function
+        self.delete_event_function = delete_event_function
         
-        # Test API key validity during initialization
+        # Cache for event lookups
+        self._event_cache = {}
+        self._id_counter = 0
+        
         self._validate_api_key()
-    
+
+
     @abstractmethod
     def _validate_api_key(self):
-        """Test if API key is valid - implemented by each provider"""
+        """Test if API key is valid"""
         pass
     
     @abstractmethod
     def _make_api_request(self, message: str, prompt: str = None, max_retries: int = 3, **kwargs) -> Dict[str, Any]:
-        """Make the actual API request - implemented by each provider"""
+        """Make the actual API request"""
         pass
     
-    def format_time(self, time_obj) -> str:
-        """Format time object to HH:MM string (no seconds)"""
-        try:
-            if isinstance(time_obj, str):
-                # Handle string times - extract HH:MM only
-                time_str = time_obj.strip()
-                if ':' in time_str:
-                    parts = time_str.split(':')
-                    if len(parts) >= 2:
-                        hours = parts[0].zfill(2)
-                        minutes = parts[1].zfill(2)
-                        return f"{hours}:{minutes}"
-                return time_str
-            elif hasattr(time_obj, 'strftime'):
-                return time_obj.strftime('%H:%M')
-            elif hasattr(time_obj, 'hour') and hasattr(time_obj, 'minute'):
-                return f"{time_obj.hour:02d}:{time_obj.minute:02d}"
-            else:
-                return str(time_obj)
-        except Exception:
-            return str(time_obj)
+    # ==================== TIME/DATE UTILITIES ====================
     
-    def format_date(self, date_obj) -> str:
-        """Format date object to YYYY-MM-DD string"""
-        try:
-            if hasattr(date_obj, 'date'):
-                return date_obj.date().strftime('%Y-%m-%d')
-            elif hasattr(date_obj, 'strftime'):
-                return date_obj.strftime('%Y-%m-%d')
-            else:
-                # Handle string dates
-                date_str = str(date_obj)
-                if ' ' in date_str:
-                    date_str = date_str.split(' ')[0]
-                if '+' in date_str:
-                    date_str = date_str.split('+')[0]
-                if 'T' in date_str:
-                    date_str = date_str.split('T')[0]
-                return date_str
-        except Exception:
-            return str(date_obj)
-    
-    def get_week_date_range(self) -> Tuple[datetime.date, datetime.date]:
-        """Get the start (Monday) and end (Sunday) dates for the current week"""
+    def get_current_week_info(self) -> Tuple[date, int, str]:
+        """Get week start date, current day index (0=Mon), and compact week range"""
         try:
             pacific_tz = pytz.timezone('America/Los_Angeles')
-            now_pacific = timezone.now().astimezone(pacific_tz)
-            today = now_pacific.date()
-            
-            # Get Monday of current week (start of week)
-            days_since_monday = today.weekday()
-            week_start = today - timedelta(days=days_since_monday)
-            week_end = week_start + timedelta(days=6)  # Sunday
-            
-            return week_start, week_end
-        except Exception:
-            # Fallback to system local time
+            now = timezone.now().astimezone(pacific_tz)
+            today = now.date()
+        except:
             today = datetime.now().date()
-            days_since_monday = today.weekday()
-            week_start = today - timedelta(days=days_since_monday)
-            week_end = week_start + timedelta(days=6)
-            return week_start, week_end
-    
-    def is_date_in_current_week(self, date_obj) -> bool:
-        """Check if a date falls within the current week"""
-        week_start, week_end = self.get_week_date_range()
         
+        # Get Monday of current week
+        days_since_monday = today.weekday()
+        week_start = today - timedelta(days=days_since_monday)
+        current_day_idx = days_since_monday
+        
+        # Compact week range: "Jan15-21/25"
+        week_end = week_start + timedelta(days=6)
+        month_abbrev = week_start.strftime('%b')
+        week_range = f"{month_abbrev}{week_start.day}-{week_end.day}/{week_start.strftime('%y')}"
+        
+        return week_start, current_day_idx, week_range
+    
+    def date_to_compact(self, date_obj) -> str:
+        """Convert date to compact format: M15 (Mon15), T16 (Tue16), etc."""
         try:
             if hasattr(date_obj, 'date'):
-                check_date = date_obj.date()
+                date_obj = date_obj.date()
             elif isinstance(date_obj, str):
                 date_part = date_obj.split(' ')[0].split('T')[0]
-                check_date = datetime.strptime(date_part, '%Y-%m-%d').date()
-            else:
-                check_date = date_obj
+                date_obj = datetime.strptime(date_part, '%Y-%m-%d').date()
             
-            return week_start <= check_date <= week_end
-        except Exception as e:
-            print(f"Error checking date: {e}")
-            return False
+            week_start, _, _ = self.get_current_week_info()
+            day_diff = (date_obj - week_start).days
+            
+            if 0 <= day_diff <= 6:
+                day_letters = ['M', 'T', 'W', 'R', 'F', 'S', 'U']  # Mon-Sun
+                return f"{day_letters[day_diff]}{date_obj.day}"
+            else:
+                # Outside current week - use full compact: Jan15/25
+                return f"{date_obj.strftime('%b')}{date_obj.day}/{date_obj.strftime('%y')}"
+        except:
+            return str(date_obj)
     
-    def filter_events_by_week(self, events) -> List:
-        """Filter events to only include those in the current week"""
-        filtered_events = []
-        
-        for event in events:
-            try:
-                event_date = getattr(event, 'date', None)
-                if event_date and self.is_date_in_current_week(event_date):
-                    filtered_events.append(event)
-            except Exception as e:
-                print(f"Error processing event: {e}")
-                # Skip events we can't process rather than including them
-                continue
-        
-        return filtered_events
-    
-    def parse_time_to_minutes(self, time_str: str) -> int:
-        """Convert HH:MM time string to minutes since midnight"""
+    def compact_to_date(self, compact: str) -> Optional[date]:
+        """Convert compact format like W17 or M6 to a real date."""
         try:
-            time_str = time_str.strip()
-            if ':' in time_str:
-                parts = time_str.split(':')
-                hours = int(parts[0])
-                minutes = int(parts[1])
-                return hours * 60 + minutes
-            return 0
-        except Exception:
-            return 0
-    
-    def check_event_overlap(self, new_event: Dict, existing_events: List[Dict]) -> List[Dict]:
-        """Check if new event overlaps with existing events on the same date"""
-        overlapping = []
-        new_date = new_event.get('date')
-        new_start = self.parse_time_to_minutes(new_event.get('start_time', ''))
-        new_end = self.parse_time_to_minutes(new_event.get('end_time', ''))
-        
-        for event in existing_events:
-            if event.get('date') == new_date:
-                event_start = self.parse_time_to_minutes(event.get('start', ''))
-                event_end = self.parse_time_to_minutes(event.get('end', ''))
+            week_start, _, _ = self.get_current_week_info()
+            
+            # Handle current week format: M15, T16, etc.
+            if len(compact) >= 2 and compact[0] in 'MTWRFSU':
+                day_letters = {'M': 0, 'T': 1, 'W': 2, 'R': 3, 'F': 4, 'S': 5, 'U': 6}
+                day_idx = day_letters.get(compact[0])
+                day_num = int(compact[1:])
                 
-                # Check for overlap: events overlap if one starts before the other ends
-                if (new_start < event_end and new_end > event_start):
-                    overlapping.append(event)
-        
-        return overlapping
+                if day_idx is not None:
+                    # Pick weekday of current week
+                    base_date = week_start + timedelta(days=day_idx)
+                    
+                    # If day_num doesn't match, just replace the day in that month
+                    try:
+                        return base_date.replace(day=day_num)
+                    except ValueError:
+                        # fallback: return the weekday of current week
+                        return base_date
+            
+            # Handle full format: Jan15/25
+            if '/' in compact:
+                parts = compact.split('/')
+                if len(parts) == 2:
+                    month_day = parts[0]
+                    year = f"20{parts[1]}"
+                    
+                    month_match = re.match(r'([A-Za-z]+)(\d+)', month_day)
+                    if month_match:
+                        month_str, day_str = month_match.groups()
+                        month_num = {
+                            'Jan': 1, 'Feb': 2, 'Mar': 3, 'Apr': 4, 'May': 5, 'Jun': 6,
+                            'Jul': 7, 'Aug': 8, 'Sep': 9, 'Oct': 10, 'Nov': 11, 'Dec': 12
+                        }.get(month_str)
+                        if month_num:
+                            return date(int(year), month_num, int(day_str))
+            return None
+        except:
+            return None
+
     
-    def fetch_calendar_events(self) -> List[Dict]:
-        """Fetch events using the provided database function"""
+    def time_to_compact(self, time_obj) -> str:
+        """Convert time to compact format: 14:30 -> 1430"""
+        try:
+            if isinstance(time_obj, str):
+                time_str = time_obj.strip()
+                if ':' in time_str:
+                    parts = time_str.split(':')[:2]  # Take only HH:MM
+                    return ''.join(parts)
+                return time_str
+            elif hasattr(time_obj, 'strftime'):
+                return time_obj.strftime('%H%M')
+            elif hasattr(time_obj, 'hour') and hasattr(time_obj, 'minute'):
+                return f"{time_obj.hour:02d}{time_obj.minute:02d}"
+            else:
+                return str(time_obj)
+        except:
+            return str(time_obj)
+    
+    def compact_to_time(self, compact: str) -> Optional[time_module]:
+        """Convert compact format back to time: 1430 -> 14:30"""
+        try:
+            if len(compact) == 4 and compact.isdigit():
+                hours = int(compact[:2])
+                minutes = int(compact[2:])
+                if 0 <= hours <= 23 and 0 <= minutes <= 59:
+                    return time(hours, minutes)
+            elif len(compact) == 3 and compact.isdigit():
+                # Handle 3-digit times like 930 (9:30)
+                hours = int(compact[0])
+                minutes = int(compact[1:])
+                if 0 <= hours <= 23 and 0 <= minutes <= 59:
+                    return time(hours, minutes)
+            return None
+        except:
+            return None
+    
+    # ==================== EVENT PROCESSING ====================
+    
+    def assign_event_id(self, event_name: str, date_str: str) -> str:
+        """Assign ultra-compact event ID: A, B, C, etc."""
+        key = f"{event_name.lower().strip()}_{date_str}"
+        if key not in self._event_cache:
+            # Use single letters: A-Z, then AA-ZZ
+            if self._id_counter < 26:
+                event_id = chr(ord('A') + self._id_counter)
+            else:
+                first = chr(ord('A') + (self._id_counter - 26) // 26)
+                second = chr(ord('A') + (self._id_counter - 26) % 26)
+                event_id = f"{first}{second}"
+            
+            self._event_cache[key] = event_id
+            self._id_counter += 1
+        
+        return self._event_cache[key]
+    
+    def get_event_id(self, event_name: str, date_str: str) -> Optional[str]:
+        """Get existing event ID if it exists"""
+        key = f"{event_name.lower().strip()}_{date_str}"
+        return self._event_cache.get(key)
+    
+    def compress_event_name(self, name: str) -> str:
+        """Compress event names intelligently"""
+        name = name.strip()
+        
+        # Common abbreviations
+        replacements = {
+            'meeting': 'mtg', 'Meeting': 'Mtg',
+            'appointment': 'appt', 'Appointment': 'Appt',
+            'conference': 'conf', 'Conference': 'Conf',
+            'interview': 'intv', 'Interview': 'Intv',
+            'training': 'trng', 'Training': 'Trng',
+            'presentation': 'pres', 'Presentation': 'Pres',
+            'workshop': 'wksp', 'Workshop': 'Wksp',
+            'consultation': 'consult', 'Consultation': 'Consult',
+            'follow up': 'f/u', 'Follow up': 'F/u',
+            'follow-up': 'f/u', 'Follow-up': 'F/u'
+        }
+        
+        for full, abbrev in replacements.items():
+            name = name.replace(full, abbrev)
+        
+        return name
+    
+    def fetch_events_ultra_compact(self) -> List[str]:
+        """Fetch events in ultra-compact format: ['A:Team mtg:M15:1400-1530', ...]"""
         if not self.events_function:
             return []
-            
+        
         try:
             all_events = self.events_function()
-            week_events = self.filter_events_by_week(all_events)
+            week_start, _, _ = self.get_current_week_info()
+            week_end = week_start + timedelta(days=6)
             
-            events_list = []
-            for event in week_events:
-                event_dict = {
-                    'name': getattr(event, 'event_name', 'Untitled'),
-                    'date': self.format_date(getattr(event, 'date', 'No date')),
-                    'start': self.format_time(getattr(event, 'start_time', 'No time')),
-                    'end': self.format_time(getattr(event, 'end_time', 'No time')),
-                    'id': getattr(event, 'id', None)
-                }
-                events_list.append(event_dict)
+            compact_events = []
+            self._event_cache.clear()  # Reset cache
+            self._id_counter = 0
             
-            # Sort events by date and start time
-            events_list.sort(key=lambda x: (x['date'], self.parse_time_to_minutes(x['start'])))
-            return events_list
+            print(f"DEBUG: Processing {len(all_events)} total events")
+            
+            for event in all_events:
+                try:
+                    event_date = getattr(event, 'date', None)
+                    if not event_date:
+                        continue
+                    
+                    # Check if in current week
+                    if hasattr(event_date, 'date'):
+                        check_date = event_date.date()
+                    elif isinstance(event_date, str):
+                        date_part = event_date.split(' ')[0].split('T')[0]
+                        check_date = datetime.strptime(date_part, '%Y-%m-%d').date()
+                    else:
+                        check_date = event_date
+                    
+                    if not (week_start <= check_date <= week_end):
+                        continue
+                    
+                    # Extract event info
+                    name = getattr(event, 'event_name', 'Untitled')
+                    start_time = getattr(event, 'start_time', '')
+                    end_time = getattr(event, 'end_time', '')
+                    db_id = getattr(event, 'id', None)
+                    
+                    # Compress and format
+                    compact_name = self.compress_event_name(name)
+                    compact_date = self.date_to_compact(check_date)
+                    compact_start = self.time_to_compact(start_time)
+                    compact_end = self.time_to_compact(end_time)
+                    
+                    # Assign compact ID
+                    event_id = self.assign_event_id(name, str(check_date))
+                    
+                    # Store mapping to database ID - THIS IS CRITICAL
+                    if db_id:
+                        self._event_cache[f"db_{event_id}"] = db_id
+                        print(f"DEBUG: Mapped event {event_id} -> database ID {db_id} ({name})")
+                    
+                    # Format: ID:Name:Date:StartTime-EndTime
+                    compact_event = f"{event_id}:{compact_name}:{compact_date}:{compact_start}-{compact_end}"
+                    compact_events.append(compact_event)
+                
+                except Exception as e:
+                    print(f"DEBUG: Error processing event: {e}")
+                    continue
+            
+            print(f"DEBUG: Created {len(compact_events)} compact events")
+            print(f"DEBUG: Final cache: {self._event_cache}")
+            return compact_events
+            
         except Exception as e:
-            print(f"Error fetching calendar events: {e}")
+            print(f"DEBUG: Error fetching events: {e}")
             return []
+        
     
-    def format_events_for_context(self, events_data: List[Dict]) -> str:
-        """Format events for LLM context"""
-        if not events_data:
-            return "No events this week."
-            
-        formatted = ["This week's events:"]
-        for event in events_data:
-            name = event.get('name', 'Untitled')
-            date = event.get('date', 'No date')
-            start = event.get('start', 'No time')
-            end = event.get('end', 'No time')
-            event_line = f"{name}|{date}|{start}-{end}"
-            formatted.append(event_line)
-        return "\n".join(formatted)
-    
-    def get_event_management_prompt(self) -> str:
-        """Get system prompt for event management"""
-        try:
-            pacific_tz = pytz.timezone('America/Los_Angeles')
-            now_pacific = timezone.now().astimezone(pacific_tz)
-            today = now_pacific.strftime('%Y-%m-%d')
-            week_start, week_end = self.get_week_date_range()
-            week_range = f"{week_start} to {week_end}"
-        except Exception:
-            today = datetime.now().strftime('%Y-%m-%d')
-            week_end = (datetime.now() + timedelta(days=6)).strftime('%Y-%m-%d')
-            week_range = f"{today} to {week_end}"
-            
-        return f"""
-You are a smart calendar assistant. Today is {today}. You can view and modify events for this week ({week_range}).
+    def parse_llm_commands(self, response: str) -> List[Dict]:
+        commands = []
+        print(f"DEBUG: LLM OUTPUT\n{response}")
 
-Event format: EventName|YYYY-MM-DD|HH:MM-HH:MM
-
-To modify events, use this EXACT format:
-CHANGE:EventName|YYYY-MM-DD|HH:MM-HH:MM
-
-STRICT RULES:
-- Only events for this week ({week_range}) are shown and can be modified
-- Times MUST be in HH:MM format (no seconds, no AM/PM)
-- NO overlapping events unless user specifically requests it
-- If user asks to add/move events without exact times, estimate reasonable non-overlapping times
-- If user asks to move an event "later today," pick the next available slot of the same duration
-- For vague requests (e.g., "in the evening"), choose typical times (18:00-20:00) avoiding conflicts
-- Keep event names concise and clear
-- Use YYYY-MM-DD for dates, HH:MM for times
-- Multiple changes: use separate CHANGE: lines
-- Warn if events cannot fit this week due to conflicts
-- Always check for time conflicts before scheduling
-
-Example valid CHANGE line:
-CHANGE:Team Meeting|2024-01-15|14:00-15:30
-"""
-    
-    def validate_change_format(self, change_line: str) -> bool:
-        """Validate CHANGE line format"""
-        if not change_line.strip().startswith('CHANGE:'):
-            return False
-        
-        try:
-            change_data = change_line[7:].strip()  # Remove "CHANGE:"
-            parts = change_data.split('|')
-            
-            if len(parts) != 3:
-                return False
-            
-            name, date, time_range = [part.strip() for part in parts]
-            
-            # Validate date format (YYYY-MM-DD)
-            datetime.strptime(date, '%Y-%m-%d')
-            
-            # Validate time range format (HH:MM-HH:MM)
-            if '-' not in time_range:
-                return False
-            
-            start_time, end_time = time_range.split('-', 1)
-            start_time = start_time.strip()
-            end_time = end_time.strip()
-            
-            # Validate time format (HH:MM)
-            time_pattern = re.compile(r'^([01]?[0-9]|2[0-3]):[0-5][0-9]$')
-            if not time_pattern.match(start_time) or not time_pattern.match(end_time):
-                return False
-            
-            # Ensure start time is before end time
-            start_minutes = self.parse_time_to_minutes(start_time)
-            end_minutes = self.parse_time_to_minutes(end_time)
-            if start_minutes >= end_minutes:
-                return False
-            
-            return True
-            
-        except Exception as e:
-            print(f"Error validating change format: {e}")
-            return False
-    
-    def parse_event_changes(self, response_text: str) -> List[Dict]:
-        """Parse CHANGE: lines from LLM response with strict validation"""
-        changes = []
-        lines = response_text.split('\n')
-        
-        for line in lines:
-            line = line.strip()
-            if line.startswith('CHANGE:'):
-                if not self.validate_change_format(line):
-                    print(f"Invalid CHANGE format: {line}")
-                    continue
-                
-                try:
-                    change_data = line[7:].strip()  # Remove "CHANGE:"
-                    parts = change_data.split('|')
-                    
-                    name = parts[0].strip()
-                    date = parts[1].strip()
-                    time_range = parts[2].strip()
-                    
-                    start_time, end_time = time_range.split('-', 1)
-                    changes.append({
-                        'name': name,
-                        'date': date,
-                        'start_time': start_time.strip(),
-                        'end_time': end_time.strip()
-                    })
-                except Exception as e:
-                    print(f"Error parsing valid change line '{line}': {e}")
-                    continue
-        
-        return changes
-    
-    def clean_response_text(self, response_text: str) -> str:
-        """Remove CHANGE: lines from response text for user display"""
-        lines = response_text.split('\n')
-        cleaned_lines = [line for line in lines if not line.strip().startswith('CHANGE:')]
-        return '\n'.join(cleaned_lines).strip()
-    
-    def find_matching_event(self, change: Dict, original_events: List[Dict]) -> Dict:
-        """Find matching event by name with improved matching"""
-        change_name = change['name'].lower().strip()
-        
-        # Exact match first
-        for event in original_events:
-            if event['name'].lower().strip() == change_name:
-                return event
-        
-        # Partial match (be more restrictive to avoid false matches)
-        for event in original_events:
-            event_name = event['name'].lower().strip()
-            if len(change_name) > 3 and change_name in event_name:
-                return event
-            if len(event_name) > 3 and event_name in change_name:
-                return event
-        
-        return None
-    
-    def apply_event_changes(self, changes: List[Dict], original_events: List[Dict]) -> bool:
-        """Apply event changes to the database with overlap checking"""
-        if not self.update_event_function or not changes:
-            return False
-        
-        updated_events = []
-        
-        for change in changes:
-            # Check if date is in current week
-            if not self.is_date_in_current_week(change['date']):
-                print(f"Skipping event outside current week: {change['name']} on {change['date']}")
-                continue
-            
-            # Check for overlaps (exclude the event being modified)
-            matching_event = self.find_matching_event(change, original_events)
-            events_to_check = [e for e in original_events if e != matching_event]
-            overlapping = self.check_event_overlap(change, events_to_check)
-            
-            if overlapping:
-                print(f"Event '{change['name']}' would overlap with: {[e['name'] for e in overlapping]}")
-                continue
-            
-            if matching_event and matching_event['id']:
-                try:
-                    success = self.update_event_function(
-                        event_id=matching_event['id'],
-                        event_name=change['name'],
-                        date=change['date'],
-                        start_time=change['start_time'],
-                        end_time=change['end_time']
-                    )
-                    
-                    if success:
-                        updated_events.append(matching_event['id'])
-                except Exception as e:
-                    print(f"Error updating event {matching_event['id']}: {e}")
-                    continue
-        
-        return len(updated_events) > 0
-    
-    def call_llm_with_calendar(self, message: str, include_events: bool = True, prompt: str = None, **kwargs) -> Dict[str, Any]:
-        """Call LLM with calendar context"""
-        if include_events and self.events_function:
-            events_data = self.fetch_calendar_events()
-            calendar_context = self.format_events_for_context(events_data)
-            
-            if prompt is None:
-                prompt = self.get_event_management_prompt()
-            
-            enhanced_message = f"""Context: {calendar_context}
-
-User: {message}"""
-            
-            result = self.call_llm(enhanced_message, prompt=prompt, **kwargs)
-            
-            if result.get("success"):
-                response_text = result.get("response", "")
-                changes = self.parse_event_changes(response_text)
-                cleaned_response = self.clean_response_text(response_text)
-                
-                result["response"] = cleaned_response
-                result["event_changes"] = changes
-                result["has_changes"] = len(changes) > 0
-                
-                if changes and self.update_event_function:
-                    update_success = self.apply_event_changes(changes, events_data)
-                    result["changes_applied"] = update_success
-                    
-                    if update_success:
-                        result["updated_events"] = self.fetch_calendar_events()
-                else:
-                    result["changes_applied"] = False
-                
-                result["original_events"] = events_data
-            
-            return result
+        # Extract commands section
+        if "COMMANDS:" in response:
+            commands_section = response.split("COMMANDS:", 1)[1].strip()
         else:
-            return self.call_llm(message, prompt=prompt, **kwargs)
+            commands_section = response.strip()
+
+        # Clean up any markdown formatting
+        commands_section = commands_section.replace('```', '').replace('`', '')
+
+        # Split into lines and process
+        for raw_line in commands_section.splitlines():
+            line = raw_line.strip()
+            if not line or line.startswith("#"):  # skip empty/comment lines
+                continue
+
+            print(f"DEBUG: Processing line: {line}")
+
+            # Delete command: D:<identifier>
+            if line.startswith("D:"):
+                identifier = line[2:].strip()
+                commands.append({
+                    'action': 'D',
+                    'identifier': identifier,
+                    'raw_command': line
+                })
+                continue
+
+            # Generic command pattern: ACTION:IDENTIFIER:DATE:TIME
+            parts = line.split(":")
+            if len(parts) < 4:
+                print(f"WARNING: Skipping invalid command format: {line}")
+                continue
+
+            action, identifier, date_part, time_part = parts[0], parts[1], parts[2], parts[3]
+
+            # Try converting date
+            full_date = self.compact_to_date(date_part)
+            if not full_date:
+                print(f"WARNING: Skipping command due to invalid date: {line}")
+                continue
+
+            # Handle time parsing (HHMM-HHMM or HHMM)
+            if "-" in time_part:
+                start_str, end_str = time_part.split("-", 1)
+            else:
+                start_str = time_part
+                # auto-generate an end time +1h
+                if start_str.isdigit() and 3 <= len(start_str) <= 4:
+                    hour = int(start_str[:-2])
+                    minute = int(start_str[-2:])
+                    hour_end = (hour + 1) % 24
+                    end_str = f"{hour_end:02d}{minute:02d}"
+                else:
+                    end_str = start_str
+
+            # Convert to datetime.time objects
+            full_start = self.compact_to_time(start_str)
+            full_end = self.compact_to_time(end_str)
+
+            if not full_start or not full_end:
+                print(f"WARNING: Skipping command due to invalid time: {line}")
+                continue
+
+            # Build final command object
+            commands.append({
+                'action': action.upper(),
+                'identifier': identifier.strip(),
+                'date': full_date.strftime('%Y-%m-%d'),
+                'start_time': full_start.strftime('%H:%M'),
+                'end_time': full_end.strftime('%H:%M'),
+                'raw_command': line
+            })
+
+        print(f"DEBUG: Parsed commands ({len(commands)}): {commands}")
+        return commands
+
+
+        
+    
+    def execute_commands(self, commands: List[Dict], events_data: List[str]) -> Dict[str, Any]:
+        """Execute parsed commands and return results"""
+        results = {
+            'executed': [],
+            'failed': [],
+            'created': [],
+            'updated': [],
+            'deleted': []
+        }
+        
+        print(f"DEBUG: Executing {len(commands)} commands")
+        print(f"DEBUG: Event cache contents: {self._event_cache}")
+        print(f"DEBUG: Available events: {events_data}")
+        
+        for cmd in commands:
+            try:
+                action = cmd['action']
+                identifier = cmd['identifier']
+                
+                print(f"DEBUG: Processing command: {action}:{identifier}")
+                
+                if action == 'A':  # Add new event
+                    if self.create_event_function:
+                        print(f"DEBUG: Creating event: {identifier} on {cmd['date']} at {cmd['start_time']}-{cmd['end_time']}")
+                        success = self.create_event_function(
+                            event_name=identifier,
+                            date=cmd['date'],
+                            start_time=cmd['start_time'],
+                            end_time=cmd['end_time']
+                        )
+                        if success:
+                            results['executed'].append(cmd)
+                            results['created'].append(identifier)
+                            print(f"DEBUG: Successfully created event {identifier}")
+                        else:
+                            results['failed'].append(cmd)
+                            print(f"DEBUG: Failed to create event {identifier}")
+                    else:
+                        print("DEBUG: Create function not available")
+                        results['failed'].append(cmd)
+                
+                elif action == 'D':  # Delete event
+                    if self.delete_event_function:
+                        db_id = self._event_cache.get(f"db_{identifier}")
+                        print(f"DEBUG: Looking for db_id for {identifier}: {db_id}")
+                        
+                        if db_id:
+                            success = self.delete_event_function(event_id=db_id)
+                            if success:
+                                results['executed'].append(cmd)
+                                results['deleted'].append(identifier)
+                            else:
+                                results['failed'].append(cmd)
+                        else:
+                            print(f"DEBUG: Event ID {identifier} not found in cache")
+                            results['failed'].append(cmd)
+                    else:
+                        print("DEBUG: Delete function not available")
+                        results['failed'].append(cmd)
+                
+                elif action in ['M', 'C']:  # Move or Change existing event
+                    if self.update_event_function:
+                        db_id = self._event_cache.get(f"db_{identifier}")
+                        print(f"DEBUG: Looking for db_id for {identifier}: {db_id}")
+                        
+                        if db_id:
+                            event_name = identifier if action == 'C' else self.get_original_event_name(identifier, events_data)
+                            print(f"DEBUG: Updating event {db_id} with name: {event_name}")
+                            
+                            success = self.update_event_function(
+                                event_id=db_id,
+                                event_name=event_name,
+                                date=cmd['date'],
+                                start_time=cmd['start_time'],
+                                end_time=cmd['end_time']
+                            )
+                            
+                            if success:
+                                results['executed'].append(cmd)
+                                results['updated'].append(identifier)
+                                print(f"DEBUG: Successfully updated event {identifier}")
+                            else:
+                                results['failed'].append(cmd)
+                                print(f"DEBUG: Failed to update event {identifier}")
+                        else:
+                            print(f"DEBUG: Event ID {identifier} not found for update")
+                            results['failed'].append(cmd)
+                    else:
+                        print("DEBUG: Update function not available")
+                        results['failed'].append(cmd)
+            
+            except Exception as e:
+                print(f"DEBUG: Error executing command {cmd}: {e}")
+                results['failed'].append(cmd)
+        
+        print(f"DEBUG: Execution results: {results}")
+        return results
+        
+    def get_original_event_name(self, event_id: str, events_data: List[str]) -> str:
+        """Get original event name from compact event data"""
+        for event in events_data:
+            if event.startswith(f"{event_id}:"):
+                parts = event.split(':')
+                if len(parts) >= 2:
+                    return parts[1]
+        return event_id
+    
+    def generate_ultra_compact_prompt(self, events_data: List[str], week_range: str, current_day_idx: int) -> str:
+        """Generate extremely compact system prompt"""
+        day_names = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+        current_day = day_names[current_day_idx]
+        
+        events_str = '\n'.join(events_data) if events_data else 'None'
+        
+        return f"""WEEK {week_range} (Today: {current_day})
+
+EVENTS:
+{events_str}
+
+COMMANDS:
+M = Move, A = Add, C = Change, D = Delete
+M:ID:Date:Time   A:Name:Date:Time   C:ID:New:Date:Time   D:ID
+
+DATES: M15=Mon15, T16=Tue16, W17=Wed17, R18=Thu18, F19=Fri19, S20=Sat20, U21=Sun21
+TIME: Use start-end in 24h format, no colon (e.g. 1430-1530 for 2:30 PM–3:30 PM).
+
+RULES:
+- You are a helpful calendar assistant
+- Edit this week only
+- No event overlaps permitted
+- Reschedule events for user using commands in case of conflicts
+- Add non-existing events the user asks for
+- Use exact event IDs (A,B,...)
+- Keep schedules realistic
+- Chat to user in 12h time, e.g. 2:00 PM
+- Make assumptions for vague situations
+- Don't ask user for confirmation.
+- Mention events by their event name, not letter
+
+FORMAT:
+1. Natural response to user
+2. "COMMANDS:" on new line
+3. Commands listed below
+
+Example: I've cleared your 10:30 slot.
+COMMANDS:
+D:H"""
+        
+        
+        
+    def call_llm_with_calendar(self, message: str, include_events: bool = True, **kwargs) -> Dict[str, Any]:
+        """Main method: ultra-efficient calendar LLM interaction"""
+        if not include_events or not self.events_function:
+            return self.call_llm(message, **kwargs)
+        
+        # Get ultra-compact data
+        events_data = self.fetch_events_ultra_compact()
+        week_start, current_day_idx, week_range = self.get_current_week_info()
+        
+        # Generate minimal prompt
+        system_prompt = self.generate_ultra_compact_prompt(events_data, week_range, current_day_idx)
+        
+        # Extract the prompt parameter if it exists in kwargs
+        user_prompt = kwargs.pop('prompt', None)
+        
+        # Combine prompts if user provided one
+        if user_prompt:
+            combined_prompt = f"{system_prompt}\n\nAdditional instructions: {user_prompt}"
+        else:
+            combined_prompt = system_prompt
+        
+        # Make API call with combined prompt
+        result = self.call_llm(message, prompt=combined_prompt, **kwargs)
+        
+        if result.get("success"):
+            response_text = result.get("response", "")
+            
+            # Parse and execute commands
+            commands = self.parse_llm_commands(response_text)
+            
+            if commands:
+                execution_results = self.execute_commands(commands, events_data)
+                result.update({
+                    'commands_found': commands,
+                    'execution_results': execution_results,
+                    'changes_applied': len(execution_results['executed']) > 0
+                })
+                
+                # Refresh events if changes were made
+                if execution_results['executed']:
+                    result['updated_events'] = self.fetch_events_ultra_compact()
+            
+            result.update({
+                'original_events': events_data,
+                'compact_format': True,
+                'token_savings': self.calculate_token_savings(events_data)
+            })
+            
+            # Clean the response for user display - remove COMMANDS: section
+            if "COMMANDS:" in response_text:
+                clean_response = response_text.split("COMMANDS:", 1)[0].strip()
+                result['response'] = clean_response
+        
+        return result
+    
+    
+    def calculate_token_savings(self, compact_events: List[str]) -> Dict[str, int]:
+        """Calculate approximate token savings from compression"""
+        if not compact_events:
+            return {'original': 0, 'compressed': 0, 'saved': 0}
+        
+        # Estimate original format tokens
+        original_tokens = 0
+        for event in compact_events:
+            # Expand back to estimate original size
+            parts = event.split(':')
+            if len(parts) >= 4:
+                # Original would be: "EventName|2025-01-15|14:00-15:30"
+                original_tokens += len(parts[1]) + 12 + 11  # Name + date + time
+        
+        # Compressed tokens
+        compressed_tokens = sum(len(event) for event in compact_events)
+        
+        return {
+            'original_estimate': original_tokens,
+            'compressed': compressed_tokens,
+            'saved_estimate': original_tokens - compressed_tokens,
+            'compression_ratio': round(compressed_tokens / max(original_tokens, 1), 2)
+        }
     
     def call_llm(self, message: str, prompt: str = None, max_retries: int = 3, **kwargs) -> Dict[str, Any]:
-        """Call LLM API with retry logic - delegates to provider-specific implementation"""
+        """Call LLM API - delegates to provider implementation"""
         if not message or not message.strip():
             return {
                 "success": False,
@@ -533,12 +707,15 @@ User: {message}"""
         
         return self._make_api_request(message, prompt, max_retries=max_retries, **kwargs)
 
+
+
 class GeminiProvider(BaseLLMProvider):
     """Google Gemini API provider"""
     
-    def __init__(self, api_key: str, model: str, events_function=None, update_event_function=None):
-        super().__init__(api_key, model, events_function, update_event_function)
+    def __init__(self, api_key: str, model: str, events_function=None, update_event_function=None, create_event_function=None, delete_event_function=None):
+        super().__init__(api_key, model, events_function, update_event_function, create_event_function, delete_event_function)
         self.base_url = f"https://generativelanguage.googleapis.com/v1beta/models/{self.model}:generateContent"
+
     
     def _validate_api_key(self):
         """Test if API key is valid by making a minimal request"""
@@ -723,9 +900,10 @@ class GeminiProvider(BaseLLMProvider):
 class OpenAIProvider(BaseLLMProvider):
     """OpenAI GPT API provider"""
     
-    def __init__(self, api_key: str, model: str, events_function=None, update_event_function=None):
-        super().__init__(api_key, model, events_function, update_event_function)
+    def __init__(self, api_key: str, model: str, events_function=None, update_event_function=None, create_event_function=None, delete_event_function=None):
+        super().__init__(api_key, model, events_function, update_event_function, create_event_function, delete_event_function)
         self.base_url = "https://api.openai.com/v1/chat/completions"
+
     
     def _validate_api_key(self):
         """Test if API key is valid by making a minimal request"""
@@ -924,9 +1102,23 @@ class LLMService:
                 model = LLMConfig.get_model(provider_name)
                 
                 if provider_name == 'gemini':
-                    provider = GeminiProvider(api_key, model)
+                    provider = GeminiProvider(
+                        api_key=api_key, 
+                        model=model,
+                        events_function=None,
+                        update_event_function=None,
+                        create_event_function=None,
+                        delete_event_function=None
+                    )
                 elif provider_name == 'openai':
-                    provider = OpenAIProvider(api_key, model)
+                    provider = OpenAIProvider(
+                        api_key=api_key, 
+                        model=model,
+                        events_function=None,
+                        update_event_function=None,
+                        create_event_function=None,
+                        delete_event_function=None
+                    )
                 else:
                     print(f"Unknown provider: {provider_name}")
                     continue
@@ -937,6 +1129,19 @@ class LLMService:
             except Exception as e:
                 print(f"Failed to initialize {provider_name} provider: {e}")
                 continue
+    
+    
+    def setup_calendar_functions(self, events_function=None, update_event_function=None, create_event_function=None, delete_event_function=None):
+        """Setup calendar functions for all providers"""
+        for provider in self.providers.values():
+            provider.events_function = events_function
+            provider.update_event_function = update_event_function
+            provider.create_event_function = create_event_function
+            provider.delete_event_function = delete_event_function
+            # Reset cache when functions change
+            provider._event_cache = {}
+            provider._id_counter = 0
+
     
     def register_provider(self, name: str, provider: BaseLLMProvider):
         """Register a new LLM provider"""
@@ -992,6 +1197,8 @@ def llm_text(request):
     Django view for LLM chat functionality with proper error handling and provider selection
     """
     start_time = time.time()
+    
+    setup_llm_with_calendar()
     
     try:
         # No need to check authentication - DRF handles it automatically
@@ -1258,19 +1465,42 @@ def update_calendar_event(event_id, event_name, date, start_time, end_time):
 
 
 # Setup functions for backward compatibility and manual setup
-def setup_providers_with_calendar(events_function=None, update_event_function=None):
+def setup_providers_with_calendar(events_function=None, update_event_function=None, create_event_function=None, delete_event_function=None):
     """Setup all available providers with calendar functions"""
+    global llm_service
+    
+    # Setup calendar functions for existing providers
+    llm_service.setup_calendar_functions(events_function, update_event_function, create_event_function, delete_event_function)
+    
     enabled_providers = LLMConfig.get_enabled_providers()
     
     for provider_name in enabled_providers:
         try:
+            # Skip if provider already exists and just needs function updates
+            if provider_name in llm_service.providers:
+                continue
+                
             api_key = LLMConfig.get_api_key(provider_name)
             model = LLMConfig.get_model(provider_name)
             
             if provider_name == 'gemini':
-                provider = GeminiProvider(api_key, model, events_function, update_event_function)
+                provider = GeminiProvider(
+                    api_key=api_key, 
+                    model=model, 
+                    events_function=events_function, 
+                    update_event_function=update_event_function,
+                    create_event_function=create_event_function,
+                    delete_event_function=delete_event_function
+                )
             elif provider_name == 'openai':
-                provider = OpenAIProvider(api_key, model, events_function, update_event_function)
+                provider = OpenAIProvider(
+                    api_key=api_key, 
+                    model=model,
+                    events_function=events_function, 
+                    update_event_function=update_event_function,
+                    create_event_function=create_event_function,
+                    delete_event_function=delete_event_function
+                )
             else:
                 continue
             
@@ -1282,6 +1512,113 @@ def setup_providers_with_calendar(events_function=None, update_event_function=No
             continue
 
 
+
 def get_provider_status():
     """Get status of all registered providers"""
     return llm_service.get_provider_info()
+
+
+
+
+def delete_calendar_event(event_id):
+    """Delete a calendar event from the database"""
+    try:
+        from myapp.models import CalendarEvent  # Change 'myapp' to your actual app name
+        
+        # Get and delete the event
+        event = CalendarEvent.objects.get(id=event_id)
+        event_name = event.event_name  # Store for logging
+        event_date = event.date
+        
+        event.delete()
+        
+        print(f"Successfully deleted event {event_id}: {event_name} on {event_date}")
+        return True
+        
+    except CalendarEvent.DoesNotExist:
+        print(f"Event with id {event_id} not found")
+        return False
+    except Exception as e:
+        print(f"Error deleting event: {e}")
+        return False
+
+
+def create_calendar_event(event_name, date, start_time, end_time):
+    """Create a new calendar event in the database"""
+    try:
+        from myapp.models import CalendarEvent
+        from datetime import datetime
+        
+        # Create new event
+        event = CalendarEvent()
+        event.event_name = event_name
+        
+        # Parse date string to date object
+        if isinstance(date, str):
+            event.date = datetime.strptime(date, '%Y-%m-%d').date()
+        else:
+            event.date = date
+        
+        # Parse and set start time
+        if isinstance(start_time, str):
+            if ':' in start_time:
+                event.start_time = datetime.strptime(start_time, '%H:%M').time()
+            else:
+                # Handle compact format like "1400" -> "14:00"
+                if len(start_time) == 4 and start_time.isdigit():
+                    hour = int(start_time[:2])
+                    minute = int(start_time[2:])
+                    event.start_time = datetime.strptime(f"{hour:02d}:{minute:02d}", '%H:%M').time()
+                else:
+                    event.start_time = datetime.strptime(start_time, '%H:%M').time()
+        else:
+            event.start_time = start_time
+        
+        # Parse and set end time
+        if isinstance(end_time, str):
+            if ':' in end_time:
+                event.end_time = datetime.strptime(end_time, '%H:%M').time()
+            else:
+                # Handle compact format like "1500" -> "15:00"
+                if len(end_time) == 4 and end_time.isdigit():
+                    hour = int(end_time[:2])
+                    minute = int(end_time[2:])
+                    event.end_time = datetime.strptime(f"{hour:02d}:{minute:02d}", '%H:%M').time()
+                else:
+                    event.end_time = datetime.strptime(end_time, '%H:%M').time()
+        else:
+            event.end_time = end_time
+        
+        # Save the event
+        event.save()
+        
+        print(f"Successfully created event: {event_name} on {event.date} from {event.start_time} to {event.end_time}")
+        return True
+        
+    except Exception as e:
+        print(f"Error creating event: {e}")
+        return False
+    
+    
+    
+def get_calendar_events():
+    """Get calendar events from your models"""
+    try:
+        from myapp.models import CalendarEvent 
+        return CalendarEvent.objects.all()
+    except ImportError:
+        print("CalendarEvent model not found - update the import path")
+        return []
+    except Exception as e:
+        print(f"Error fetching calendar events: {e}")
+        return []
+
+def setup_llm_with_calendar():
+    """Initialize LLM service with calendar integration"""
+    setup_providers_with_calendar(
+        events_function=get_calendar_events,
+        update_event_function=update_calendar_event,
+        create_event_function=create_calendar_event,
+        delete_event_function=delete_calendar_event
+    )
+    print("LLM service setup complete with calendar integration")
