@@ -11,7 +11,7 @@ import requests
 import os
 from typing import Dict, Any, Optional, Tuple, List
 from abc import ABC, abstractmethod
-from datetime import datetime, timedelta, date, time as time_module
+from datetime import datetime, date, time as time_module, timedelta
 import pytz
 from myapp.models import LLMUsage
 import time
@@ -109,6 +109,8 @@ class LLMConfig:
         return enabled or ['gemini']  # Fallback to gemini if none found
 
 
+
+
 class BaseLLMProvider(ABC):
     """Ultra-efficient token-minimized calendar LLM provider"""
     
@@ -130,7 +132,6 @@ class BaseLLMProvider(ABC):
         self._id_counter = 0
         
         self._validate_api_key()
-
 
     @abstractmethod
     def _validate_api_key(self):
@@ -183,30 +184,47 @@ class BaseLLMProvider(ABC):
             else:
                 # Outside current week - use full compact: Jan15/25
                 return f"{date_obj.strftime('%b')}{date_obj.day}/{date_obj.strftime('%y')}"
-        except:
+        except Exception as e:
+            print(f"DEBUG: Error in date_to_compact: {e}")
             return str(date_obj)
     
     def compact_to_date(self, compact: str) -> Optional[date]:
         """Convert compact format like W17 or M6 to a real date."""
         try:
+            compact = compact.strip()
             week_start, _, _ = self.get_current_week_info()
+            
+            print(f"DEBUG: Converting compact date '{compact}' with week_start {week_start}")
             
             # Handle current week format: M15, T16, etc.
             if len(compact) >= 2 and compact[0] in 'MTWRFSU':
                 day_letters = {'M': 0, 'T': 1, 'W': 2, 'R': 3, 'F': 4, 'S': 5, 'U': 6}
                 day_idx = day_letters.get(compact[0])
-                day_num = int(compact[1:])
                 
                 if day_idx is not None:
-                    # Pick weekday of current week
-                    base_date = week_start + timedelta(days=day_idx)
-                    
-                    # If day_num doesn't match, just replace the day in that month
                     try:
-                        return base_date.replace(day=day_num)
+                        day_num = int(compact[1:])
+                        # Get the weekday of current week
+                        base_date = week_start + timedelta(days=day_idx)
+                        
+                        # If day_num matches the actual day, use it
+                        if base_date.day == day_num:
+                            print(f"DEBUG: Exact match for {compact} -> {base_date}")
+                            return base_date
+                        
+                        # Otherwise, try to create date with same day number in base_date's month
+                        try:
+                            result_date = base_date.replace(day=day_num)
+                            print(f"DEBUG: Adjusted date for {compact} -> {result_date}")
+                            return result_date
+                        except ValueError:
+                            # Day doesn't exist in month, use base_date
+                            print(f"DEBUG: Invalid day {day_num}, using base_date {base_date}")
+                            return base_date
+                            
                     except ValueError:
-                        # fallback: return the weekday of current week
-                        return base_date
+                        print(f"DEBUG: Invalid day number in {compact}")
+                        return None
             
             # Handle full format: Jan15/25
             if '/' in compact:
@@ -223,11 +241,16 @@ class BaseLLMProvider(ABC):
                             'Jul': 7, 'Aug': 8, 'Sep': 9, 'Oct': 10, 'Nov': 11, 'Dec': 12
                         }.get(month_str)
                         if month_num:
-                            return date(int(year), month_num, int(day_str))
+                            result = date(int(year), month_num, int(day_str))
+                            print(f"DEBUG: Full format {compact} -> {result}")
+                            return result
+            
+            print(f"DEBUG: Could not parse compact date: {compact}")
             return None
-        except:
+            
+        except Exception as e:
+            print(f"DEBUG: Error in compact_to_date: {e}")
             return None
-
     
     def time_to_compact(self, time_obj) -> str:
         """Convert time to compact format: 14:30 -> 1430"""
@@ -244,25 +267,55 @@ class BaseLLMProvider(ABC):
                 return f"{time_obj.hour:02d}{time_obj.minute:02d}"
             else:
                 return str(time_obj)
-        except:
+        except Exception as e:
+            print(f"DEBUG: Error in time_to_compact: {e}")
             return str(time_obj)
     
     def compact_to_time(self, compact: str) -> Optional[time_module]:
         """Convert compact format back to time: 1430 -> 14:30"""
         try:
+            compact = compact.strip()
+            print(f"DEBUG: Converting compact time '{compact}'")
+            
+            # Handle 4-digit times like 1430
             if len(compact) == 4 and compact.isdigit():
                 hours = int(compact[:2])
                 minutes = int(compact[2:])
                 if 0 <= hours <= 23 and 0 <= minutes <= 59:
-                    return time(hours, minutes)
+                    result = time_module(hours, minutes)
+                    print(f"DEBUG: 4-digit time {compact} -> {result}")
+                    return result
+                    
+            # Handle 3-digit times like 930 (9:30)
             elif len(compact) == 3 and compact.isdigit():
-                # Handle 3-digit times like 930 (9:30)
                 hours = int(compact[0])
                 minutes = int(compact[1:])
                 if 0 <= hours <= 23 and 0 <= minutes <= 59:
-                    return time(hours, minutes)
+                    result = time_module(hours, minutes)
+                    print(f"DEBUG: 3-digit time {compact} -> {result}")
+                    return result
+                    
+            # Handle 2-digit times like 15 (assume 15:00)
+            elif len(compact) == 2 and compact.isdigit():
+                hours = int(compact)
+                if 0 <= hours <= 23:
+                    result = time_module(hours, 0)
+                    print(f"DEBUG: 2-digit time {compact} -> {result}")
+                    return result
+                    
+            # Handle 1-digit times like 9 (assume 9:00)
+            elif len(compact) == 1 and compact.isdigit():
+                hours = int(compact)
+                if 0 <= hours <= 9:
+                    result = time_module(hours, 0)
+                    print(f"DEBUG: 1-digit time {compact} -> {result}")
+                    return result
+            
+            print(f"DEBUG: Could not parse compact time: {compact}")
             return None
-        except:
+            
+        except Exception as e:
+            print(f"DEBUG: Error in compact_to_time: {e}")
             return None
     
     # ==================== EVENT PROCESSING ====================
@@ -381,9 +434,9 @@ class BaseLLMProvider(ABC):
         except Exception as e:
             print(f"DEBUG: Error fetching events: {e}")
             return []
-        
-    
+
     def parse_llm_commands(self, response: str) -> List[Dict]:
+        """Parse LLM response for calendar commands with robust error handling"""
         commands = []
         print(f"DEBUG: LLM OUTPUT\n{response}")
 
@@ -412,59 +465,100 @@ class BaseLLMProvider(ABC):
                     'identifier': identifier,
                     'raw_command': line
                 })
+                print(f"DEBUG: Parsed delete command for {identifier}")
                 continue
 
-            # Generic command pattern: ACTION:IDENTIFIER:DATE:TIME
+            # Split by colon - handle complex event names
             parts = line.split(":")
             if len(parts) < 4:
-                print(f"WARNING: Skipping invalid command format: {line}")
+                print(f"WARNING: Skipping invalid command format (need at least 4 parts): {line}")
                 continue
 
-            action, identifier, date_part, time_part = parts[0], parts[1], parts[2], parts[3]
+            action = parts[0].strip().upper()
+            
+            # Handle different command formats:
+            # For C (Change): C:ID:NewName:Date:Time
+            # For A (Add): A:EventName:Date:Time  
+            # For M (Move): M:ID:Date:Time
+            # For D (Delete): D:ID
+            
+            if action == 'C' and len(parts) >= 5:
+                # Change command: C:ID:NewName:Date:Time
+                event_id = parts[1].strip()    # Event ID (like 'D')
+                new_name = parts[2].strip()    # New event name  
+                date_part = parts[3].strip()   # Date
+                time_part = parts[4].strip()   # Time
+                # For change commands, we need both the ID and new name
+                identifier = event_id  # Use the event ID for lookup
+                # Store the new name for later use
+                new_event_name = new_name
+            elif len(parts) > 4:
+                # Regular command with complex name: A:Event:Name:Date:Time
+                identifier = ":".join(parts[1:-2])  # Join middle parts
+                date_part = parts[-2]  # Second to last
+                time_part = parts[-1]  # Last
+            else:
+                # Simple command: A:Name:Date:Time or M:ID:Date:Time
+                identifier = parts[1].strip()
+                date_part = parts[2].strip()
+                time_part = parts[3].strip()
 
-            # Try converting date
-            full_date = self.compact_to_date(date_part)
+            print(f"DEBUG: Parsed - Action: {action}, Identifier: '{identifier}', Date: '{date_part}', Time: '{time_part}'")
+
+            # Convert compact date to full date
+            full_date = self.compact_to_date(date_part.strip())
             if not full_date:
-                print(f"WARNING: Skipping command due to invalid date: {line}")
+                print(f"WARNING: Skipping command due to invalid date '{date_part}': {line}")
                 continue
 
-            # Handle time parsing (HHMM-HHMM or HHMM)
+            # Parse time range
+            time_part = time_part.strip()
+            start_time_obj = None
+            end_time_obj = None
+            
             if "-" in time_part:
                 start_str, end_str = time_part.split("-", 1)
+                start_str = start_str.strip()
+                end_str = end_str.strip()
+                
+                start_time_obj = self.compact_to_time(start_str)
+                end_time_obj = self.compact_to_time(end_str)
+                
+                if not start_time_obj or not end_time_obj:
+                    print(f"WARNING: Skipping command due to invalid time range '{time_part}': {line}")
+                    continue
+                    
             else:
-                start_str = time_part
-                # auto-generate an end time +1h
-                if start_str.isdigit() and 3 <= len(start_str) <= 4:
-                    hour = int(start_str[:-2])
-                    minute = int(start_str[-2:])
-                    hour_end = (hour + 1) % 24
-                    end_str = f"{hour_end:02d}{minute:02d}"
-                else:
-                    end_str = start_str
-
-            # Convert to datetime.time objects
-            full_start = self.compact_to_time(start_str)
-            full_end = self.compact_to_time(end_str)
-
-            if not full_start or not full_end:
-                print(f"WARNING: Skipping command due to invalid time: {line}")
-                continue
+                # Single time - assume 1 hour duration
+                start_time_obj = self.compact_to_time(time_part)
+                if not start_time_obj:
+                    print(f"WARNING: Skipping command due to invalid time '{time_part}': {line}")
+                    continue
+                
+                # Add 1 hour for end time
+                start_dt = datetime.combine(date.today(), start_time_obj)
+                end_dt = start_dt + timedelta(hours=1)
+                end_time_obj = end_dt.time()
 
             # Build final command object
-            commands.append({
-                'action': action.upper(),
+            command_obj = {
+                'action': action,
                 'identifier': identifier.strip(),
                 'date': full_date.strftime('%Y-%m-%d'),
-                'start_time': full_start.strftime('%H:%M'),
-                'end_time': full_end.strftime('%H:%M'),
+                'start_time': start_time_obj.strftime('%H:%M'),
+                'end_time': end_time_obj.strftime('%H:%M'),
                 'raw_command': line
-            })
+            }
+            
+            # Add new event name for change commands
+            if action == 'C' and 'new_event_name' in locals():
+                command_obj['new_event_name'] = new_event_name
+            
+            commands.append(command_obj)
+            print(f"DEBUG: Successfully parsed command: {command_obj}")
 
-        print(f"DEBUG: Parsed commands ({len(commands)}): {commands}")
+        print(f"DEBUG: Parsed {len(commands)} valid commands total")
         return commands
-
-
-        
     
     def execute_commands(self, commands: List[Dict], events_data: List[str]) -> Dict[str, Any]:
         """Execute parsed commands and return results"""
@@ -517,8 +611,10 @@ class BaseLLMProvider(ABC):
                             if success:
                                 results['executed'].append(cmd)
                                 results['deleted'].append(identifier)
+                                print(f"DEBUG: Successfully deleted event {identifier}")
                             else:
                                 results['failed'].append(cmd)
+                                print(f"DEBUG: Failed to delete event {identifier}")
                         else:
                             print(f"DEBUG: Event ID {identifier} not found in cache")
                             results['failed'].append(cmd)
@@ -532,7 +628,13 @@ class BaseLLMProvider(ABC):
                         print(f"DEBUG: Looking for db_id for {identifier}: {db_id}")
                         
                         if db_id:
-                            event_name = identifier if action == 'C' else self.get_original_event_name(identifier, events_data)
+                            # For change commands, use the new event name if provided
+                            if action == 'C' and 'new_event_name' in cmd:
+                                event_name = cmd['new_event_name']
+                                print(f"DEBUG: Using new event name for change: {event_name}")
+                            else:
+                                event_name = self.get_original_event_name(identifier, events_data)
+                            
                             print(f"DEBUG: Updating event {db_id} with name: {event_name}")
                             
                             success = self.update_event_function(
@@ -556,6 +658,10 @@ class BaseLLMProvider(ABC):
                     else:
                         print("DEBUG: Update function not available")
                         results['failed'].append(cmd)
+                        
+                else:
+                    print(f"DEBUG: Unknown action {action}")
+                    results['failed'].append(cmd)
             
             except Exception as e:
                 print(f"DEBUG: Error executing command {cmd}: {e}")
@@ -598,12 +704,13 @@ RULES:
 - No event overlaps permitted
 - Reschedule events for user using commands in case of conflicts
 - Add non-existing events the user asks for
-- Use exact event IDs (A,B,...)
+- Use exact event IDs (A,B,...), event names for user chat
 - Keep schedules realistic
-- Chat to user in 12h time, e.g. 2:00 PM
+- Chat to user in 12h time, e.g. 2:00 PM
 - Make assumptions for vague situations
 - Don't ask user for confirmation.
 - Mention events by their event name, not letter
+- Respond with a single friendly sentence summarizing the changes, concise and natural to user
 
 FORMAT:
 1. Natural response to user
@@ -613,8 +720,6 @@ FORMAT:
 Example: I've cleared your 10:30 slot.
 COMMANDS:
 D:H"""
-        
-        
         
     def call_llm_with_calendar(self, message: str, include_events: bool = True, **kwargs) -> Dict[str, Any]:
         """Main method: ultra-efficient calendar LLM interaction"""
@@ -671,7 +776,6 @@ D:H"""
         
         return result
     
-    
     def calculate_token_savings(self, compact_events: List[str]) -> Dict[str, int]:
         """Calculate approximate token savings from compression"""
         if not compact_events:
@@ -706,7 +810,6 @@ D:H"""
             }
         
         return self._make_api_request(message, prompt, max_retries=max_retries, **kwargs)
-
 
 
 class GeminiProvider(BaseLLMProvider):

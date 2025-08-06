@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { ChevronLeft, ChevronRight, Send, Sparkles, User } from 'lucide-react';
 import { authAPI } from '../../lib/auth'; // Adjust path as needed
+import { useAppState } from '../hooks/useAppState';
 
 const RotatingGradientAnimation = ({ size = 128 }) => {
   const [rotation, setRotation] = React.useState(0);
@@ -36,8 +37,6 @@ const RotatingGradientAnimation = ({ size = 128 }) => {
         )`,
         WebkitMaskRepeat: 'no-repeat',
         WebkitMaskPosition: 'center',
-
-        // Glow effect
         boxShadow: `0 0 ${size * 0.3}px rgba(56, 189, 248, 0.6),
                     0 0 ${size * 0.5}px rgba(14, 165, 233, 0.4)`,
       }}
@@ -45,12 +44,22 @@ const RotatingGradientAnimation = ({ size = 128 }) => {
   );
 };
 
+// FIXED: Updated interface to include all props being passed
 interface RightSidebarProps {
   isOpen?: boolean;
   onToggle?: () => void;
   forceClose?: boolean;
   navbarVisible?: boolean;
   onEventChange?: () => void;
+  // NEW: Added missing props that Page component is passing
+  events?: any[];
+  tasks?: any[];
+  onEventCreate?: (eventData: any) => Promise<any>;
+  onEventUpdate?: (eventId: string, updates: any) => Promise<any>;
+  onEventDelete?: (eventId: string) => Promise<boolean>;
+  onTaskCreate?: (taskData: any) => Promise<any>;
+  onTaskUpdate?: (taskId: string, updates: any) => Promise<any>;
+  onTaskDelete?: (taskId: string) => Promise<boolean>;
 }
 
 interface Message {
@@ -72,7 +81,16 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
   onToggle,
   forceClose = false,
   navbarVisible = false,
-  onEventChange
+  onEventChange,
+  // NEW: Destructure the new props (with defaults)
+  events = [],
+  tasks = [],
+  onEventCreate,
+  onEventUpdate,
+  onEventDelete,
+  onTaskCreate,
+  onTaskUpdate,
+  onTaskDelete
 }) => {
   const [internalIsOpen, setInternalIsOpen] = useState(true);
   const [messages, setMessages] = useState<Message[]>([
@@ -172,6 +190,7 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
     }
   };
 
+  // IMPROVED: Better calendar refresh logic with proper error handling and logging
   const handleSendMessage = async () => {
     if (!inputMessage.trim() || isTyping) return;
 
@@ -183,12 +202,20 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
     };
 
     setMessages(prev => [...prev, userMessage]);
+    const originalMessage = inputMessage; // Store original message
     setInputMessage('');
     setIsTyping(true);
 
     try {
+      console.log('Sending message to AI:', originalMessage);
+      
       // Send message to LLM backend
-      const { response: llmResponse, calendarUpdated } = await sendMessageToLLM(inputMessage);
+      const { response: llmResponse, calendarUpdated } = await sendMessageToLLM(originalMessage);
+      
+      console.log('AI Response received:', {
+        response: llmResponse,
+        calendarUpdated: calendarUpdated
+      });
       
       // Add AI response
       const aiResponse: Message = {
@@ -200,12 +227,54 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
       
       setMessages(prev => [...prev, aiResponse]);
 
-      // Trigger calendar refresh if the AI made changes to the calendar
-      if (calendarUpdated && onEventChange) {
-        console.log('AI made calendar changes, refreshing calendar...');
-        onEventChange();
+      // IMPROVED: Better calendar refresh logic
+      if (calendarUpdated) {
+        console.log('🔄 AI made calendar changes, triggering refresh...');
+        
+        if (onEventChange) {
+          try {
+            // Call the refresh function and wait for it
+            await onEventChange();
+            console.log('✅ Calendar refresh completed successfully');
+            
+            // Add a confirmation message to the chat
+            const confirmationMessage: Message = {
+              id: (Date.now() + 2).toString(),
+              content: '✅ Calendar has been updated with your changes!',
+              sender: 'ai',
+              timestamp: new Date()
+            };
+            
+            // Add confirmation after a brief delay
+            setTimeout(() => {
+              setMessages(prev => [...prev, confirmationMessage]);
+            }, 500);
+            
+          } catch (refreshError) {
+            console.error('❌ Error during calendar refresh:', refreshError);
+            
+            // Add error message to chat
+            const refreshErrorMessage: Message = {
+              id: (Date.now() + 2).toString(),
+              content: '⚠️ Changes were made but there was an issue refreshing the calendar. Please refresh the page to see updates.',
+              sender: 'ai',
+              timestamp: new Date()
+            };
+            
+            setTimeout(() => {
+              setMessages(prev => [...prev, refreshErrorMessage]);
+            }, 500);
+          }
+        } else {
+          console.warn('⚠️ Calendar updated but no onEventChange callback provided');
+        }
+      } else {
+        console.log('ℹ️ No calendar changes were made by the AI');
       }
+      
     } catch (error) {
+      console.error('❌ Error processing AI message:', error);
+      
       // Add error message to chat
       const errorMessage: Message = {
         id: (Date.now() + 1).toString(),

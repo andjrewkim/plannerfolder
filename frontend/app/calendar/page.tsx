@@ -74,10 +74,11 @@ const Page = () => {
   }, []);
 
   // This function is now simplified since the hook handles state updates
-  const handleEventChange = () => {
-    // The hook automatically updates the UI when events change
-    // We just need to increment the refresh trigger for any components that still need it
-    setRefreshEvents((prev) => prev + 1);
+  const handleEventChange = async () => {
+    // Instead of just incrementing a counter, actually refresh the data
+    console.log('AI made changes, refreshing data from backend...');
+    await initializeData(); // This will fetch fresh data from the backend
+    setRefreshEvents((prev) => prev + 1); // Keep this for any components that still need it
   };
 
   const handleViewChange = (newView: string) => {
@@ -145,6 +146,8 @@ const Page = () => {
       handleEventChange(); // Trigger any additional updates needed
     }
   };
+
+  
 
   return (
     <ThemeProvider>

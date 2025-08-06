@@ -146,7 +146,6 @@ export function useCalendarLogic(refreshTrigger: number, onEventChange?: () => v
   const [currentView, setCurrentView] = useState('dayGridMonth');
   const [currentDate, setCurrentDate] = useState<Date | null>(null);
   const calendarRef = useRef<FullCalendar | null>(null);
-  const currentEventsRef = useRef(currentEvents);
   const hoverTimerRef = useRef<NodeJS.Timeout | null>(null);
   const [hasInitialized, setHasInitialized] = useState(false);
   const [refreshSidebar, setRefreshSidebar] = useState(0);
@@ -157,10 +156,10 @@ export function useCalendarLogic(refreshTrigger: number, onEventChange?: () => v
   // Add this new state to keep track of temporary events
   const [temporaryEvent, setTemporaryEvent] = useState<CustomEventInput | null>(null);
 
-  // Update the ref whenever currentEvents changes
-  useEffect(() => {
-    currentEventsRef.current = currentEvents;
-  }, [currentEvents]);
+  // Create refs for expensive computed values to track changes
+  const hookEventsRef = useRef(hookEvents);
+  const expandedEventsRef = useRef<EventDetails[]>([]);
+  const formattedEventsRef = useRef<CustomEventInput[]>([]);
 
   // View mapping for cleaner URLs
   const viewToUrlMap = {
@@ -187,7 +186,7 @@ export function useCalendarLogic(refreshTrigger: number, onEventChange?: () => v
       let initialView = 'dayGridMonth';
       
       if (viewFromUrl && viewFromUrl in urlToViewMap) {
-        initialView = urlToViewMap[viewFromUrl as keyof typeof urlToValueMap];
+        initialView = urlToViewMap[viewFromUrl as keyof typeof urlToViewMap];
         console.log('Using view from URL:', initialView);
       } else {
         const savedView = sessionStorage.getItem('calendar-view');
@@ -206,116 +205,136 @@ export function useCalendarLogic(refreshTrigger: number, onEventChange?: () => v
   }, []);
 
   // Update URL when view changes with debouncing
-  useEffect(() => {
-    if (typeof window !== 'undefined' && hasInitialized && currentDate) {
-      const timeoutId = setTimeout(() => {
-        const url = new URL(window.location.href);
-        const urlView = viewToUrlMap[currentView as keyof typeof viewToUrlMap];
-        url.searchParams.set('view', urlView);
-        
-        const dateString = currentDate.toISOString().split('T')[0];
-        url.searchParams.set('date', dateString);
-        
-        console.log('Updating URL with view:', urlView, 'and date:', dateString);
-        
-        window.history.replaceState({}, '', url.toString());
-        sessionStorage.setItem('calendar-view', currentView);
-        
-        if (onViewChange) onViewChange(currentView);
+  const updateUrlDebounced = useMemo(() => {
+    let timeoutId: NodeJS.Timeout;
+    return (view: string, date: Date) => {
+      clearTimeout(timeoutId);
+      timeoutId = setTimeout(() => {
+        if (typeof window !== 'undefined') {
+          const url = new URL(window.location.href);
+          const urlView = viewToUrlMap[view as keyof typeof viewToUrlMap];
+          url.searchParams.set('view', urlView);
+          
+          const dateString = date.toISOString().split('T')[0];
+          url.searchParams.set('date', dateString);
+          
+          console.log('Updating URL with view:', urlView, 'and date:', dateString);
+          
+          window.history.replaceState({}, '', url.toString());
+          sessionStorage.setItem('calendar-view', view);
+          
+          if (onViewChange) onViewChange(view);
+        }
       }, 100);
+    };
+  }, [onViewChange]);
 
-      return () => clearTimeout(timeoutId);
+  useEffect(() => {
+    if (hasInitialized && currentDate) {
+      updateUrlDebounced(currentView, currentDate);
     }
-  }, [currentView, currentDate, onViewChange, hasInitialized]);
+  }, [currentView, currentDate, hasInitialized, updateUrlDebounced]);
 
-    // Helper function to expand recurring events
-    const expandRecurringEvents = useMemo(() => {
-    return (events: EventDetails[]): EventDetails[] => {
-        if (!events.length) return [];
-        
-        const expandedEvents: EventDetails[] = [];
-        const today = new Date();
-        const futureLimit = new Date(today.getFullYear() + 2, today.getMonth(), today.getDate());
-        
-        // Track which event instances we've already added to prevent duplicates
-        const addedInstances = new Set<string>();
+  // Helper function to expand recurring events - now with proper memoization
+  const expandRecurringEvents = useCallback((events: EventDetails[]): EventDetails[] => {
+    // Check if events actually changed
+    if (events === hookEventsRef.current && expandedEventsRef.current.length > 0) {
+      return expandedEventsRef.current;
+    }
 
-        events.forEach(event => {
-        if (event.recurrence_pattern && event.recurrence_pattern.trim() !== '') {
-            try {
-            const baseDate = new Date(event.date);
+    if (!events.length) return [];
+    
+    const expandedEvents: EventDetails[] = [];
+    const today = new Date();
+    const futureLimit = new Date(today.getFullYear() + 2, today.getMonth(), today.getDate());
+    
+    // Track which event instances we've already added to prevent duplicates
+    const addedInstances = new Set<string>();
+
+    events.forEach(event => {
+      if (event.recurrence_pattern && event.recurrence_pattern.trim() !== '') {
+        try {
+          const baseDate = new Date(event.date);
+          
+          const ruleString = event.recurrence_pattern.includes('DTSTART') 
+            ? event.recurrence_pattern 
+            : `DTSTART=${baseDate.toISOString().split('T')[0].replace(/-/g, '')}\n${event.recurrence_pattern}`;
+          
+          const rule = RRule.fromString(ruleString);
+          
+          const occurrences = rule.between(
+            new Date(Math.min(baseDate.getTime(), today.getTime() - 30 * 24 * 60 * 60 * 1000)),
+            futureLimit,
+            true
+          );
+
+          const originalDateString = baseDate.toISOString().split('T')[0];
+          const hasOriginalDate = occurrences.some(occ => 
+            occ.toISOString().split('T')[0] === originalDateString
+          );
+
+          if (!hasOriginalDate) {
+            occurrences.unshift(baseDate);
+          }
+
+          occurrences.forEach((occurrence) => {
+            const eventDate = new Date(occurrence);
+            const dateString = eventDate.toISOString().split('T')[0];
             
-            const ruleString = event.recurrence_pattern.includes('DTSTART') 
-                ? event.recurrence_pattern 
-                : `DTSTART=${baseDate.toISOString().split('T')[0].replace(/-/g, '')}\n${event.recurrence_pattern}`;
+            // Create a unique identifier based on the original event ID and the specific date
+            const uniqueInstanceId = `${event.id}_${dateString}`;
             
-            const rule = RRule.fromString(ruleString);
-            
-            const occurrences = rule.between(
-                new Date(Math.min(baseDate.getTime(), today.getTime() - 30 * 24 * 60 * 60 * 1000)),
-                futureLimit,
-                true
-            );
-
-            const originalDateString = baseDate.toISOString().split('T')[0];
-            const hasOriginalDate = occurrences.some(occ => 
-                occ.toISOString().split('T')[0] === originalDateString
-            );
-
-            if (!hasOriginalDate) {
-                occurrences.unshift(baseDate);
-            }
-
-            occurrences.forEach((occurrence) => {
-                const eventDate = new Date(occurrence);
-                const dateString = eventDate.toISOString().split('T')[0];
-                
-                // Create a unique identifier based on the original event ID and the specific date
-                const uniqueInstanceId = `${event.id}_${dateString}`;
-                
-                // Only add if we haven't already added this specific instance
-                if (!addedInstances.has(uniqueInstanceId)) {
-                addedInstances.add(uniqueInstanceId);
-                
-                expandedEvents.push({
-                    ...event,
-                    id: uniqueInstanceId, // Use date-based ID instead of index-based
-                    eventId: event.id,
-                    date: dateString,
-                    start_time: event.start_time,
-                    end_time: event.end_time
-                });
-                }
-            });
-            } catch (error) {
-            console.error('Error parsing RRule:', event.recurrence_pattern, error);
-            // Only add the original event if we haven't already added it
-            const uniqueInstanceId = `${event.id}_${event.date}`;
+            // Only add if we haven't already added this specific instance
             if (!addedInstances.has(uniqueInstanceId)) {
-                addedInstances.add(uniqueInstanceId);
-                expandedEvents.push(event);
+              addedInstances.add(uniqueInstanceId);
+              
+              expandedEvents.push({
+                ...event,
+                id: uniqueInstanceId, // Use date-based ID instead of index-based
+                eventId: event.id,
+                date: dateString,
+                start_time: event.start_time,
+                end_time: event.end_time
+              });
             }
-            }
-        } else {
-            // For non-recurring events, use the same pattern for consistency
-            const uniqueInstanceId = `${event.id}_${event.date}`;
-            if (!addedInstances.has(uniqueInstanceId)) {
+          });
+        } catch (error) {
+          console.error('Error parsing RRule:', event.recurrence_pattern, error);
+          // Only add the original event if we haven't already added it
+          const uniqueInstanceId = `${event.id}_${event.date}`;
+          if (!addedInstances.has(uniqueInstanceId)) {
             addedInstances.add(uniqueInstanceId);
             expandedEvents.push(event);
-            }
+          }
         }
-        });
+      } else {
+        // For non-recurring events, use the same pattern for consistency
+        const uniqueInstanceId = `${event.id}_${event.date}`;
+        if (!addedInstances.has(uniqueInstanceId)) {
+          addedInstances.add(uniqueInstanceId);
+          expandedEvents.push(event);
+        }
+      }
+    });
 
-        return expandedEvents;
-    };
-    }, [hookEvents]);
+    // Cache the results
+    hookEventsRef.current = events;
+    expandedEventsRef.current = expandedEvents;
 
+    return expandedEvents;
+  }, []); // Empty dependency array since we handle comparison internally
 
-  // Convert events from useAppState to FullCalendar format
+  // Convert events from useAppState to FullCalendar format - now with better memoization
   const formattedEvents = useMemo(() => {
-    if (!hookEvents.length) return [];
-    
     const expandedEvents = expandRecurringEvents(hookEvents);
+    
+    // Check if we can reuse the previous formatted events
+    if (expandedEvents === expandedEventsRef.current && 
+        formattedEventsRef.current.length > 0 && 
+        !isDragging && 
+        !temporaryEvent) {
+      return formattedEventsRef.current;
+    }
     
     const formatted = expandedEvents.map((event: EventDetails) => ({
       id: String(event.id),
@@ -344,6 +363,7 @@ export function useCalendarLogic(refreshTrigger: number, onEventChange?: () => v
       formatted.push(temporaryEvent);
     }
 
+    // Handle dragging visualization
     if (isDragging && draggedEventPosition && originalEventPosition) {
       const events = [];
       formatted.forEach(event => {
@@ -375,18 +395,34 @@ export function useCalendarLogic(refreshTrigger: number, onEventChange?: () => v
       return events;
     }
 
+    // Cache the formatted events only if not in special states
+    if (!isDragging && !temporaryEvent) {
+      formattedEventsRef.current = formatted;
+    }
+
     return formatted;
   }, [hookEvents, expandRecurringEvents, isDragging, draggedEventPosition, originalEventPosition, draggedEventId, temporaryEvent, isModalOpen]);
 
-  // Update currentEvents when formattedEvents change
+  // Update currentEvents when formattedEvents change - but throttle it
+  const updateCurrentEventsThrottled = useCallback((newEvents: CustomEventInput[]) => {
+    // Only update if events actually changed
+    if (JSON.stringify(newEvents) !== JSON.stringify(currentEvents)) {
+      setCurrentEvents(newEvents);
+    }
+  }, [currentEvents]);
+
   useEffect(() => {
-    setCurrentEvents(formattedEvents);
-  }, [formattedEvents]);
+    updateCurrentEventsThrottled(formattedEvents);
+  }, [formattedEvents, updateCurrentEventsThrottled]);
 
   // Simplified refresh effect
   useEffect(() => {
     if (refreshTrigger > 0) {
       console.log('Calendar refresh triggered:', refreshTrigger);
+      // Clear cached values to force recalculation
+      hookEventsRef.current = [];
+      expandedEventsRef.current = [];
+      formattedEventsRef.current = [];
     }
   }, [refreshTrigger]);
 
@@ -438,6 +474,12 @@ export function useCalendarLogic(refreshTrigger: number, onEventChange?: () => v
       if (result) {
         setIsModalOpen(false);
         setTemporaryEvent(null); // Clear temporary event
+        
+        // Clear cache to force refresh
+        hookEventsRef.current = [];
+        expandedEventsRef.current = [];
+        formattedEventsRef.current = [];
+        
         if (onEventChange) onEventChange();
         setError(null);
       } else {
@@ -475,6 +517,7 @@ export function useCalendarLogic(refreshTrigger: number, onEventChange?: () => v
       })
     };
 
+    // Optimistic update
     setCurrentEvents(prevEvents => 
       prevEvents.map(e => 
         (e.extendedProps?.originalId || e.id) === eventId
@@ -501,27 +544,25 @@ export function useCalendarLogic(refreshTrigger: number, onEventChange?: () => v
       
       if (!result) {
         dropInfo.revert();
-        setCurrentEvents(prevEvents => 
-          prevEvents.map(e => 
-            (e.extendedProps?.originalId || e.id) === eventId
-              ? formattedEvents.find(fe => (fe.extendedProps?.originalId || fe.id) === eventId) || e
-              : e
-          )
-        );
+        // Force refresh from server data
+        hookEventsRef.current = [];
+        expandedEventsRef.current = [];
+        formattedEventsRef.current = [];
         setError('Failed to update event position');
+      } else {
+        // Clear cache to get fresh data
+        hookEventsRef.current = [];
+        expandedEventsRef.current = [];
+        formattedEventsRef.current = [];
       }
     } catch (err) {
       dropInfo.revert();
-      setCurrentEvents(prevEvents => 
-        prevEvents.map(e => 
-          (e.extendedProps?.originalId || e.id) === eventId
-            ? formattedEvents.find(fe => (fe.extendedProps?.originalId || fe.id) === eventId) || e
-            : e
-        )
-      );
+      hookEventsRef.current = [];
+      expandedEventsRef.current = [];
+      formattedEventsRef.current = [];
       setError('Failed to update event position');
     }
-  }, [updateEvent, formattedEvents]);
+  }, [updateEvent]);
 
   const handleEventChange = useCallback((field: keyof EventDetails, value: string | boolean) => {
     setSelectedEvent(prev => {
@@ -531,7 +572,7 @@ export function useCalendarLogic(refreshTrigger: number, onEventChange?: () => v
         [field]: value
       };
       
-      // Update temporary event if modal is open for new event
+      // Update temporary event if modal is open for new event - debounced
       if (isModalOpen && !prev.eventId) {
         const tempEvent: CustomEventInput = {
           id: 'temp-event',
@@ -554,7 +595,9 @@ export function useCalendarLogic(refreshTrigger: number, onEventChange?: () => v
             day_marking_title: updated.day_marking_title
           }
         };
-        setTemporaryEvent(tempEvent);
+        
+        // Debounce temporary event updates to reduce renders
+        setTimeout(() => setTemporaryEvent(tempEvent), 0);
       }
       
       return updated;
@@ -641,6 +684,11 @@ export function useCalendarLogic(refreshTrigger: number, onEventChange?: () => v
       const success = await deleteEvent(eventId);
       
       if (success) {
+        // Clear cache to force refresh
+        hookEventsRef.current = [];
+        expandedEventsRef.current = [];
+        formattedEventsRef.current = [];
+        
         if (onEventChange) onEventChange();
         setError(null);
         return true;
@@ -678,6 +726,7 @@ export function useCalendarLogic(refreshTrigger: number, onEventChange?: () => v
       end_time: formatTime(endDate)
     };
 
+    // Optimistic update
     setCurrentEvents(prevEvents => 
       prevEvents.map(e => 
         (e.extendedProps?.originalId || e.id) === eventId
@@ -700,6 +749,11 @@ export function useCalendarLogic(refreshTrigger: number, onEventChange?: () => v
       if (!result) {
         resizeInfo.revert();
         setError('Failed to update event duration');
+      } else {
+        // Clear cache to get fresh data
+        hookEventsRef.current = [];
+        expandedEventsRef.current = [];
+        formattedEventsRef.current = [];
       }
     } catch (err) {
       resizeInfo.revert();
