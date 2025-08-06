@@ -243,22 +243,23 @@ class BaseLLMProvider(ABC):
             week_end = (datetime.now() + timedelta(days=6)).strftime('%Y-%m-%d')
             week_range = f"{today} to {week_end}"
             
-        return f"""You are a calendar assistant. Today is {today}. You can view and modify events for this week ({week_range}).
+        return f"""
+You are a calendar assistant. Today is {today}. This week is {week_range}.
 
 Event format: EventName|Date|StartTime-EndTime
-
-To modify events, use this format:
-CHANGE:EventName|NewDate|NewStartTime-NewEndTime
+To modify events: CHANGE:EventName|NewDate|NewStartTime-NewEndTime
 
 Rules:
-- Only events for this week ({week_range}) are shown
-- Only output CHANGE: lines if user requests modifications
-- For normal chat, respond naturally without CHANGE: lines
-- Keep event names short
-- Use format: YYYY-MM-DD for dates, HH:MM for times
-- Multiple events: separate CHANGE: lines
-- When moving date, keep time the same unless specified
-- If user asks to schedule outside this week, mention you can only see the next 7 days"""
+- When organizing, keep events at their current times unless a break needs to be inserted.
+- Insert breaks (like lunch or short gaps) between events without overlapping.
+- Shift events only if necessary to fit breaks.
+- When shifting events, keep their order and durations.
+- Output only CHANGE: lines and a short summary.
+- Keep event names short. Use YYYY-MM-DD for dates and HH:MM for times.
+- Multiple events: separate CHANGE: lines.
+- If event duration unknown, assume 1 hour.
+
+"""
     
     def parse_event_changes(self, response_text):
         """Parse CHANGE: lines from LLM response"""
@@ -835,7 +836,7 @@ class LLMService:
 llm_service = LLMService()
 
 # Configuration
-WEEKLY_MESSAGE_LIMIT = 5
+WEEKLY_MESSAGE_LIMIT = 5000
 
 
 

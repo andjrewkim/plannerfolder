@@ -1,7 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { ChevronLeft, ChevronRight, Send, Sparkles, User } from 'lucide-react';
 import { authAPI } from '../../lib/auth'; // Adjust path as needed
-
 
 const RotatingGradientAnimation = ({ size = 128 }) => {
   const [rotation, setRotation] = React.useState(0);
@@ -22,26 +21,36 @@ const RotatingGradientAnimation = ({ size = 128 }) => {
         width: size,
         height: size,
         borderRadius: '50%',
-        background: `conic-gradient(from ${rotation}deg, #8B5CF6, #3B82F6, #06B6D4, #10B981, #8B5CF6)`,
+        background: `conic-gradient(
+          from ${rotation}deg,
+          #9dd8ffff,
+          #38BDF8,
+          #0e7ce9ff,
+          #38BDF8,
+          #9dd8ffff
+        )`,
         WebkitMaskImage: `radial-gradient(
           circle,
-          transparent ${size/2 - thickness - feather}px,
-          black ${size/2 - thickness}px
+          transparent ${size / 2 - thickness - feather}px,
+          black ${size / 2 - thickness}px
         )`,
         WebkitMaskRepeat: 'no-repeat',
         WebkitMaskPosition: 'center',
+
+        // Glow effect
+        boxShadow: `0 0 ${size * 0.3}px rgba(56, 189, 248, 0.6),
+                    0 0 ${size * 0.5}px rgba(14, 165, 233, 0.4)`,
       }}
     />
   );
 };
-
 
 interface RightSidebarProps {
   isOpen?: boolean;
   onToggle?: () => void;
   forceClose?: boolean;
   navbarVisible?: boolean;
-  onEventChange?: () => void; // Add this prop to trigger calendar refresh
+  onEventChange?: () => void;
 }
 
 interface Message {
@@ -55,7 +64,7 @@ interface LLMResponse {
   response: string;
   message_id?: string;
   error?: string;
-  changes_applied?: boolean; // Add this to check if the AI made calendar changes
+  changes_applied?: boolean;
 }
 
 const RightSidebar: React.FC<RightSidebarProps> = ({ 
@@ -63,7 +72,7 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
   onToggle,
   forceClose = false,
   navbarVisible = false,
-  onEventChange // Add this prop
+  onEventChange
 }) => {
   const [internalIsOpen, setInternalIsOpen] = useState(true);
   const [messages, setMessages] = useState<Message[]>([
@@ -78,9 +87,26 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
   const [isTyping, setIsTyping] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
+  // Ref for the messages container to enable auto-scrolling
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
+  
   // Use controlled state if provided, otherwise use internal state
   const isOpen = controlledIsOpen !== undefined ? controlledIsOpen : internalIsOpen;
   const handleToggle = onToggle || (() => setInternalIsOpen(!internalIsOpen));
+
+  // Auto-scroll to bottom function
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ 
+      behavior: 'smooth',
+      block: 'end'
+    });
+  };
+
+  // Effect to scroll to bottom when messages change or when typing starts/stops
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages, isTyping]);
 
   // Effect to handle force close
   useEffect(() => {
@@ -119,9 +145,6 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
           },
           body: JSON.stringify({
             message: message,
-            // Add any additional parameters your backend expects
-            // conversation_id: conversationId, // if you track conversations
-            // model: 'gpt-3.5-turbo', // if you allow model selection
           }),
         }
       );
@@ -204,7 +227,7 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
     }
   };
 
-return (
+  return (
     <>
       {/* Backdrop for mobile */}
       {isOpen && (
@@ -220,32 +243,31 @@ return (
           isOpen ? 'translate-x-0' : 'translate-x-full'
         }`}
         style={{
-          top: '0px', // Always stay at top
-          height: '100vh', // Always full height
+          top: '0px',
+          height: '100vh',
           transition: 'transform 0.3s ease-in-out'
         }}
       >
         
-      {/* Tab/Toggle Button */}
-      <div className="absolute -left-[18px] top-16">
-        <button
-          onClick={handleToggle}
-          className="py-5 px-0 rounded-l-md shadow-md transition-colors duration-200 focus:outline-none"
-          style={{
-            backgroundColor: 'hsl(var(--primary))',
-            color: 'hsl(var(--calendar-background))',
-            width: '18px', // keeps it narrow horizontally
-          } as React.CSSProperties}
-          aria-label={isOpen ? "Close AI assistant" : "Open AI assistant"}
-        >
-          {isOpen ? (
-            <ChevronRight className="w-4 h-4 mx-auto" />
-          ) : (
-            <ChevronLeft className="w-4 h-4 mx-auto" />
-          )}
-        </button>
-      </div>
-
+        {/* Tab/Toggle Button */}
+        <div className="absolute -left-[18px] top-16">
+          <button
+            onClick={handleToggle}
+            className="py-5 px-0 rounded-l-md shadow-md transition-colors duration-200 focus:outline-none"
+            style={{
+              backgroundColor: 'hsl(var(--primary))',
+              color: 'hsl(var(--calendar-background))',
+              width: '18px',
+            } as React.CSSProperties}
+            aria-label={isOpen ? "Close AI assistant" : "Open AI assistant"}
+          >
+            {isOpen ? (
+              <ChevronRight className="w-4 h-4 mx-auto" />
+            ) : (
+              <ChevronLeft className="w-4 h-4 mx-auto" />
+            )}
+          </button>
+        </div>
 
         {/* Sidebar Content */}
         <div 
@@ -258,7 +280,7 @@ return (
           
           {/* Header */}
           <div 
-            className="p-3 border-b"
+            className="p-3 border-b flex-shrink-0"
             style={{
               backgroundColor: 'hsl(var(--primary) / 0.05)',
               borderBottomColor: 'hsl(var(--border))'
@@ -290,145 +312,153 @@ return (
             </div>
           </div>
 
-          {/* Chat Messages */}
-          <div className="flex-1 p-3 overflow-y-auto space-y-3" style={{ scrollbarWidth: 'thin', scrollbarColor: 'hsl(var(--muted-foreground)) transparent' }}>
-            {error && (
-              <div 
-                className="border rounded-lg p-3"
-                style={{
-                  backgroundColor: 'hsl(var(--destructive) / 0.1)',
-                  borderColor: 'hsl(var(--destructive) / 0.2)'
-                }}
-              >
-                <div className="flex items-start gap-2">
-                  <div 
-                    className="w-4 h-4 rounded-full flex-shrink-0 mt-0.5"
-                    style={{ backgroundColor: 'hsl(var(--destructive))' }}
-                  ></div>
-                  <div>
-                    <p 
-                      className="text-sm font-medium"
-                      style={{ color: 'hsl(var(--destructive))' }}
-                    >
-                      Error
-                    </p>
-                    <p 
-                      className="text-xs"
-                      style={{ color: 'hsl(var(--destructive))' }}
-                    >
-                      {error}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {messages.map((message) => (
-              <div
-                key={message.id}
-                className={`flex ${message.sender === 'user' ? 'justify-end' : 'justify-start'}`}
-              >
+          {/* Chat Messages - Updated with better scrolling */}
+          <div 
+            ref={messagesContainerRef}
+            className="flex-1 overflow-hidden flex flex-col"
+          >
+            <div className="flex-1 overflow-y-auto p-3 space-y-3">
+              {error && (
                 <div 
-                  className={`max-w-[92%] px-3 py-2 rounded-lg shadow-sm ${
-                    message.sender === 'user' 
-                      ? 'rounded-br-none' 
-                      : 'rounded-bl-none'
-                  }`}
+                  className="border rounded-lg p-3"
                   style={{
-                    backgroundColor: message.sender === 'user' 
-                      ? 'hsl(var(--primary) / 0.1)' 
-                      : 'hsl(var(--muted) / 0.8)',
-                    color: 'hsl(var(--foreground))',
-                    border: `1px solid ${message.sender === 'user' 
-                      ? 'hsl(var(--primary) / 0.2)' 
-                      : 'hsl(var(--border) / 0.5)'}`,
-                    lineHeight: '1.5'
+                    backgroundColor: 'hsl(var(--destructive) / 0.1)',
+                    borderColor: 'hsl(var(--destructive) / 0.2)'
                   }}
                 >
                   <div className="flex items-start gap-2">
-                    {message.sender === 'ai' && (
-                      <div className="-ml-1 flex-shrink-0">
+                    <div 
+                      className="w-4 h-4 rounded-full flex-shrink-0 mt-0.5"
+                      style={{ backgroundColor: 'hsl(var(--destructive))' }}
+                    ></div>
+                    <div>
+                      <p 
+                        className="text-sm font-medium"
+                        style={{ color: 'hsl(var(--destructive))' }}
+                      >
+                        Error
+                      </p>
+                      <p 
+                        className="text-xs"
+                        style={{ color: 'hsl(var(--destructive))' }}
+                      >
+                        {error}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {messages.map((message) => (
+                <div
+                  key={message.id}
+                  className={`flex ${message.sender === 'user' ? 'justify-end' : 'justify-start'}`}
+                >
+                  <div 
+                    className={`max-w-[92%] px-3 py-2 rounded-lg shadow-sm ${
+                      message.sender === 'user' 
+                        ? 'rounded-br-none' 
+                        : 'rounded-bl-none'
+                    }`}
+                    style={{
+                      backgroundColor: message.sender === 'user' 
+                        ? 'hsl(var(--primary) / 0.1)' 
+                        : 'hsl(var(--muted) / 0.8)',
+                      color: 'hsl(var(--foreground))',
+                      border: `1px solid ${message.sender === 'user' 
+                        ? 'hsl(var(--primary) / 0.2)' 
+                        : 'hsl(var(--border) / 0.5)'}`,
+                      lineHeight: '1.5'
+                    }}
+                  >
+                    <div className="flex items-start gap-2">
+                      {message.sender === 'ai' && (
+                        <div className="-ml-1 flex-shrink-0">
+                          <RotatingGradientAnimation size={18} />
+                        </div>
+                      )}
+                      {message.sender === 'user' && (
+                        <User 
+                          className="w-4 h-4 mt-0.5 flex-shrink-0" 
+                          style={{ color: 'hsl(var(--primary))' }}
+                        />
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <p 
+                          className="text-sm whitespace-pre-wrap break-words"
+                          style={{ 
+                            wordBreak: 'break-word',
+                            overflowWrap: 'anywhere',
+                            lineHeight: '1.4',
+                            margin: 0
+                          }}
+                        >
+                          {message.content}
+                        </p>
+                        <p 
+                          className="text-xs mt-1 opacity-70"
+                          style={{
+                            color: 'hsl(var(--muted-foreground))'
+                          }}
+                        >
+                          {message.timestamp.toLocaleTimeString([], { 
+                            hour: '2-digit', 
+                            minute: '2-digit' 
+                          })}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+              
+              {isTyping && (
+                <div className="flex justify-start">
+                  <div 
+                    className="px-3 py-2 rounded-lg rounded-bl-none shadow-sm"
+                    style={{
+                      backgroundColor: 'hsl(var(--muted) / 0.8)',
+                      color: 'hsl(var(--foreground))',
+                      border: '1px solid hsl(var(--border) / 0.5)'
+                    }}
+                  >
+                    <div className="flex items-center gap-2">
+                      <div className="flex-shrink-0">
                         <RotatingGradientAnimation size={18} />
                       </div>
-                    )}
-                    {message.sender === 'user' && (
-                      <User 
-                        className="w-4 h-4 mt-0.5 flex-shrink-0" 
-                        style={{ color: 'hsl(var(--primary))' }}
-                      />
-                    )}
-                    <div className="flex-1 min-w-0">
-                      <p 
-                        className="text-sm whitespace-pre-wrap break-words"
-                        style={{ 
-                          wordBreak: 'break-word',
-                          overflowWrap: 'anywhere',
-                          lineHeight: '1.4',
-                          margin: 0
-                        }}
-                      >
-                        {message.content}
-                      </p>
-                      <p 
-                        className="text-xs mt-1 opacity-70"
-                        style={{
-                          color: 'hsl(var(--muted-foreground))'
-                        }}
-                      >
-                        {message.timestamp.toLocaleTimeString([], { 
-                          hour: '2-digit', 
-                          minute: '2-digit' 
-                        })}
-                      </p>
+                      <div className="flex gap-1">
+                        <div 
+                          className="w-2 h-2 rounded-full animate-bounce"
+                          style={{ backgroundColor: 'hsl(var(--muted-foreground))' }}
+                        ></div>
+                        <div 
+                          className="w-2 h-2 rounded-full animate-bounce"
+                          style={{ 
+                            backgroundColor: 'hsl(var(--muted-foreground))',
+                            animationDelay: '0.1s' 
+                          }}
+                        ></div>
+                        <div 
+                          className="w-2 h-2 rounded-full animate-bounce"
+                          style={{ 
+                            backgroundColor: 'hsl(var(--muted-foreground))',
+                            animationDelay: '0.2s' 
+                          }}
+                        ></div>
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            ))}
-            
-            {isTyping && (
-              <div className="flex justify-start">
-                <div 
-                  className="px-3 py-2 rounded-lg rounded-bl-none shadow-sm"
-                  style={{
-                    backgroundColor: 'hsl(var(--muted) / 0.8)',
-                    color: 'hsl(var(--foreground))',
-                    border: '1px solid hsl(var(--border) / 0.5)'
-                  }}
-                >
-                  <div className="flex items-center gap-2">
-                    <div className="flex-shrink-0">
-                      <RotatingGradientAnimation size={18} />
-                    </div>
-                    <div className="flex gap-1">
-                      <div 
-                        className="w-2 h-2 rounded-full animate-bounce"
-                        style={{ backgroundColor: 'hsl(var(--muted-foreground))' }}
-                      ></div>
-                      <div 
-                        className="w-2 h-2 rounded-full animate-bounce"
-                        style={{ 
-                          backgroundColor: 'hsl(var(--muted-foreground))',
-                          animationDelay: '0.1s' 
-                        }}
-                      ></div>
-                      <div 
-                        className="w-2 h-2 rounded-full animate-bounce"
-                        style={{ 
-                          backgroundColor: 'hsl(var(--muted-foreground))',
-                          animationDelay: '0.2s' 
-                        }}
-                      ></div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
+              )}
+              
+              {/* Invisible element to scroll to */}
+              <div ref={messagesEndRef} />
+            </div>
           </div>
 
           {/* Input Area */}
           <div 
-            className="p-3 border-t"
+            className="p-3 border-t flex-shrink-0"
             style={{
               backgroundColor: 'hsl(var(--background) / 0.5)',
               borderTopColor: 'hsl(var(--border))',
@@ -464,13 +494,13 @@ return (
                 <button
                   onClick={handleSendMessage}
                   disabled={!inputMessage.trim() || isTyping || !!error}
-                  className="absolute right-2 top-1/2 transform -translate-y-1/2 p-2 rounded-md transition-all duration-200 disabled:cursor-not-allowed"
+                  className="absolute right-2 top-1/2 transform -translate-y-[60%] p-2 rounded-md transition-all duration-200 disabled:cursor-not-allowed"
                   style={{
                     backgroundColor: !inputMessage.trim() || isTyping || !!error 
                       ? 'hsl(var(--muted))' 
-                      : 'hsl(var(--primary))',
+                      : 'hsl(var(--darker-border))',
                     color: !inputMessage.trim() || isTyping || !!error 
-                      ? 'hsl(var(--muted-foreground))' 
+                      ? 'hsl(var(calendar))' 
                       : 'hsl(var(--primary-foreground))',
                     opacity: !inputMessage.trim() || isTyping || !!error ? 0.5 : 1
                   } as React.CSSProperties}

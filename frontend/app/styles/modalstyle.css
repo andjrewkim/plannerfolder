@@ -480,3 +480,102 @@ input[type="time"]:focus {
     transform: translateY(0);
   }
 }
+
+/* Add these styles to your modalstyle.css file */
+
+/* Enhanced select dropdown styling for dark mode - ONLY colors and appearance */
+.modal-select {
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  -moz-appearance: none !important;
+  background-color: hsl(var(--input-field-bg, #1a1a1a)) !important;
+  color: hsl(var(--text-color, #ffffff)) !important;
+  border-color: hsl(var(--border, #444444)) !important;
+  cursor: pointer;
+  
+  /* Custom dropdown arrow */
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23ffffff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6,9 12,15 18,9'%3e%3c/polyline%3e%3c/svg%3e");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+  background-size: 12px;
+}
+
+.modal-select:hover {
+  border-color: hsl(var(--border-hover, #555555));
+  background-color: hsl(var(--input-field-bg, #1a1a1a)) !important;
+}
+
+.modal-select:focus {
+  outline: none;
+  border-color: hsl(var(--accent-foreground, #007AFF));
+  box-shadow: 0 0 0 2px rgba(0, 122, 255, 0.2);
+  background-color: hsl(var(--input-field-bg, #1a1a1a)) !important;
+}
+
+/* Force dark mode for select options - this is the tricky part */
+.modal-select option {
+  background-color: #1a1a1a !important;
+  color: #ffffff !important;
+  padding: 8px !important;
+  border: none !important;
+}
+
+.modal-select option:checked,
+.modal-select option:hover {
+  background-color: #333333 !important;
+  color: #ffffff !important;
+}
+
+/* Firefox specific styles */
+@-moz-document url-prefix() {
+  .modal-select {
+    background: #1a1a1a !important;
+    color: #ffffff !important;
+    border: 1px solid #444444 !important;
+  }
+  
+  .modal-select option {
+    background-color: #1a1a1a !important;
+    color: #ffffff !important;
+  }
+}
+
+/* Additional webkit styles for better compatibility */
+.modal-select::-webkit-scrollbar {
+  width: 8px;
+}
+
+.modal-select::-webkit-scrollbar-track {
+  background: #1a1a1a;
+}
+
+.modal-select::-webkit-scrollbar-thumb {
+  background: #444444;
+  border-radius: 4px;
+}
+
+.modal-select::-webkit-scrollbar-thumb:hover {
+  background: #555555;
+}
+
+/* Define CSS custom properties if not already defined */
+:root {
+  --input-field-bg: #1a1a1a;
+  --text-color: #ffffff;
+  --border: #444444;
+  --border-hover: #555555;
+  --accent-foreground: #007AFF;
+  --text-muted: #888888;
+}
+
+/* Light mode fallback (if you ever need it) */
+[data-theme="light"] {
+  --input-field-bg: #ffffff;
+  --text-color: #000000;
+  --border: #cccccc;
+  --border-hover: #999999;
+  --accent-foreground: #007AFF;
+  --text-muted: #666666;
+}
+
+/* Remove these styles that were changing your existing form layout */

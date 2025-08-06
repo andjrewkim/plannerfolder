@@ -259,7 +259,19 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange, onViewChange, refres
           />
 
           {/* Calendar Container - Use calendarContainerRef here */}
-          <div ref={calendarContainerRef} className="flex-1">
+          <div ref={calendarContainerRef} className="flex-1" style={{ 
+            userSelect: 'none'
+          }}>
+            <style>
+              {`
+                .fc-highlight {
+                  background: transparent !important;
+                }
+                .fc-selecting .fc-highlight {
+                  background: transparent !important;
+                }
+              `}
+            </style>
             {hasInitialized && (
             <FullCalendar
               ref={calendarRef}
@@ -282,13 +294,16 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange, onViewChange, refres
                 meridiem: 'short',
                 omitZeroMinute: true
               }}
+              slotMinTime="00:00:00"
+              slotMaxTime="24:00:00"
               events={allEvents}
               select={handleDateSelect}
               eventClick={handleEventClick}
               eventDrop={handleEventDrop}
+
               eventDidMount={(info) => {
                 const eventColor = info.event.backgroundColor || info.event.borderColor || '#3788d8';
-                const element = info.el;
+                const element = info.el as HTMLElement;
                 
                 // Apply styling using utility function
                 const { hsl, lightness, saturation, baseColor, borderColor, textColor } = applyEventStyling(element, eventColor);
@@ -296,24 +311,123 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange, onViewChange, refres
                 // Add hover effects using utility function
                 addEventHoverEffects(element, hsl, saturation, lightness, baseColor, borderColor);
                 
-                // Style the text elements specifically
-                const titleElement = element.querySelector('.fc-event-title');
-                const timeElement = element.querySelector('.fc-event-time');
+                // Fix text positioning and visibility
+                const titleElement = element.querySelector('.fc-event-title') as HTMLElement;
+                const timeElement = element.querySelector('.fc-event-time') as HTMLElement;
+                const eventMain = element.querySelector('.fc-event-main') as HTMLElement;
+                
+                // Check if we're in week view (timeGrid views)
+                const isWeekView = info.view.type.includes('timeGrid');
+                
+                // Calculate event duration and height to determine if it's a short event
+                let isShortEvent = false;
+                let isMediumEvent = false;
+                let eventHeight = 0;
+                
+                if (isWeekView && info.event.start && info.event.end) {
+                  const start = new Date(info.event.start);
+                  const end = new Date(info.event.end);
+                  const durationMinutes = (end.getTime() - start.getTime()) / (1000 * 60);
+                  eventHeight = element.offsetHeight;
+                  
+                  // Categorize events by duration primarily, with height as secondary check
+                  if (durationMinutes <= 15) {
+                    isShortEvent = true;
+                  } else if (durationMinutes > 15 && durationMinutes <= 30) {
+                    isMediumEvent = true;
+                  }
+                  // Anything longer than 30 minutes is considered a "tall" event
+                  
+                  console.log('Event duration:', durationMinutes, 'minutes, Height:', eventHeight, 'px', 
+                              'isShort:', isShortEvent, 'isMedium:', isMediumEvent);
+                }
+                
+                // Ensure the main container doesn't clip content
+                if (eventMain) {
+                  eventMain.style.overflow = 'visible';
+                  eventMain.style.height = '100%';
+                  eventMain.style.display = 'flex';
+                  eventMain.style.flexDirection = 'column';
+                  eventMain.style.justifyContent = 'flex-start';
+                  
+                  if (isWeekView) {
+                    if (isShortEvent) {
+                      // Compact padding for very short events (15 min)
+                      eventMain.style.padding = '1px 2px 0px 6px'; // Reduced top and bottom padding
+                    } else if (isMediumEvent) {
+                      // Medium padding for 30-minute events
+                      eventMain.style.padding = '3px 3px 2px 5px'; // More top padding for 30-min events
+                    } else {
+                      // More spacious padding for longer events
+                      eventMain.style.padding = '4px 3px 2px 4px'; // Original spaced padding with slight left increase
+                    }
+                  } else {
+                    eventMain.style.padding = '1px 2px'; // Keep original padding for other views
+                  }
+                }
+                
+                // Additional container padding for week view
+                if (isWeekView) {
+                  if (isShortEvent) {
+                    element.style.paddingLeft = '4px'; // Additional left padding for short events
+                    element.style.paddingTop = '0px'; // No additional top padding to keep it compact
+                    element.style.transform = 'translateY(-1px)'; // Shift up slightly for better fit
+                  } else if (isMediumEvent) {
+                    element.style.paddingLeft = '3px'; // Medium left padding for 30-min events
+                    element.style.paddingTop = '2px'; // More top padding for 30-min events
+                  } else {
+                    element.style.paddingLeft = '2px'; // Less additional padding for taller events
+                    element.style.paddingTop = '2px'; // More top padding for taller events
+                  }
+                }
                 
                 if (titleElement) {
                   titleElement.style.color = textColor;
-                  titleElement.style.fontWeight = '600';
+                  titleElement.style.fontWeight = '570';
+                  titleElement.style.whiteSpace = 'nowrap';
+                  titleElement.style.overflow = 'visible';
+                  
+                  if (isWeekView) {
+                    titleElement.style.lineHeight = '1'; // Keep original line-height for week view
+                    if (isShortEvent) {
+                      titleElement.style.fontSize = '12px'; // Larger font for short events
+                    } else if (isMediumEvent) {
+                      titleElement.style.fontSize = '12px'; // Same size for 30-min events
+                    } else {
+                      titleElement.style.fontSize = '13px'; // Even larger font for taller events
+                    }
+                  } else {
+                    // Original styling for month view and other views
+                    titleElement.style.lineHeight = '1';
+                    titleElement.style.fontSize = '12px';
+                  }
                 }
                 
                 if (timeElement) {
                   timeElement.style.color = textColor;
                   timeElement.style.opacity = '0.9';
+                  timeElement.style.whiteSpace = 'nowrap';
+                  timeElement.style.overflow = 'visible';
+                  
+                  if (isWeekView) {
+                    timeElement.style.lineHeight = '1'; // Keep original line-height for week view
+                    if (isShortEvent) {
+                      timeElement.style.fontSize = '11px'; // Larger time font for short events
+                    } else if (isMediumEvent) {
+                      timeElement.style.fontSize = '11px'; // Same size for 30-min events
+                    } else {
+                      timeElement.style.fontSize = '12px'; // Even larger time font for taller events
+                    }
+                  } else {
+                    // Original styling for month view and other views
+                    timeElement.style.lineHeight = '1';
+                    timeElement.style.fontSize = '12px';
+                  }
                 }
               }}
+
               height="100%"
               allDaySlot={false}
-              slotMinTime="00:00:00"
-              slotMaxTime="24:00:00"
               dayCellDidMount={handleDayCellDidMount}
               viewDidMount={(viewInfo) => {
                 setCurrentTitle(viewInfo.view.title);

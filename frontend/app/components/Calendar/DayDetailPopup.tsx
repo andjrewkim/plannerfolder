@@ -195,6 +195,11 @@ export const DayDetailPopup: React.FC<DayDetailPopupProps> = ({
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, y: -5 }}
       >
+        <style jsx>{`
+          .scrollbar-hide::-webkit-scrollbar {
+            display: none;
+          }
+        `}</style>
         {/* Header */}
         <div
           className="px-3 py-1 border-b"
@@ -213,16 +218,17 @@ export const DayDetailPopup: React.FC<DayDetailPopupProps> = ({
           </div>
         </div>
 
-        {/* Events list with horizontal overflow visible */}
+        {/* Events list with overflow hidden */}
         <div
-          className="overflow-y-auto overflow-x-visible rounded-b-xl"
+          className="overflow-y-auto overflow-x-hidden rounded-b-xl scrollbar-hide"
           style={{ 
-            overflowX: 'clip',
             maxHeight: 300, 
             position: 'relative', 
             paddingTop: 12,
             paddingLeft: 12,
-            paddingRight: 12
+            paddingRight: 12,
+            scrollbarWidth: 'none', /* Firefox */
+            msOverflowStyle: 'none', /* Internet Explorer 10+ */
           }}
         >
           <AnimatePresence>
