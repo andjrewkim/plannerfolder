@@ -29,7 +29,6 @@ urlpatterns = [
     
     path('api/check-login/', check_login),
     
-    path('api/schedule/', ScheduleInputDispatcher.as_view(), name='schedule-dispatcher'),
     path('api/schedule/parse/', ScheduleInputParser.as_view(), name='schedule-parser'),
     #path('parse/', views.parse_time, name='parse_time'),
     

@@ -7,14 +7,15 @@ from django.views import View
 from django.conf import settings
 import json
 import requests
-import time
 import os
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, Tuple, List
 from abc import ABC, abstractmethod
 from datetime import datetime, timedelta
 from django.utils import timezone
 import pytz
 from myapp.models import LLMUsage
+import time
+import re
 
 
 class LLMConfig:
@@ -134,7 +135,29 @@ class BaseLLMProvider(ABC):
         """Make the actual API request - implemented by each provider"""
         pass
     
-    def format_date(self, date_obj):
+    def format_time(self, time_obj) -> str:
+        """Format time object to HH:MM string (no seconds)"""
+        try:
+            if isinstance(time_obj, str):
+                # Handle string times - extract HH:MM only
+                time_str = time_obj.strip()
+                if ':' in time_str:
+                    parts = time_str.split(':')
+                    if len(parts) >= 2:
+                        hours = parts[0].zfill(2)
+                        minutes = parts[1].zfill(2)
+                        return f"{hours}:{minutes}"
+                return time_str
+            elif hasattr(time_obj, 'strftime'):
+                return time_obj.strftime('%H:%M')
+            elif hasattr(time_obj, 'hour') and hasattr(time_obj, 'minute'):
+                return f"{time_obj.hour:02d}:{time_obj.minute:02d}"
+            else:
+                return str(time_obj)
+        except Exception:
+            return str(time_obj)
+    
+    def format_date(self, date_obj) -> str:
         """Format date object to YYYY-MM-DD string"""
         try:
             if hasattr(date_obj, 'date'):
@@ -148,49 +171,99 @@ class BaseLLMProvider(ABC):
                     date_str = date_str.split(' ')[0]
                 if '+' in date_str:
                     date_str = date_str.split('+')[0]
+                if 'T' in date_str:
+                    date_str = date_str.split('T')[0]
                 return date_str
         except Exception:
             return str(date_obj)
     
-    def get_week_date_range(self):
-        """Get the start and end dates for the current week"""
+    def get_week_date_range(self) -> Tuple[datetime.date, datetime.date]:
+        """Get the start (Monday) and end (Sunday) dates for the current week"""
         try:
             pacific_tz = pytz.timezone('America/Los_Angeles')
             now_pacific = timezone.now().astimezone(pacific_tz)
             today = now_pacific.date()
-            week_start = today
-            week_end = today + timedelta(days=6)
+            
+            # Get Monday of current week (start of week)
+            days_since_monday = today.weekday()
+            week_start = today - timedelta(days=days_since_monday)
+            week_end = week_start + timedelta(days=6)  # Sunday
+            
             return week_start, week_end
         except Exception:
             # Fallback to system local time
             today = datetime.now().date()
-            week_start = today
-            week_end = today + timedelta(days=6)
+            days_since_monday = today.weekday()
+            week_start = today - timedelta(days=days_since_monday)
+            week_end = week_start + timedelta(days=6)
             return week_start, week_end
     
-    def filter_events_by_week(self, events):
-        """Filter events to only include those in the current week"""
+    def is_date_in_current_week(self, date_obj) -> bool:
+        """Check if a date falls within the current week"""
         week_start, week_end = self.get_week_date_range()
+        
+        try:
+            if hasattr(date_obj, 'date'):
+                check_date = date_obj.date()
+            elif isinstance(date_obj, str):
+                date_part = date_obj.split(' ')[0].split('T')[0]
+                check_date = datetime.strptime(date_part, '%Y-%m-%d').date()
+            else:
+                check_date = date_obj
+            
+            return week_start <= check_date <= week_end
+        except Exception as e:
+            print(f"Error checking date: {e}")
+            return False
+    
+    def filter_events_by_week(self, events) -> List:
+        """Filter events to only include those in the current week"""
         filtered_events = []
         
         for event in events:
             try:
                 event_date = getattr(event, 'date', None)
-                if event_date:
-                    if hasattr(event_date, 'date'):
-                        event_date = event_date.date()
-                    elif isinstance(event_date, str):
-                        event_date = datetime.strptime(event_date.split(' ')[0], '%Y-%m-%d').date()
-                    
-                    if week_start <= event_date <= week_end:
-                        filtered_events.append(event)
-            except Exception:
-                # Include event if we can't determine its date
-                filtered_events.append(event)
+                if event_date and self.is_date_in_current_week(event_date):
+                    filtered_events.append(event)
+            except Exception as e:
+                print(f"Error processing event: {e}")
+                # Skip events we can't process rather than including them
+                continue
         
         return filtered_events
     
-    def fetch_calendar_events(self):
+    def parse_time_to_minutes(self, time_str: str) -> int:
+        """Convert HH:MM time string to minutes since midnight"""
+        try:
+            time_str = time_str.strip()
+            if ':' in time_str:
+                parts = time_str.split(':')
+                hours = int(parts[0])
+                minutes = int(parts[1])
+                return hours * 60 + minutes
+            return 0
+        except Exception:
+            return 0
+    
+    def check_event_overlap(self, new_event: Dict, existing_events: List[Dict]) -> List[Dict]:
+        """Check if new event overlaps with existing events on the same date"""
+        overlapping = []
+        new_date = new_event.get('date')
+        new_start = self.parse_time_to_minutes(new_event.get('start_time', ''))
+        new_end = self.parse_time_to_minutes(new_event.get('end_time', ''))
+        
+        for event in existing_events:
+            if event.get('date') == new_date:
+                event_start = self.parse_time_to_minutes(event.get('start', ''))
+                event_end = self.parse_time_to_minutes(event.get('end', ''))
+                
+                # Check for overlap: events overlap if one starts before the other ends
+                if (new_start < event_end and new_end > event_start):
+                    overlapping.append(event)
+        
+        return overlapping
+    
+    def fetch_calendar_events(self) -> List[Dict]:
         """Fetch events using the provided database function"""
         if not self.events_function:
             return []
@@ -204,18 +277,20 @@ class BaseLLMProvider(ABC):
                 event_dict = {
                     'name': getattr(event, 'event_name', 'Untitled'),
                     'date': self.format_date(getattr(event, 'date', 'No date')),
-                    'start': str(getattr(event, 'start_time', 'No time')),
-                    'end': str(getattr(event, 'end_time', 'No time')),
+                    'start': self.format_time(getattr(event, 'start_time', 'No time')),
+                    'end': self.format_time(getattr(event, 'end_time', 'No time')),
                     'id': getattr(event, 'id', None)
                 }
                 events_list.append(event_dict)
             
+            # Sort events by date and start time
+            events_list.sort(key=lambda x: (x['date'], self.parse_time_to_minutes(x['start'])))
             return events_list
         except Exception as e:
             print(f"Error fetching calendar events: {e}")
             return []
     
-    def format_events_for_context(self, events_data):
+    def format_events_for_context(self, events_data: List[Dict]) -> str:
         """Format events for LLM context"""
         if not events_data:
             return "No events this week."
@@ -230,7 +305,7 @@ class BaseLLMProvider(ABC):
             formatted.append(event_line)
         return "\n".join(formatted)
     
-    def get_event_management_prompt(self):
+    def get_event_management_prompt(self) -> str:
         """Get system prompt for event management"""
         try:
             pacific_tz = pytz.timezone('America/Los_Angeles')
@@ -244,62 +319,113 @@ class BaseLLMProvider(ABC):
             week_range = f"{today} to {week_end}"
             
         return f"""
-You are a calendar assistant. Today is {today}. This week is {week_range}.
+You are a smart calendar assistant. Today is {today}. You can view and modify events for this week ({week_range}).
 
-Event format: EventName|Date|StartTime-EndTime
-To modify events: CHANGE:EventName|NewDate|NewStartTime-NewEndTime
+Event format: EventName|YYYY-MM-DD|HH:MM-HH:MM
 
-Rules:
-- When organizing, keep events at their current times unless a break needs to be inserted.
-- Insert breaks (like lunch or short gaps) between events without overlapping.
-- Shift events only if necessary to fit breaks.
-- When shifting events, keep their order and durations.
-- Output only CHANGE: lines and a short summary.
-- Keep event names short. Use YYYY-MM-DD for dates and HH:MM for times.
-- Multiple events: separate CHANGE: lines.
-- If event duration unknown, assume 1 hour.
+To modify events, use this EXACT format:
+CHANGE:EventName|YYYY-MM-DD|HH:MM-HH:MM
 
+STRICT RULES:
+- Only events for this week ({week_range}) are shown and can be modified
+- Times MUST be in HH:MM format (no seconds, no AM/PM)
+- NO overlapping events unless user specifically requests it
+- If user asks to add/move events without exact times, estimate reasonable non-overlapping times
+- If user asks to move an event "later today," pick the next available slot of the same duration
+- For vague requests (e.g., "in the evening"), choose typical times (18:00-20:00) avoiding conflicts
+- Keep event names concise and clear
+- Use YYYY-MM-DD for dates, HH:MM for times
+- Multiple changes: use separate CHANGE: lines
+- Warn if events cannot fit this week due to conflicts
+- Always check for time conflicts before scheduling
+
+Example valid CHANGE line:
+CHANGE:Team Meeting|2024-01-15|14:00-15:30
 """
     
-    def parse_event_changes(self, response_text):
-        """Parse CHANGE: lines from LLM response"""
+    def validate_change_format(self, change_line: str) -> bool:
+        """Validate CHANGE line format"""
+        if not change_line.strip().startswith('CHANGE:'):
+            return False
+        
+        try:
+            change_data = change_line[7:].strip()  # Remove "CHANGE:"
+            parts = change_data.split('|')
+            
+            if len(parts) != 3:
+                return False
+            
+            name, date, time_range = [part.strip() for part in parts]
+            
+            # Validate date format (YYYY-MM-DD)
+            datetime.strptime(date, '%Y-%m-%d')
+            
+            # Validate time range format (HH:MM-HH:MM)
+            if '-' not in time_range:
+                return False
+            
+            start_time, end_time = time_range.split('-', 1)
+            start_time = start_time.strip()
+            end_time = end_time.strip()
+            
+            # Validate time format (HH:MM)
+            time_pattern = re.compile(r'^([01]?[0-9]|2[0-3]):[0-5][0-9]$')
+            if not time_pattern.match(start_time) or not time_pattern.match(end_time):
+                return False
+            
+            # Ensure start time is before end time
+            start_minutes = self.parse_time_to_minutes(start_time)
+            end_minutes = self.parse_time_to_minutes(end_time)
+            if start_minutes >= end_minutes:
+                return False
+            
+            return True
+            
+        except Exception as e:
+            print(f"Error validating change format: {e}")
+            return False
+    
+    def parse_event_changes(self, response_text: str) -> List[Dict]:
+        """Parse CHANGE: lines from LLM response with strict validation"""
         changes = []
         lines = response_text.split('\n')
         
         for line in lines:
             line = line.strip()
             if line.startswith('CHANGE:'):
+                if not self.validate_change_format(line):
+                    print(f"Invalid CHANGE format: {line}")
+                    continue
+                
                 try:
-                    change_data = line[7:]  # Remove "CHANGE:"
+                    change_data = line[7:].strip()  # Remove "CHANGE:"
                     parts = change_data.split('|')
                     
-                    if len(parts) == 3:
-                        name = parts[0].strip()
-                        date = parts[1].strip()
-                        time_range = parts[2].strip()
-                        
-                        if '-' in time_range:
-                            start_time, end_time = time_range.split('-', 1)
-                            changes.append({
-                                'name': name,
-                                'date': date,
-                                'start_time': start_time.strip(),
-                                'end_time': end_time.strip()
-                            })
+                    name = parts[0].strip()
+                    date = parts[1].strip()
+                    time_range = parts[2].strip()
+                    
+                    start_time, end_time = time_range.split('-', 1)
+                    changes.append({
+                        'name': name,
+                        'date': date,
+                        'start_time': start_time.strip(),
+                        'end_time': end_time.strip()
+                    })
                 except Exception as e:
-                    print(f"Error parsing change line '{line}': {e}")
+                    print(f"Error parsing valid change line '{line}': {e}")
                     continue
         
         return changes
     
-    def clean_response_text(self, response_text):
+    def clean_response_text(self, response_text: str) -> str:
         """Remove CHANGE: lines from response text for user display"""
         lines = response_text.split('\n')
         cleaned_lines = [line for line in lines if not line.strip().startswith('CHANGE:')]
         return '\n'.join(cleaned_lines).strip()
     
-    def find_matching_event(self, change, original_events):
-        """Find matching event by name"""
+    def find_matching_event(self, change: Dict, original_events: List[Dict]) -> Dict:
+        """Find matching event by name with improved matching"""
         change_name = change['name'].lower().strip()
         
         # Exact match first
@@ -307,21 +433,37 @@ Rules:
             if event['name'].lower().strip() == change_name:
                 return event
         
-        # Partial match
+        # Partial match (be more restrictive to avoid false matches)
         for event in original_events:
-            if change_name in event['name'].lower() or event['name'].lower() in change_name:
+            event_name = event['name'].lower().strip()
+            if len(change_name) > 3 and change_name in event_name:
+                return event
+            if len(event_name) > 3 and event_name in change_name:
                 return event
         
         return None
     
-    def apply_event_changes(self, changes, original_events):
-        """Apply event changes to the database"""
+    def apply_event_changes(self, changes: List[Dict], original_events: List[Dict]) -> bool:
+        """Apply event changes to the database with overlap checking"""
         if not self.update_event_function or not changes:
             return False
         
         updated_events = []
+        
         for change in changes:
+            # Check if date is in current week
+            if not self.is_date_in_current_week(change['date']):
+                print(f"Skipping event outside current week: {change['name']} on {change['date']}")
+                continue
+            
+            # Check for overlaps (exclude the event being modified)
             matching_event = self.find_matching_event(change, original_events)
+            events_to_check = [e for e in original_events if e != matching_event]
+            overlapping = self.check_event_overlap(change, events_to_check)
+            
+            if overlapping:
+                print(f"Event '{change['name']}' would overlap with: {[e['name'] for e in overlapping]}")
+                continue
             
             if matching_event and matching_event['id']:
                 try:
@@ -390,7 +532,6 @@ User: {message}"""
             }
         
         return self._make_api_request(message, prompt, max_retries=max_retries, **kwargs)
-
 
 class GeminiProvider(BaseLLMProvider):
     """Google Gemini API provider"""
@@ -839,7 +980,6 @@ llm_service = LLMService()
 WEEKLY_MESSAGE_LIMIT = 5000
 
 
-
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -1040,8 +1180,6 @@ def llm_status(request):
             "error": "Failed to get status",
             "error_type": "STATUS_ERROR"
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-        
-        
 
 
 # Calendar event update function
@@ -1147,4 +1285,3 @@ def setup_providers_with_calendar(events_function=None, update_event_function=No
 def get_provider_status():
     """Get status of all registered providers"""
     return llm_service.get_provider_info()
-
