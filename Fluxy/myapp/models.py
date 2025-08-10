@@ -37,7 +37,9 @@ class CalendarEvent(models.Model):
     color = models.CharField(max_length=7, default="#000")
 
     def __str__(self):
-        return f'{self.event_name} on {self.date} at {self.start_time} - {self.user.username}'
+        username = self.user.username if self.user else "No User"
+        event_name = self.event_name or "Unnamed Event"
+        return f'{event_name} on {self.date} at {self.start_time} - {username}'
 
 
 

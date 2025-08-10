@@ -224,11 +224,7 @@ if __name__ == "__main__":
         result = handler.parse_date(test)
         print(f"{test}: {result}")
         
-import re
-from typing import Dict, Optional, List, Any
 from datetime import datetime, timedelta
-from typing import Dict, Optional
-import re
 
 class TimeParser:
     
@@ -1714,20 +1710,7 @@ class AdvancedScheduleExtractor:
             # Default: no recurrence
             return ""
 
-    def update_event_recurrence(event_dict: Dict[str, Any], recurrence_input: str) -> Dict[str, Any]:
-        """Update event dictionary with RRULE recurrence pattern."""
-        converter = RecurrenceToRRULE()
-        
-        # Create a copy of the event dictionary
-        updated_event = event_dict.copy()
-        
-        # Convert the recurrence input to RRULE format
-        rrule = converter.convert_to_rrule(recurrence_input, event_dict['date'])
-        
-        # Update the recurrence_pattern field
-        updated_event['recurrence_pattern'] = rrule
-        
-        return updated_event
+
 
     # Example usage:
     if __name__ == "__main__":

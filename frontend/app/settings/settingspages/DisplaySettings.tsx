@@ -22,7 +22,7 @@ const themes = [
   { id: 'ocean', name: 'Ocean', colors: ['#0ea5e9', '#0284c7'] },
   { id: 'sunset', name: 'Sunset', colors: ['#f97316', '#ea580c'] },
   { id: 'royal', name: 'Royal', colors: ['#8b5cf6', '#7c3aed'] },
-  { id: 'monochrome', name: 'Monochrome', colors: ['#6b7280', '#374151'] },
+  { id: 'Cinnamon', name: 'Monochrome', colors: ['#6b7280', '#374151'] },
 ];
 
 interface CustomSwitchProps {

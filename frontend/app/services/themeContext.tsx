@@ -1,5 +1,7 @@
 import React, { createContext, useState, useContext, useEffect, useCallback } from 'react';
 import { authAPI } from '../../lib/auth';
+import { useUserSettings } from '../hooks/useUserSettings';
+
 
 // Theme definition with separate light and dark variants
 type Theme = {
@@ -16,6 +18,7 @@ type Theme = {
     foreground: string;
     muted: string;
     mutedForeground: string;
+    darkerBorder: string;
     border: string;
     input: string;
     ring: string;
@@ -36,10 +39,11 @@ type Theme = {
     secondary: string;
     accent: string;
     background: string;
+    calendarBackground: string;
     foreground: string;
     muted: string;
     mutedForeground: string;
-    darkerborder: string;
+    darkerBorder: string;
     border: string;
     input: string;
     ring: string;
@@ -73,6 +77,7 @@ export const themes: Theme[] = [
       foreground: '222.2 47.4% 11.2%',
       muted: '210 40% 98.1%',
       mutedForeground: '215.4 16.3% 46.9%',
+      darkerBorder: '214.3 15.8% 40.4%',
       border: '214.3 15.8% 50.4%',
       input: '214.3 31.8% 91.4%',
       ring: '222.2 47.4% 11.2%',
@@ -94,10 +99,11 @@ export const themes: Theme[] = [
       secondary: '220 10% 30%',         // Darker but subtle section bg
       accent: '217 100% 68%',           // Calmer blue for accents
       background: '222 10% %',         // Near-black with a hint of blue
+      calendarBackground: '0 0% 0%',   // ACTUALLY SIDEBAR BACKGEROUND
       foreground: '220 10% 85%',        // Matches primary text
       muted: '220 8% 18%',              // Soft background elements
       mutedForeground: '220 10% 55%',   // Muted text (descriptions, placeholders)
-      darkerborder: '220 8% 20%',             // Subtle borders
+      darkerBorder: '220 8% 20%',             // Subtle borders
       border: '220 10% 40%',             // Slightly lighter than background
       
       input: '220 10% 15%',             // Input field bg
@@ -111,7 +117,6 @@ export const themes: Theme[] = [
 
       mainBackground: '222 20% 7%',
       sidebarItemColor: '222 10% 18%',
-      calendarBackground: '0 0% 0%',   // ACTUALLY SIDEBAR BACKGEROUND
 
       sidebar: '220 10% 10%',           // Slightly lighter than bg
       header: '222 50% 5%',             // Very dark header
@@ -134,6 +139,7 @@ export const themes: Theme[] = [
       foreground: '142 72% 11.2%',
       muted: '142 40% 98.1%',
       mutedForeground: '145 16.3% 46.9%',
+      darkerBorder: '144 15.8% 40.4%',
       border: '144 15.8% 50.4%',
       input: '144 31.8% 91.4%',
       ring: '142 72% 11.2%',
@@ -155,10 +161,11 @@ export const themes: Theme[] = [
       secondary: '150 10% 30%',         // Darker but subtle section bg
       accent: '147 100% 68%',           // Calmer emerald for accents
       background: '152 10% %',         // Near-black with a hint of emerald
+      calendarBackground: '0 0% 0%',   // ACTUALLY SIDEBAR BACKGEROUND
       foreground: '150 10% 85%',        // Matches primary text
       muted: '150 8% 18%',              // Soft background elements
       mutedForeground: '150 10% 55%',   // Muted text (descriptions, placeholders)
-      darkerborder: '150 8% 20%',             // Subtle borders
+      darkerBorder: '150 8% 20%',             // Subtle borders
       border: '150 10% 40%',             // Slightly lighter than background
       
       input: '150 10% 15%',             // Input field bg
@@ -172,7 +179,6 @@ export const themes: Theme[] = [
 
       mainBackground: '152 20% 7%',
       sidebarItemColor: '152 10% 18%',
-      calendarBackground: '0 0% 0%',   // ACTUALLY SIDEBAR BACKGEROUND
 
       sidebar: '150 10% 10%',           // Slightly lighter than bg
       header: '152 50% 5%',             // Very dark header
@@ -195,6 +201,7 @@ export const themes: Theme[] = [
       foreground: '199 89% 11.2%',
       muted: '199 40% 98.1%',
       mutedForeground: '199 16.3% 46.9%',
+      darkerBorder: '199 15.8% 40.4%',
       border: '199 15.8% 50.4%',
       input: '199 31.8% 91.4%',
       ring: '199 89% 11.2%',
@@ -216,10 +223,11 @@ export const themes: Theme[] = [
       secondary: '200 10% 30%',         // Darker but subtle section bg
       accent: '199 100% 68%',           // Calmer ocean for accents
       background: '200 10% %',         // Near-black with a hint of ocean
+      calendarBackground: '0 0% 0%',   // ACTUALLY SIDEBAR BACKGEROUND
       foreground: '200 10% 85%',        // Matches primary text
       muted: '200 8% 18%',              // Soft background elements
       mutedForeground: '200 10% 55%',   // Muted text (descriptions, placeholders)
-      darkerborder: '200 8% 20%',             // Subtle borders
+      darkerBorder: '200 8% 20%',             // Subtle borders
       border: '200 10% 40%',             // Slightly lighter than background
       
       input: '200 10% 15%',             // Input field bg
@@ -233,7 +241,6 @@ export const themes: Theme[] = [
 
       mainBackground: '200 20% 7%',
       sidebarItemColor: '200 10% 18%',
-      calendarBackground: '0 0% 0%',   // ACTUALLY SIDEBAR BACKGEROUND
 
       sidebar: '200 10% 10%',           // Slightly lighter than bg
       header: '200 50% 5%',             // Very dark header
@@ -256,6 +263,7 @@ export const themes: Theme[] = [
       foreground: '24 95% 11.2%',
       muted: '24 40% 98.1%',
       mutedForeground: '24 16.3% 46.9%',
+      darkerBorder: '24 15.8% 40.4%',
       border: '24 15.8% 50.4%',
       input: '24 31.8% 91.4%',
       ring: '24 95% 11.2%',
@@ -277,10 +285,11 @@ export const themes: Theme[] = [
       secondary: '25 10% 30%',         // Darker but subtle section bg
       accent: '24 100% 68%',           // Calmer sunset for accents
       background: '25 10% %',         // Near-black with a hint of sunset
+      calendarBackground: '0 0% 0%',   // ACTUALLY SIDEBAR BACKGEROUND
       foreground: '25 10% 85%',        // Matches primary text
       muted: '25 8% 18%',              // Soft background elements
       mutedForeground: '25 10% 55%',   // Muted text (descriptions, placeholders)
-      darkerborder: '25 8% 20%',             // Subtle borders
+      darkerBorder: '25 8% 20%',             // Subtle borders
       border: '25 10% 40%',             // Slightly lighter than background
       
       input: '25 10% 15%',             // Input field bg
@@ -294,7 +303,6 @@ export const themes: Theme[] = [
 
       mainBackground: '25 20% 7%',
       sidebarItemColor: '25 10% 18%',
-      calendarBackground: '0 0% 0%',   // ACTUALLY SIDEBAR BACKGEROUND
 
       sidebar: '25 10% 10%',           // Slightly lighter than bg
       header: '25 50% 5%',             // Very dark header
@@ -317,6 +325,7 @@ export const themes: Theme[] = [
       foreground: '265 93% 11.2%',
       muted: '265 40% 98.1%',
       mutedForeground: '265 16.3% 46.9%',
+      darkerBorder: '265 15.8% 40.4%',
       border: '265 15.8% 50.4%',
       input: '265 31.8% 91.4%',
       ring: '265 93% 11.2%',
@@ -338,10 +347,11 @@ export const themes: Theme[] = [
       secondary: '265 10% 30%',         // Darker but subtle section bg
       accent: '265 100% 68%',           // Calmer royal for accents
       background: '265 10% %',         // Near-black with a hint of royal
+      calendarBackground: '0 0% 0%',   // ACTUALLY SIDEBAR BACKGEROUND
       foreground: '265 10% 85%',        // Matches primary text
       muted: '265 8% 18%',              // Soft background elements
       mutedForeground: '265 10% 55%',   // Muted text (descriptions, placeholders)
-      darkerborder: '265 8% 20%',             // Subtle borders
+      darkerBorder: '265 8% 20%',             // Subtle borders
       border: '265 10% 60%',             // Slightly lighter than background
       
       input: '265 10% 15%',             // Input field bg
@@ -355,7 +365,6 @@ export const themes: Theme[] = [
 
       mainBackground: '265 20% 7%',
       sidebarItemColor: '265 10% 18%',
-      calendarBackground: '0 0% 0%',   // ACTUALLY SIDEBAR BACKGEROUND
 
       sidebar: '265 10% 10%',           // Slightly lighter than bg
       header: '265 50% 5%',             // Very dark header
@@ -378,6 +387,7 @@ export const themes: Theme[] = [
       foreground: '0 0% 11.2%',
       muted: '0 40% 98.1%',
       mutedForeground: '0 16.3% 46.9%',
+      darkerBorder: '0 15.8% 40.4%',
       border: '0 15.8% 50.4%',
       input: '0 31.8% 91.4%',
       ring: '0 0% 11.2%',
@@ -399,10 +409,11 @@ export const themes: Theme[] = [
       secondary: '0 10% 30%',         // Darker but subtle section bg
       accent: '0 100% 68%',           // Calmer monochrome for accents
       background: '0 10% %',         // Near-black with a hint of monochrome
+      calendarBackground: '0 0% 0%',   // ACTUALLY SIDEBAR BACKGEROUND
       foreground: '0 10% 85%',        // Matches primary text
       muted: '0 8% 18%',              // Soft background elements
       mutedForeground: '0 10% 55%',   // Muted text (descriptions, placeholders)
-      darkerborder: '0 8% 20%',             // Subtle borders
+      darkerBorder: '0 8% 20%',             // Subtle borders
       border: '0 10% 60%',             // Slightly lighter than background
       
       input: '0 10% 15%',             // Input field bg
@@ -416,7 +427,6 @@ export const themes: Theme[] = [
 
       mainBackground: '0 20% 7%',
       sidebarItemColor: '0 10% 18%',
-      calendarBackground: '0 0% 0%',   // ACTUALLY SIDEBAR BACKGEROUND
 
       sidebar: '0 10% 10%',           // Slightly lighter than bg
       header: '0 50% 5%',             // Very dark header
@@ -438,81 +448,25 @@ type ThemeContextType = {
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 export const ThemeProvider: React.FC<{children: React.ReactNode}> = ({ children }) => {
-  const [currentThemeId, setCurrentThemeId] = useState('classic');
-  const [isDarkMode, setIsDarkMode] = useState(true);
-  const [isLoading, setIsLoading] = useState(true);
+  const { settings, updateSettings, isLoading } = useUserSettings();
   
-  const currentTheme = themes.find(t => t.id === currentThemeId) || themes[0];
+  // Get current theme and dark mode from settings
+  const currentTheme = themes.find(t => t.id === settings?.theme) || themes[0];
+  const isDarkMode = settings?.dark_mode ?? true;
 
-  // Fetch user settings from backend
-  const fetchUserSettings = async () => {
-    try {
-      setIsLoading(true);
-      const response = await authAPI.authenticatedFetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/user-settings/`,
-        { headers: { 'Accept': 'application/json' } }
-      );
-      
-      if (response.ok) {
-        const settings = await response.json();
-        
-        if (settings.theme && themes.find(t => t.id === settings.theme)) {
-          setCurrentThemeId(settings.theme);
-        }
-        
-        const darkModeValue = settings.darkMode ?? settings.dark_mode ?? settings.isDarkMode;
-        if (darkModeValue !== undefined) {
-          setIsDarkMode(Boolean(darkModeValue));
-        }
-      }
-    } catch (error) {
-      console.error('Error fetching user settings:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  // Theme setter that updates settings
+  const setTheme = useCallback((themeId: string) => {
+    updateSettings({ theme: themeId });
+  }, [updateSettings]);
 
-  // Save settings to backend
-  const saveUserSettings = async (updates: { theme?: string; darkMode?: boolean }) => {
-    try {
-      const response = await authAPI.authenticatedFetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/user-settings/`,
-        {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(updates),
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error(`Failed to save user settings: ${response.status}`);
-      }
-    } catch (error) {
-      console.error('Error saving user settings:', error);
-      throw error;
-    }
-  };
-
-  const setTheme = useCallback(async (themeId: string) => {
-    setCurrentThemeId(themeId);
-    try {
-      await saveUserSettings({ theme: themeId });
-    } catch (error) {
-      console.error('Failed to save theme:', error);
-    }
-  }, []);
-
+  // Dark mode toggle that updates settings
   const toggleDarkMode = useCallback(() => {
-    setIsDarkMode(prevMode => {
-      const newMode = !prevMode;
-      saveUserSettings({ darkMode: newMode }).catch(console.error);
-      return newMode;
-    });
-  }, []);
+    updateSettings({ dark_mode: !isDarkMode });
+  }, [updateSettings, isDarkMode]);
 
-  // Apply theme to CSS variables AND body background
+  // Apply theme to CSS variables
   useEffect(() => {
-    if (isLoading) return;
+    if (!settings) return;
     
     const root = document.documentElement;
     
@@ -522,7 +476,7 @@ export const ThemeProvider: React.FC<{children: React.ReactNode}> = ({ children 
     // Get the appropriate theme variant
     const variables = isDarkMode ? currentTheme.dark : currentTheme.light;
 
-    // Apply CSS variables with proper structure
+    // Apply CSS variables
     const cssVariables = {
       '--primary': variables.primary,
       '--primary-foreground': isDarkMode ? variables.background : '210 40% 98%',
@@ -536,7 +490,7 @@ export const ThemeProvider: React.FC<{children: React.ReactNode}> = ({ children 
       '--muted': variables.muted,
       '--muted-foreground': variables.mutedForeground,
       '--border': variables.border,
-      '--darker-border': variables.darkerborder,
+      '--darker-border': variables.darkerBorder,
       '--input': variables.input,
       '--ring': variables.ring,
       '--card': variables.background,
@@ -550,7 +504,6 @@ export const ThemeProvider: React.FC<{children: React.ReactNode}> = ({ children 
       '--chart-3': variables.chart3,
       '--chart-4': variables.chart4,
       '--chart-5': variables.chart5,
-      // Custom component variables
       '--sidebar': variables.sidebar,
       '--header': variables.header,
       '--card-custom': variables.card,
@@ -567,12 +520,7 @@ export const ThemeProvider: React.FC<{children: React.ReactNode}> = ({ children 
     document.body.style.backgroundColor = `hsl(${variables.mainBackground})`;
     document.body.style.color = `hsl(${variables.foreground})`;
     
-  }, [currentTheme, isDarkMode, isLoading]);
-
-  // Load settings on mount
-  useEffect(() => {
-    fetchUserSettings();
-  }, []);
+  }, [currentTheme, isDarkMode, settings]);
 
   return (
     <ThemeContext.Provider value={{ 

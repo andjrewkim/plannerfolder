@@ -33,7 +33,25 @@ interface SidebarProps {
   refreshTrigger?: number;
 }
 
+interface SectionHeights {
+  eventForm: number;
+  schedule: number;
+  tasks: number;
+}
+
 const LAST_RESET_KEY = 'tasks_last_reset_date';
+
+// Debounce utility function
+const debounce = <T extends (...args: any[]) => void>(
+  func: T,
+  wait: number
+): ((...args: Parameters<T>) => void) => {
+  let timeout: NodeJS.Timeout | null = null;
+  return (...args: Parameters<T>) => {
+    if (timeout) clearTimeout(timeout);
+    timeout = setTimeout(() => func(...args), wait);
+  };
+};
 
 const Sidebar: React.FC<SidebarProps> = ({ 
   onEventChange, 
@@ -55,38 +73,48 @@ const Sidebar: React.FC<SidebarProps> = ({
   const [todayEvents, setTodayEvents] = useState<APIEvent[]>([]);
   const [localError, setLocalError] = useState<string | null>(null);
   const [deletingTasks, setDeletingTasks] = useState<Set<string>>(new Set());
-  const [isAddingTask, setIsAddingTask] = useState(false);
-  const [newTaskText, setNewTaskText] = useState('');
+  const [isAddingTask, setIsAddingTask] = useState<boolean>(false);
+  const [newTaskText, setNewTaskText] = useState<string>('');
   const [eventResults, setEventResults] = useState<EventData[]>([]);
   const [eventError, setEventError] = useState<string | null>(null);
-  const [isCreatingTask, setIsCreatingTask] = useState(false);
+  const [isCreatingTask, setIsCreatingTask] = useState<boolean>(false);
+  const [isResettingTasks, setIsResettingTasks] = useState<boolean>(false);
   
   // Refs
   const taskInputRef = useRef<HTMLInputElement>(null);
-  const isMountedRef = useRef(true);
+  const isMountedRef = useRef<boolean>(true);
+  const resetTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const refreshInProgressRef = useRef<boolean>(false);
 
   // Section heights for resizing
-  const [sectionHeights, setSectionHeights] = useState({
+  const [sectionHeights, setSectionHeights] = useState<SectionHeights>({
     eventForm: 250,
     schedule: 350,
     tasks: 350
   });
   
   const [activeSection, setActiveSection] = useState<string | null>(null);
-  const [isResizing, setIsResizing] = useState(false);
-  const heightsRef = useRef(sectionHeights);
-  const startYRef = useRef(0);
-  const startHeightRef = useRef(0);
+  const [isResizing, setIsResizing] = useState<boolean>(false);
+  const heightsRef = useRef<SectionHeights>(sectionHeights);
+  const startYRef = useRef<number>(0);
+  const startHeightRef = useRef<number>(0);
 
   // Cleanup on unmount
   useEffect(() => {
     return () => {
       isMountedRef.current = false;
+      if (resetTimerRef.current) {
+        clearInterval(resetTimerRef.current);
+      }
     };
   }, []);
 
   // Calculate hours until event
-  const calculateHoursUntil = useCallback((date: string, startTime: string, endTime?: string): { hoursUntil: number | null, status: 'upcoming' | 'ongoing' | 'past' } => {
+  const calculateHoursUntil = useCallback((
+    date: string, 
+    startTime: string, 
+    endTime?: string
+  ): { hoursUntil: number | null, status: 'upcoming' | 'ongoing' | 'past' } => {
     try {
       // Parse the date and time more carefully
       const dateStr = date.split('T')[0]; // Get YYYY-MM-DD
@@ -170,6 +198,24 @@ const Sidebar: React.FC<SidebarProps> = ({
     }
   }, []);
 
+  // Debounced refresh function
+  const debouncedRefresh = useCallback(
+    debounce(async () => {
+      if (refreshInProgressRef.current || !isMountedRef.current) return;
+      
+      refreshInProgressRef.current = true;
+      try {
+        await initializeData(true);
+        if (onEventChange) {
+          onEventChange();
+        }
+      } finally {
+        refreshInProgressRef.current = false;
+      }
+    }, 500),
+    [initializeData, onEventChange]
+  );
+
   // Update today's events when events change
   useEffect(() => {
     if (!isMountedRef.current) return;
@@ -188,7 +234,7 @@ const Sidebar: React.FC<SidebarProps> = ({
           event_name: event.event_name,
           date: event.date,
           start_time: event.start_time || '',
-          end_time: event.end_time || '', // ✅ Add this line
+          end_time: event.end_time || '',
           color: event.color
         }))
         .sort((a, b) => {
@@ -201,19 +247,13 @@ const Sidebar: React.FC<SidebarProps> = ({
     }
   }, [events, calculateHoursUntil]);
 
-  // Handle refresh trigger
+  // Handle refresh trigger with debouncing
   useEffect(() => {
-    if (!isMountedRef.current) return;
+    if (!isMountedRef.current || !refreshTrigger || refreshTrigger <= 0) return;
 
-    if (refreshTrigger && refreshTrigger > 0) {
-      console.log('Refresh trigger activated:', refreshTrigger);
-      initializeData(true);
-      
-      if (onEventChange) {
-        setTimeout(() => onEventChange(), 100);
-      }
-    }
-  }, [refreshTrigger, onEventChange, initializeData]);
+    console.log('Refresh trigger activated:', refreshTrigger);
+    debouncedRefresh();
+  }, [refreshTrigger, debouncedRefresh]);
 
   // Focus input when adding task
   useEffect(() => {
@@ -222,25 +262,17 @@ const Sidebar: React.FC<SidebarProps> = ({
     }
   }, [isAddingTask]);
 
-  // Event result handler
+  // Event result handler with debouncing
   const handleEventResult = useCallback(async (results: EventData[]) => {
     if (!isMountedRef.current) return;
 
     console.log('Event created, refreshing data...');
     setEventResults(results);
-    
-    try {
-      await initializeData(true);
-      if (onEventChange) {
-        setTimeout(() => onEventChange(), 100);
-      }
-    } catch (error) {
-      console.error('Error refreshing after event creation:', error);
-    }
-  }, [initializeData, onEventChange]);
+    debouncedRefresh();
+  }, [debouncedRefresh]);
 
   // Task area click handler
-  const handleTaskAreaClick = useCallback((e: React.MouseEvent) => {
+  const handleTaskAreaClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
     if (!isMountedRef.current || isCreatingTask) return;
 
     const target = e.target as HTMLElement;
@@ -252,53 +284,80 @@ const Sidebar: React.FC<SidebarProps> = ({
     }
   }, [isCreatingTask]);
 
-  // Reset daily tasks
-  const resetDailyTasks = useCallback(async () => {
-    if (!isMountedRef.current || !authAPI.isAuthenticated()) {
-      setLocalError('Please log in to manage your tasks');
+  // Reset daily tasks with proper guards
+  const resetDailyTasks = useCallback(async (): Promise<void> => {
+    if (isResettingTasks || !isMountedRef.current || !authAPI.isAuthenticated()) {
+      console.log('Reset blocked - already in progress or not authenticated');
       return;
     }
 
+    setIsResettingTasks(true);
+    console.log('Starting daily task reset...');
+
     try {
-      console.log('Resetting daily tasks...');
-      
       const regularTasks = tasks.filter((task: TaskData) => 
         !task.date || task.date !== "longterm"
       );
       
       console.log(`Found ${regularTasks.length} regular tasks to reset`);
 
-      // Delete existing regular tasks
-      for (const task of regularTasks) {
-        if (task.id && isMountedRef.current) {
-          console.log('Deleting task:', task.event);
-          await deleteTask(task.id);
-        }
-      }
+      // Create a snapshot of tasks to recreate
+      const tasksToRecreate = regularTasks.map((task: TaskData) => ({
+        event: task.event,
+        date: null as null
+      }));
 
-      // Recreate tasks
-      for (const task of regularTasks) {
-        if (isMountedRef.current) {
-          console.log('Recreating task:', task.event);
-          await createTask({
-            event: task.event,
-            date: null  // Reset as regular task
-          });
+      // Delete existing regular tasks with better error handling
+      const deletePromises = regularTasks
+        .filter((task: TaskData) => task.id)
+        .map(async (task: TaskData) => {
+          if (!isMountedRef.current) return false;
+          try {
+            console.log('Deleting task:', task.event);
+            return await deleteTask(task.id!);
+          } catch (error) {
+            console.error('Error deleting task:', task.id, error);
+            return false;
+          }
+        });
+
+      await Promise.all(deletePromises);
+
+      // Wait a bit to ensure deletions are processed
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      if (!isMountedRef.current) return;
+
+      // Recreate tasks with better error handling
+      const createPromises = tasksToRecreate.map(async (taskData) => {
+        if (!isMountedRef.current) return null;
+        try {
+          console.log('Recreating task:', taskData.event);
+          return await createTask(taskData);
+        } catch (error) {
+          console.error('Error recreating task:', taskData.event, error);
+          return null;
         }
-      }
+      });
+
+      await Promise.all(createPromises);
       
-      console.log('Daily tasks reset completed');
+      console.log('Daily tasks reset completed successfully');
     } catch (error) {
-      console.error('Error resetting tasks:', error);
+      console.error('Error during task reset:', error);
       if (isMountedRef.current) {
         setLocalError('Failed to reset daily tasks');
       }
+    } finally {
+      if (isMountedRef.current) {
+        setIsResettingTasks(false);
+      }
     }
-  }, [tasks, deleteTask, createTask]);
+  }, [tasks, deleteTask, createTask, isResettingTasks]);
 
-  // Check and reset tasks
-  const checkAndResetTasks = useCallback(async () => {
-    if (!isMountedRef.current || !authAPI.isAuthenticated() || !initialized) {
+  // Check and reset tasks with proper date handling
+  const checkAndResetTasks = useCallback(async (): Promise<void> => {
+    if (!isMountedRef.current || !authAPI.isAuthenticated() || !initialized || isResettingTasks) {
       return;
     }
 
@@ -306,15 +365,20 @@ const Sidebar: React.FC<SidebarProps> = ({
     const todayFormatted = today.toISOString().split('T')[0];
     const lastResetDate = localStorage.getItem(LAST_RESET_KEY);
 
+    console.log('Checking reset - Today:', todayFormatted, 'Last reset:', lastResetDate);
+
     if (lastResetDate !== todayFormatted) {
       console.log('New day detected, resetting tasks...');
       await resetDailyTasks();
-      localStorage.setItem(LAST_RESET_KEY, todayFormatted);
+      
+      if (isMountedRef.current) {
+        localStorage.setItem(LAST_RESET_KEY, todayFormatted);
+      }
     }
-  }, [resetDailyTasks, initialized]);
+  }, [resetDailyTasks, initialized, isResettingTasks]);
 
   // Create task handler with better validation
-  const handleCreateTask = useCallback(async (e: React.FormEvent) => {
+  const handleCreateTask = useCallback(async (e: React.FormEvent<HTMLFormElement>): Promise<void> => {
     e.preventDefault();
     
     if (!isMountedRef.current || isCreatingTask) return;
@@ -336,12 +400,12 @@ const Sidebar: React.FC<SidebarProps> = ({
     try {
       console.log('Creating task with data:', {
         event: trimmedText,
-        date: null  // null for regular tasks, "longterm" for long-term tasks
+        date: null
       });
 
       const taskData = {
         event: trimmedText,
-        date: null  // null for regular tasks, "longterm" for long-term tasks
+        date: null as null
       };
 
       const newTask = await createTask(taskData);
@@ -363,11 +427,8 @@ const Sidebar: React.FC<SidebarProps> = ({
     } catch (error) {
       console.error('Error creating task:', error);
       if (isMountedRef.current) {
-        if (error instanceof Error) {
-          setLocalError(`Failed to create task: ${error.message}`);
-        } else {
-          setLocalError('Failed to create task - unknown error');
-        }
+        const errorMessage = error instanceof Error ? error.message : 'unknown error';
+        setLocalError(`Failed to create task: ${errorMessage}`);
       }
     } finally {
       if (isMountedRef.current) {
@@ -377,7 +438,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   }, [newTaskText, createTask, isCreatingTask]);
 
   // Cancel task creation
-  const handleCancelTask = useCallback(() => {
+  const handleCancelTask = useCallback((): void => {
     if (!isMountedRef.current) return;
     
     setIsAddingTask(false);
@@ -386,7 +447,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   }, []);
 
   // Task completion handler
-  const handleTaskComplete = useCallback(async (taskId: string) => {
+  const handleTaskComplete = useCallback(async (taskId: string): Promise<void> => {
     if (!isMountedRef.current || deletingTasks.has(taskId)) return;
     
     if (!authAPI.isAuthenticated()) {
@@ -394,7 +455,7 @@ const Sidebar: React.FC<SidebarProps> = ({
       return;
     }
 
-    setDeletingTasks(prev => new Set([...prev, taskId]));
+    setDeletingTasks(prev => new Set([...Array.from(prev), taskId]));
     
     // Delay for animation
     setTimeout(async () => {
@@ -444,14 +505,14 @@ const Sidebar: React.FC<SidebarProps> = ({
   }, []);
 
   // Resize handlers
-  const startResize = useCallback((section: string) => (e: React.MouseEvent) => {
+  const startResize = useCallback((section: string) => (e: React.MouseEvent<HTMLDivElement>): void => {
     e.preventDefault();
     
     setActiveSection(section);
     setIsResizing(true);
     
     startYRef.current = e.clientY;
-    startHeightRef.current = heightsRef.current[section as keyof typeof sectionHeights];
+    startHeightRef.current = heightsRef.current[section as keyof SectionHeights];
     
     const sections = ['eventForm', 'schedule', 'tasks'];
     const sectionIndex = sections.indexOf(section);
@@ -460,12 +521,12 @@ const Sidebar: React.FC<SidebarProps> = ({
     
     document.body.classList.add('resizing');
     
-    const handleMouseMove = (moveEvent: MouseEvent) => {
+    const handleMouseMove = (moveEvent: MouseEvent): void => {
       const delta = moveEvent.clientY - startYRef.current;
       let newSectionHeight = Math.max(120, startHeightRef.current + delta);
       
       if (nextSection) {
-        const nextSectionStartHeight = heightsRef.current[nextSection as keyof typeof sectionHeights];
+        const nextSectionStartHeight = heightsRef.current[nextSection as keyof SectionHeights];
         const nextSectionNewHeight = Math.max(120, nextSectionStartHeight - delta);
         
         if (nextSectionNewHeight < 120) {
@@ -475,14 +536,14 @@ const Sidebar: React.FC<SidebarProps> = ({
         const newHeights = {
           ...heightsRef.current,
           [section]: newSectionHeight,
-          [nextSection]: heightsRef.current[nextSection as keyof typeof sectionHeights] - 
-                        (newSectionHeight - heightsRef.current[section as keyof typeof sectionHeights])
+          [nextSection]: heightsRef.current[nextSection as keyof SectionHeights] - 
+                        (newSectionHeight - heightsRef.current[section as keyof SectionHeights])
         };
         
         heightsRef.current = newHeights;
         
-        const currentSection = document.querySelector(`.sidebar-section[data-section="${section}"]`);
-        const nextSectionEl = document.querySelector(`.sidebar-section[data-section="${nextSection}"]`);
+        const currentSection = document.querySelector(`.sidebar-section[data-section="${section}"]`) as HTMLElement;
+        const nextSectionEl = document.querySelector(`.sidebar-section[data-section="${nextSection}"]`) as HTMLElement;
         
         if (currentSection && nextSectionEl) {
           currentSection.setAttribute('style', `height: ${newSectionHeight}px; min-height: 120px;`);
@@ -491,7 +552,7 @@ const Sidebar: React.FC<SidebarProps> = ({
       }
     };
     
-    const handleMouseUp = () => {
+    const handleMouseUp = (): void => {
       setActiveSection(null);
       setIsResizing(false);
       document.body.classList.remove('resizing');
@@ -504,14 +565,27 @@ const Sidebar: React.FC<SidebarProps> = ({
     document.addEventListener('mouseup', handleMouseUp);
   }, []);
 
-  // Reset timer effect
+  // Reset timer effect with proper cleanup
   useEffect(() => {
     if (!authAPI.isAuthenticated() || !initialized) return;
 
+    // Clear existing timer
+    if (resetTimerRef.current) {
+      clearInterval(resetTimerRef.current);
+    }
+
+    // Initial check
     checkAndResetTasks();
 
-    const resetTimer = setInterval(checkAndResetTasks, 60 * 60 * 1000);
-    return () => clearInterval(resetTimer);
+    // Set up new timer
+    resetTimerRef.current = setInterval(checkAndResetTasks, 60 * 60 * 1000);
+
+    return () => {
+      if (resetTimerRef.current) {
+        clearInterval(resetTimerRef.current);
+        resetTimerRef.current = null;
+      }
+    };
   }, [checkAndResetTasks, initialized]);
 
   // Cleanup resize effect
@@ -595,7 +669,7 @@ const Sidebar: React.FC<SidebarProps> = ({
               <div className="error-message" style={{ color: 'red', padding: '10px' }}>
                 {displayError}
               </div>
-            ) : isLoading && todayEvents.length === 0 ? (
+            ) : !initialized ? (
               <div className="loading-message">Loading events...</div>
             ) : todayEvents.length > 0 ? (
               <ul className="event-list">
@@ -696,7 +770,19 @@ const Sidebar: React.FC<SidebarProps> = ({
             transition: isResizing ? 'none' : 'height 0.2s ease-out'
           }}
         >
-          <h3 className="section-title">Tasks</h3>
+          <h3 className="section-title">
+            Tasks
+            {isResettingTasks && (
+              <span style={{
+                marginLeft: '8px',
+                fontSize: '12px',
+                color: '#007bff',
+                fontWeight: 'normal'
+              }}>
+                (Resetting...)
+              </span>
+            )}
+          </h3>
           <div 
             className="section-content clickable-area"
             onClick={handleTaskAreaClick}
@@ -705,9 +791,10 @@ const Sidebar: React.FC<SidebarProps> = ({
               maxHeight: `${sectionHeights.tasks - 60}px`
             }}
           >
-            {isLoading && regularTasks.length === 0 ? (
+            {!initialized ? (
               <div className="loading-message">Loading tasks...</div>
             ) : (
+
               <>
                 {regularTasks.length > 0 && (
                   <ul className="task-list">
@@ -725,7 +812,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                             type="checkbox"
                             onChange={() => task.id && handleTaskComplete(task.id)}
                             className="task-checkbox"
-                            disabled={deletingTasks.has(task.id || '')}
+                            disabled={deletingTasks.has(task.id || '') || isResettingTasks}
                           />
                           <span 
                             className="task-text"
@@ -752,7 +839,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                       onChange={(e) => setNewTaskText(e.target.value)}
                       placeholder="Enter new task..."
                       className="task-input"
-                      disabled={isCreatingTask}
+                      disabled={isCreatingTask || isResettingTasks}
                       style={{
                         width: '100%',
                         padding: '8px',
@@ -765,15 +852,15 @@ const Sidebar: React.FC<SidebarProps> = ({
                       <button 
                         type="submit" 
                         className="btn btn-save"
-                        disabled={isCreatingTask || !newTaskText.trim()}
+                        disabled={isCreatingTask || !newTaskText.trim() || isResettingTasks}
                         style={{
                           padding: '6px 12px',
                           marginRight: '8px',
-                          backgroundColor: isCreatingTask ? '#ccc' : '#007bff',
+                          backgroundColor: (isCreatingTask || isResettingTasks) ? '#ccc' : '#007bff',
                           color: 'white',
                           border: 'none',
                           borderRadius: '4px',
-                          cursor: isCreatingTask ? 'not-allowed' : 'pointer'
+                          cursor: (isCreatingTask || isResettingTasks) ? 'not-allowed' : 'pointer'
                         }}
                       >
                         {isCreatingTask ? 'Saving...' : 'Save'}
@@ -782,14 +869,14 @@ const Sidebar: React.FC<SidebarProps> = ({
                         type="button" 
                         className="btn btn-cancel"
                         onClick={handleCancelTask}
-                        disabled={isCreatingTask}
+                        disabled={isCreatingTask || isResettingTasks}
                         style={{
                           padding: '6px 12px',
                           backgroundColor: '#6c757d',
                           color: 'white',
                           border: 'none',
                           borderRadius: '4px',
-                          cursor: isCreatingTask ? 'not-allowed' : 'pointer'
+                          cursor: (isCreatingTask || isResettingTasks) ? 'not-allowed' : 'pointer'
                         }}
                       >
                         Cancel
@@ -810,9 +897,10 @@ const Sidebar: React.FC<SidebarProps> = ({
                     padding: '20px', 
                     textAlign: 'center', 
                     color: '#666',
-                    cursor: 'pointer'
+                    cursor: isResettingTasks ? 'not-allowed' : 'pointer',
+                    opacity: isResettingTasks ? 0.5 : 1
                   }}>
-                    Click here to add tasks
+                    {isResettingTasks ? 'Resetting tasks...' : 'Click here to add tasks'}
                   </div>
                 )}
               </>

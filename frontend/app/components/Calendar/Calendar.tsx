@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useMemo, useCallback } from 'react';
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
@@ -68,7 +68,6 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange, onViewChange, refres
     
     // Handlers
     handleEventSubmit,
-    handleEventDrop,
     handleEventChange,
     handleDateSelect,
     handleDeleteEvent,
@@ -76,7 +75,8 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange, onViewChange, refres
     handleDayMarkingsLoaded,
     handleModalOpen,
     handleModalClose,
-    handleEventClick, // Add this handler from the hook
+    handleEventClick,
+    handleViewChange, // New optimized handler
   } = useCalendarLogic(refreshTrigger, onEventChange, onViewChange);
 
   // Use day hover logic hook
@@ -87,10 +87,88 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange, onViewChange, refres
     setHoveredDay
   });
 
-  // Prepare all events for FullCalendar - FIXED to use proper IDs
-  const allEvents = [
+  // Optimized event drop handler
+  const handleEventDropFixed = useCallback(async (dropInfo) => {
+    const event = dropInfo.event;
+    const newStart = event.start;
+    const newEnd = event.end;
+    
+    console.log('Event dropped - updating backend only:', {
+      eventId: event.id,
+      newStart,
+      newEnd
+    });
+    
+    try {
+      const eventData = {
+        date: newStart.toISOString().split('T')[0],
+        start_time: newStart.toTimeString().slice(0, 8),
+        end_time: newEnd ? newEnd.toTimeString().slice(0, 8) : null
+      };
+
+      const backendId = getBackendIdFromEvent(event);
+      
+      // Silent API call - don't wait for response or refresh UI
+      updateEvent(backendId, eventData).catch(error => {
+        console.error('Background update failed:', error);
+      });
+      
+      console.log('Event drop completed - UI already updated');
+      
+    } catch (error) {
+      console.error('Event drop error:', error);
+      dropInfo.revert();
+    }
+  }, [updateEvent]);
+
+  // Optimized event resize handler
+  const handleEventResizeFixed = useCallback(async (resizeInfo) => {
+    const event = resizeInfo.event;
+    const newStart = event.start;
+    const newEnd = event.end;
+    
+    console.log('Event resized - updating backend only:', {
+      eventId: event.id,
+      newStart,
+      newEnd
+    });
+    
+    try {
+      const eventData = {
+        start_time: newStart.toTimeString().slice(0, 8),
+        end_time: newEnd ? newEnd.toTimeString().slice(0, 8) : null
+      };
+
+      const backendId = getBackendIdFromEvent(event);
+      
+      updateEvent(backendId, eventData).catch(error => {
+        console.error('Background resize update failed:', error);
+      });
+      
+      console.log('Event resize completed - UI already updated');
+      
+    } catch (error) {
+      console.error('Event resize error:', error);
+      resizeInfo.revert();
+    }
+  }, [updateEvent]);
+
+  // Helper function to extract backend ID
+  const getBackendIdFromEvent = useCallback((fcEvent) => {
+    const originalId = fcEvent.extendedProps?.originalEventId;
+    if (originalId) return originalId;
+    
+    const eventId = fcEvent.id;
+    if (eventId.includes('_')) {
+      return eventId.split('_')[0];
+    }
+    
+    return eventId;
+  }, []);
+
+  // Memoized events preparation
+  const allEvents = useMemo(() => [
     ...sortEventsByTime(currentEvents || []).map(event => ({
-      // Use frontendId for FullCalendar's internal tracking (prevents duplicates)
       id: event.extendedProps?.frontendId || event.id,
       title: event.title,
       start: event.start,
@@ -99,30 +177,26 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange, onViewChange, refres
       borderColor: event.borderColor,
       extendedProps: {
         ...event.extendedProps,
-        // Ensure we keep track of both IDs
-        eventId: event.extendedProps?.eventId || event.id, // For API calls
-        frontendId: event.extendedProps?.frontendId || event.id, // For React keys
-        originalEventId: event.extendedProps?.originalEventId, // For backend operations
+        eventId: event.extendedProps?.eventId || event.id,
+        frontendId: event.extendedProps?.frontendId || event.id,
+        originalEventId: event.extendedProps?.originalEventId,
       },
     })),
     ...(Array.isArray(dayMarkings) ? dayMarkings : [])
-  ];
+  ], [currentEvents, dayMarkings]);
 
-  // Helper function to get current events for a specific day
-  const getEventsForDay = (date: Date) => {
+  // Optimized events for day function
+  const getEventsForDay = useCallback((date: Date) => {
     if (!currentEvents) return [];
     
-    // Normalize the target date to avoid timezone issues
     const targetDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
     const targetDateStr = targetDate.toISOString().split('T')[0];
     
     return currentEvents.filter(event => {
       if (!event.start) return false;
       
-      // Handle different date formats
       let eventStartDate: Date;
       if (typeof event.start === 'string') {
-        // If it's a date-only string (all-day event)
         if (event.start.length === 10 && !event.start.includes('T')) {
           eventStartDate = new Date(event.start + 'T00:00:00');
         } else {
@@ -132,14 +206,11 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange, onViewChange, refres
         eventStartDate = new Date(event.start);
       }
       
-      // Normalize event start date
       const normalizedEventStart = new Date(eventStartDate.getFullYear(), eventStartDate.getMonth(), eventStartDate.getDate());
       const eventDateStr = normalizedEventStart.toISOString().split('T')[0];
       
-      // Check if the event is on the target date
       if (eventDateStr === targetDateStr) return true;
       
-      // Check if it's a multi-day event that spans the target date
       if (event.end) {
         let eventEndDate: Date;
         if (typeof event.end === 'string') {
@@ -160,41 +231,28 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange, onViewChange, refres
       
       return false;
     });
-  };
+  }, [currentEvents]);
 
-  // Create updated hoveredDay info with current events
-  const updatedHoveredDayInfo = hoveredDay ? {
-    ...hoveredDay,
-    events: getEventsForDay(hoveredDay.date)
-  } : null;
+  // Memoized hovered day info
+  const updatedHoveredDayInfo = useMemo(() => {
+    return hoveredDay ? {
+      ...hoveredDay,
+      events: getEventsForDay(hoveredDay.date)
+    } : null;
+  }, [hoveredDay, getEventsForDay]);
 
-  // Debug logging
-  useEffect(() => {
-    console.log('Current view:', currentView);
-    console.log('Current date:', currentDate);
-    console.log('Has initialized:', hasInitialized);
-    if (calendarRef.current) {
-      const api = calendarRef.current.getApi();
-      console.log('FullCalendar current date:', api.getDate());
-      console.log('FullCalendar view type:', api.view.type);
-    }
-  }, [currentView, currentDate, hasInitialized]);
-
-  const calendarContainerRef = useRef<HTMLDivElement>(null); // For modal positioning
+  const calendarContainerRef = useRef<HTMLDivElement>(null);
 
   // Handle event edit from DayDetailPopup
-  const handleEventEditFromPopup = (event: any) => {
+  const handleEventEditFromPopup = useCallback((event: any) => {
     console.log('Event clicked from popup:', event);
-    // This is called when an event is clicked in the popup
-    // The DayDetailPopup will handle opening its own modal
-  };
+  }, []);
 
-  // Handle event update from DayDetailPopup - FIXED to use proper event ID
-  const handleEventUpdateFromPopup = async (eventDetails: EventDetails) => {
+  // Handle event update from DayDetailPopup
+  const handleEventUpdateFromPopup = useCallback(async (eventDetails: EventDetails) => {
     try {
       console.log('Updating event from popup:', eventDetails);
       
-      // Convert EventDetails to the format expected by useAppState
       const updateData: Partial<AppStateEventDetails> = {
         event_name: eventDetails.event_name,
         date: eventDetails.date,
@@ -205,7 +263,6 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange, onViewChange, refres
         recurrence_pattern: eventDetails.recurrence_pattern,
         color: eventDetails.color,
         all_day: eventDetails.all_day,
-        // Keep other fields that might be needed with defaults
         virtual: false,
         urgency: 'medium' as const,
         event_type: '',
@@ -213,12 +270,10 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange, onViewChange, refres
         subcategories: '',
       };
 
-      // Use the eventId directly - useAppState will handle extracting the backend ID
       const result = await updateEvent(eventDetails.eventId, updateData);
       
       if (result) {
         console.log('Event updated successfully');
-        // Trigger refresh if needed
         if (onEventChange) {
           onEventChange();
         }
@@ -228,15 +283,28 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange, onViewChange, refres
     } catch (error) {
       console.error('Error updating event:', error);
     }
-  };
+  }, [updateEvent, onEventChange]);
 
-  const calculateMaxEvents = () => {
-    const screenHeight = window.innerHeight;
-    if (screenHeight >= 2160) return false; // 4K - no limit, fit all events
-    if (screenHeight >= 1440) return 6;     // 1440p - 6 events
-    if (screenHeight >= 600) return 4;     // 1080p - 4 events  
-    return 3;                               // smaller screens - 3 events
-  };
+  const memoizedSelectedEvent = useMemo(() => {
+    if (!selectedEvent) return null;
+    
+    return {
+      ...selectedEvent,
+      eventId: selectedEvent.eventId || '',
+      start_time: selectedEvent.start_time ?? '',
+      end_time: selectedEvent.end_time ?? ''
+    };
+  }, [selectedEvent]);
+
+  // Optimized datesSet handler to prevent unnecessary onViewChange calls
+  const handleDatesSet = useCallback((dateInfo) => {
+    setCurrentTitle(dateInfo.view.title);
+    const newView = dateInfo.view.type;
+    const newDate = dateInfo.view.currentStart;
+    
+    // Use the optimized handler that prevents unnecessary calls
+    handleViewChange(newView, newDate);
+  }, [setCurrentTitle, handleViewChange]);
 
   return (
     <div className='big-container'>
@@ -258,7 +326,7 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange, onViewChange, refres
             onViewChange={onViewChange}
           />
 
-          {/* Calendar Container - Use calendarContainerRef here */}
+          {/* Calendar Container */}
           <div ref={calendarContainerRef} className="flex-1" style={{ 
             userSelect: 'none'
           }}>
@@ -287,7 +355,10 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange, onViewChange, refres
               displayEventEnd={false}
               displayEventTime={true}
               eventResizable={true}
-              eventResize={handleEventResize}
+              
+              eventDrop={handleEventDropFixed}
+              eventResize={handleEventResizeFixed}
+              
               eventTimeFormat={{
                 hour: 'numeric',
                 minute: '2-digit',
@@ -299,27 +370,21 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange, onViewChange, refres
               events={allEvents}
               select={handleDateSelect}
               eventClick={handleEventClick}
-              eventDrop={handleEventDrop}
 
               eventDidMount={(info) => {
                 const eventColor = info.event.backgroundColor || info.event.borderColor || '#3788d8';
                 const element = info.el as HTMLElement;
                 
-                // Apply styling using utility function
                 const { hsl, lightness, saturation, baseColor, borderColor, textColor } = applyEventStyling(element, eventColor);
                 
-                // Add hover effects using utility function
                 addEventHoverEffects(element, hsl, saturation, lightness, baseColor, borderColor);
                 
-                // Fix text positioning and visibility
                 const titleElement = element.querySelector('.fc-event-title') as HTMLElement;
                 const timeElement = element.querySelector('.fc-event-time') as HTMLElement;
                 const eventMain = element.querySelector('.fc-event-main') as HTMLElement;
                 
-                // Check if we're in week view (timeGrid views)
                 const isWeekView = info.view.type.includes('timeGrid');
                 
-                // Calculate event duration and height to determine if it's a short event
                 let isShortEvent = false;
                 let isMediumEvent = false;
                 let eventHeight = 0;
@@ -330,19 +395,13 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange, onViewChange, refres
                   const durationMinutes = (end.getTime() - start.getTime()) / (1000 * 60);
                   eventHeight = element.offsetHeight;
                   
-                  // Categorize events by duration primarily, with height as secondary check
                   if (durationMinutes <= 15) {
                     isShortEvent = true;
                   } else if (durationMinutes > 15 && durationMinutes <= 30) {
                     isMediumEvent = true;
                   }
-                  // Anything longer than 30 minutes is considered a "tall" event
-                  
-                  console.log('Event duration:', durationMinutes, 'minutes, Height:', eventHeight, 'px', 
-                              'isShort:', isShortEvent, 'isMedium:', isMediumEvent);
                 }
                 
-                // Ensure the main container doesn't clip content
                 if (eventMain) {
                   eventMain.style.overflow = 'visible';
                   eventMain.style.height = '100%';
@@ -352,32 +411,28 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange, onViewChange, refres
                   
                   if (isWeekView) {
                     if (isShortEvent) {
-                      // Compact padding for very short events (15 min)
-                      eventMain.style.padding = '1px 2px 0px 6px'; // Reduced top and bottom padding
+                      eventMain.style.padding = '1px 2px 0px 6px';
                     } else if (isMediumEvent) {
-                      // Medium padding for 30-minute events
-                      eventMain.style.padding = '3px 3px 2px 5px'; // More top padding for 30-min events
+                      eventMain.style.padding = '3px 3px 2px 5px';
                     } else {
-                      // More spacious padding for longer events
-                      eventMain.style.padding = '4px 3px 2px 4px'; // Original spaced padding with slight left increase
+                      eventMain.style.padding = '4px 3px 2px 4px';
                     }
                   } else {
-                    eventMain.style.padding = '1px 2px'; // Keep original padding for other views
+                    eventMain.style.padding = '1px 2px';
                   }
                 }
                 
-                // Additional container padding for week view
                 if (isWeekView) {
                   if (isShortEvent) {
-                    element.style.paddingLeft = '4px'; // Additional left padding for short events
-                    element.style.paddingTop = '0px'; // No additional top padding to keep it compact
-                    element.style.transform = 'translateY(-1px)'; // Shift up slightly for better fit
+                    element.style.paddingLeft = '4px';
+                    element.style.paddingTop = '0px';
+                    element.style.transform = 'translateY(-1px)';
                   } else if (isMediumEvent) {
-                    element.style.paddingLeft = '3px'; // Medium left padding for 30-min events
-                    element.style.paddingTop = '2px'; // More top padding for 30-min events
+                    element.style.paddingLeft = '3px';
+                    element.style.paddingTop = '2px';
                   } else {
-                    element.style.paddingLeft = '2px'; // Less additional padding for taller events
-                    element.style.paddingTop = '2px'; // More top padding for taller events
+                    element.style.paddingLeft = '2px';
+                    element.style.paddingTop = '2px';
                   }
                 }
                 
@@ -388,16 +443,15 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange, onViewChange, refres
                   titleElement.style.overflow = 'visible';
                   
                   if (isWeekView) {
-                    titleElement.style.lineHeight = '1'; // Keep original line-height for week view
+                    titleElement.style.lineHeight = '1';
                     if (isShortEvent) {
-                      titleElement.style.fontSize = '12px'; // Larger font for short events
+                      titleElement.style.fontSize = '12px';
                     } else if (isMediumEvent) {
-                      titleElement.style.fontSize = '12px'; // Same size for 30-min events
+                      titleElement.style.fontSize = '12px';
                     } else {
-                      titleElement.style.fontSize = '13px'; // Even larger font for taller events
+                      titleElement.style.fontSize = '13px';
                     }
                   } else {
-                    // Original styling for month view and other views
                     titleElement.style.lineHeight = '1';
                     titleElement.style.fontSize = '12px';
                   }
@@ -410,16 +464,15 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange, onViewChange, refres
                   timeElement.style.overflow = 'visible';
                   
                   if (isWeekView) {
-                    timeElement.style.lineHeight = '1'; // Keep original line-height for week view
+                    timeElement.style.lineHeight = '1';
                     if (isShortEvent) {
-                      timeElement.style.fontSize = '11px'; // Larger time font for short events
+                      timeElement.style.fontSize = '11px';
                     } else if (isMediumEvent) {
-                      timeElement.style.fontSize = '11px'; // Same size for 30-min events
+                      timeElement.style.fontSize = '11px';
                     } else {
-                      timeElement.style.fontSize = '12px'; // Even larger time font for taller events
+                      timeElement.style.fontSize = '12px';
                     }
                   } else {
-                    // Original styling for month view and other views
                     timeElement.style.lineHeight = '1';
                     timeElement.style.fontSize = '12px';
                   }
@@ -432,28 +485,16 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange, onViewChange, refres
               viewDidMount={(viewInfo) => {
                 setCurrentTitle(viewInfo.view.title);
               }}
-              datesSet={(dateInfo) => {
-                setCurrentTitle(dateInfo.view.title);
-                const newView = dateInfo.view.type;
-                const newDate = dateInfo.view.currentStart;
-                
-                if (newView !== currentView) {
-                  setCurrentView(newView);
-                  if (onViewChange) onViewChange(newView);
-                }
-                if (Math.abs(newDate.getTime() - (currentDate?.getTime() || 0)) > 24 * 60 * 60 * 1000) {
-                  setCurrentDate(newDate);
-                }
-              }}
+              datesSet={handleDatesSet}
               fixedWeekCount={false}
 
-              aspectRatio={1.35} // Controls height ratio
+              aspectRatio={1.35}
               eventOrder="start,-duration,title"
             />
             )}
           </div>
 
-          {/* Day Detail Popup - Now uses updatedHoveredDayInfo with current events */}
+          {/* Day Detail Popup */}
           {updatedHoveredDayInfo && !isModalOpen && (
             <DayDetailPopup 
               info={updatedHoveredDayInfo} 
@@ -466,17 +507,12 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange, onViewChange, refres
             />
           )}
 
-          {/* Event Modal - Use calendarContainerRef here */}
+          {/* Event Modal */}
           {selectedEvent && (
             <EventModal
               isOpen={isModalOpen}
               onClose={handleModalClose}
-              selectedEvent={{
-                ...selectedEvent,
-                eventId: selectedEvent.eventId || '',
-                start_time: selectedEvent.start_time ?? '',
-                end_time: selectedEvent.end_time ?? ''
-              }}
+              selectedEvent={selectedEvent}
               position={modalPosition}
               calendarContainerRef={calendarContainerRef}
               onChange={handleEventChange}

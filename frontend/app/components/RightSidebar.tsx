@@ -1,7 +1,20 @@
-import React, { useState, useEffect, useRef } from 'react';
+
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { ChevronLeft, ChevronRight, Send, Sparkles, User } from 'lucide-react';
-import { authAPI } from '../../lib/auth'; // Adjust path as needed
-import { useAppState } from '../hooks/useAppState';
+import { authAPI } from '../../lib/auth';
+import { useAppState } from '../hooks/useAppState'; // Added for refresh logic
+
+// Debounce utility function (copied from Sidebar)
+const debounce = <T extends (...args: any[]) => void>(
+  func: T,
+  wait: number
+): ((...args: Parameters<T>) => void) => {
+  let timeout: NodeJS.Timeout | null = null;
+  return (...args: Parameters<T>) => {
+    if (timeout) clearTimeout(timeout);
+    timeout = setTimeout(() => func(...args), wait);
+  };
+};
 
 const RotatingGradientAnimation = ({ size = 128 }) => {
   const [rotation, setRotation] = React.useState(0);
@@ -44,14 +57,12 @@ const RotatingGradientAnimation = ({ size = 128 }) => {
   );
 };
 
-// FIXED: Updated interface to include all props being passed
 interface RightSidebarProps {
   isOpen?: boolean;
   onToggle?: () => void;
   forceClose?: boolean;
   navbarVisible?: boolean;
   onEventChange?: () => void;
-  // NEW: Added missing props that Page component is passing
   events?: any[];
   tasks?: any[];
   onEventCreate?: (eventData: any) => Promise<any>;
@@ -82,7 +93,6 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
   forceClose = false,
   navbarVisible = false,
   onEventChange,
-  // NEW: Destructure the new props (with defaults)
   events = [],
   tasks = [],
   onEventCreate,
@@ -92,6 +102,7 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
   onTaskUpdate,
   onTaskDelete
 }) => {
+  // State variables
   const [internalIsOpen, setInternalIsOpen] = useState(true);
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -105,13 +116,43 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
   const [isTyping, setIsTyping] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
-  // Ref for the messages container to enable auto-scrolling
+  // Get access to useAppState for proper data refresh (copying Sidebar pattern)
+  const { initializeData } = useAppState();
+  
+  // Refs for proper component lifecycle management (copying Sidebar pattern)
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const isMountedRef = useRef<boolean>(true);
+  const refreshInProgressRef = useRef<boolean>(false);
   
   // Use controlled state if provided, otherwise use internal state
   const isOpen = controlledIsOpen !== undefined ? controlledIsOpen : internalIsOpen;
   const handleToggle = onToggle || (() => setInternalIsOpen(!internalIsOpen));
+
+  // Cleanup on unmount (copied from Sidebar)
+  useEffect(() => {
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
+  // Debounced refresh function (copied exactly from Sidebar)
+  const debouncedRefresh = useCallback(
+    debounce(async () => {
+      if (refreshInProgressRef.current || !isMountedRef.current) return;
+      
+      refreshInProgressRef.current = true;
+      try {
+        await initializeData(true); // Force fresh data fetch
+        if (onEventChange) {
+          onEventChange(); // Update refresh trigger
+        }
+      } finally {
+        refreshInProgressRef.current = false;
+      }
+    }, 500),
+    [initializeData, onEventChange]
+  );
 
   // Auto-scroll to bottom function
   const scrollToBottom = () => {
@@ -190,7 +231,7 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
     }
   };
 
-  // IMPROVED: Better calendar refresh logic with proper error handling and logging
+  // Main message handler with Sidebar's exact refresh pattern
   const handleSendMessage = async () => {
     if (!inputMessage.trim() || isTyping) return;
 
@@ -202,14 +243,13 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
     };
 
     setMessages(prev => [...prev, userMessage]);
-    const originalMessage = inputMessage; // Store original message
+    const originalMessage = inputMessage;
     setInputMessage('');
     setIsTyping(true);
 
     try {
       console.log('Sending message to AI:', originalMessage);
       
-      // Send message to LLM backend
       const { response: llmResponse, calendarUpdated } = await sendMessageToLLM(originalMessage);
       
       console.log('AI Response received:', {
@@ -217,7 +257,6 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
         calendarUpdated: calendarUpdated
       });
       
-      // Add AI response
       const aiResponse: Message = {
         id: (Date.now() + 1).toString(),
         content: llmResponse,
@@ -227,47 +266,10 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
       
       setMessages(prev => [...prev, aiResponse]);
 
-      // IMPROVED: Better calendar refresh logic
+      // Use the exact same refresh logic as Sidebar
       if (calendarUpdated) {
-        console.log('🔄 AI made calendar changes, triggering refresh...');
-        
-        if (onEventChange) {
-          try {
-            // Call the refresh function and wait for it
-            await onEventChange();
-            console.log('✅ Calendar refresh completed successfully');
-            
-            // Add a confirmation message to the chat
-            const confirmationMessage: Message = {
-              id: (Date.now() + 2).toString(),
-              content: '✅ Calendar has been updated with your changes!',
-              sender: 'ai',
-              timestamp: new Date()
-            };
-            
-            // Add confirmation after a brief delay
-            setTimeout(() => {
-              setMessages(prev => [...prev, confirmationMessage]);
-            }, 500);
-            
-          } catch (refreshError) {
-            console.error('❌ Error during calendar refresh:', refreshError);
-            
-            // Add error message to chat
-            const refreshErrorMessage: Message = {
-              id: (Date.now() + 2).toString(),
-              content: '⚠️ Changes were made but there was an issue refreshing the calendar. Please refresh the page to see updates.',
-              sender: 'ai',
-              timestamp: new Date()
-            };
-            
-            setTimeout(() => {
-              setMessages(prev => [...prev, refreshErrorMessage]);
-            }, 500);
-          }
-        } else {
-          console.warn('⚠️ Calendar updated but no onEventChange callback provided');
-        }
+        console.log('🔄 AI made calendar changes, triggering refresh using Sidebar pattern...');
+        debouncedRefresh(); // This is exactly what Sidebar does!
       } else {
         console.log('ℹ️ No calendar changes were made by the AI');
       }
@@ -275,7 +277,6 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
     } catch (error) {
       console.error('❌ Error processing AI message:', error);
       
-      // Add error message to chat
       const errorMessage: Message = {
         id: (Date.now() + 1).toString(),
         content: 'Sorry, I encountered an error processing your message. Please try again.',

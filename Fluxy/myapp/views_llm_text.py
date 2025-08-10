@@ -16,6 +16,7 @@ import pytz
 from myapp.models import LLMUsage
 import time
 import re
+from dateutil import rrule
 
 
 
@@ -109,10 +110,8 @@ class LLMConfig:
         return enabled or ['gemini']  # Fallback to gemini if none found
 
 
-
-
 class BaseLLMProvider(ABC):
-    """Ultra-efficient token-minimized calendar LLM provider"""
+    """Ultra-efficient token-minimized calendar LLM provider with recurring events support"""
     
     def __init__(self, api_key: str, model: str, events_function=None, update_event_function=None, create_event_function=None, delete_event_function=None):
         if not api_key or not api_key.strip():
@@ -145,8 +144,8 @@ class BaseLLMProvider(ABC):
     
     # ==================== TIME/DATE UTILITIES ====================
     
-    def get_current_week_info(self) -> Tuple[date, int, str]:
-        """Get week start date, current day index (0=Mon), and compact week range"""
+    def get_current_timeframe_info(self) -> Tuple[date, date, int, str]:
+        """Get today's date, tomorrow's date, current day index, and compact range"""
         try:
             pacific_tz = pytz.timezone('America/Los_Angeles')
             now = timezone.now().astimezone(pacific_tz)
@@ -154,20 +153,21 @@ class BaseLLMProvider(ABC):
         except:
             today = datetime.now().date()
         
-        # Get Monday of current week
-        days_since_monday = today.weekday()
-        week_start = today - timedelta(days=days_since_monday)
-        current_day_idx = days_since_monday
+        tomorrow = today + timedelta(days=1)
+        current_day_idx = today.weekday()  # 0=Mon, 6=Sun
         
-        # Compact week range: "Jan15-21/25"
-        week_end = week_start + timedelta(days=6)
-        month_abbrev = week_start.strftime('%b')
-        week_range = f"{month_abbrev}{week_start.day}-{week_end.day}/{week_start.strftime('%y')}"
+        # Compact range: "Jan15-16/25" (today-tomorrow)
+        month_abbrev = today.strftime('%b')
+        if today.month == tomorrow.month:
+            range_str = f"{month_abbrev}{today.day}-{tomorrow.day}/{today.strftime('%y')}"
+        else:
+            tomorrow_month = tomorrow.strftime('%b')
+            range_str = f"{month_abbrev}{today.day}-{tomorrow_month}{tomorrow.day}/{today.strftime('%y')}"
         
-        return week_start, current_day_idx, week_range
+        return today, tomorrow, current_day_idx, range_str
     
     def date_to_compact(self, date_obj) -> str:
-        """Convert date to compact format: M15 (Mon15), T16 (Tue16), etc."""
+        """Convert date to compact format: TODAY, TOMORROW, or full date"""
         try:
             if hasattr(date_obj, 'date'):
                 date_obj = date_obj.date()
@@ -175,56 +175,29 @@ class BaseLLMProvider(ABC):
                 date_part = date_obj.split(' ')[0].split('T')[0]
                 date_obj = datetime.strptime(date_part, '%Y-%m-%d').date()
             
-            week_start, _, _ = self.get_current_week_info()
-            day_diff = (date_obj - week_start).days
+            today, tomorrow, _, _ = self.get_current_timeframe_info()
             
-            if 0 <= day_diff <= 6:
-                day_letters = ['M', 'T', 'W', 'R', 'F', 'S', 'U']  # Mon-Sun
-                return f"{day_letters[day_diff]}{date_obj.day}"
+            if date_obj == today:
+                return "TODAY"
+            elif date_obj == tomorrow:
+                return "TOMORROW"
             else:
-                # Outside current week - use full compact: Jan15/25
+                # Outside our 2-day window - use full compact: Jan15/25
                 return f"{date_obj.strftime('%b')}{date_obj.day}/{date_obj.strftime('%y')}"
         except Exception as e:
             print(f"DEBUG: Error in date_to_compact: {e}")
             return str(date_obj)
     
     def compact_to_date(self, compact: str) -> Optional[date]:
-        """Convert compact format like W17 or M6 to a real date."""
+        """Convert compact format like TODAY, TOMORROW to real date"""
         try:
-            compact = compact.strip()
-            week_start, _, _ = self.get_current_week_info()
+            compact = compact.strip().upper()
+            today, tomorrow, _, _ = self.get_current_timeframe_info()
             
-            print(f"DEBUG: Converting compact date '{compact}' with week_start {week_start}")
-            
-            # Handle current week format: M15, T16, etc.
-            if len(compact) >= 2 and compact[0] in 'MTWRFSU':
-                day_letters = {'M': 0, 'T': 1, 'W': 2, 'R': 3, 'F': 4, 'S': 5, 'U': 6}
-                day_idx = day_letters.get(compact[0])
-                
-                if day_idx is not None:
-                    try:
-                        day_num = int(compact[1:])
-                        # Get the weekday of current week
-                        base_date = week_start + timedelta(days=day_idx)
-                        
-                        # If day_num matches the actual day, use it
-                        if base_date.day == day_num:
-                            print(f"DEBUG: Exact match for {compact} -> {base_date}")
-                            return base_date
-                        
-                        # Otherwise, try to create date with same day number in base_date's month
-                        try:
-                            result_date = base_date.replace(day=day_num)
-                            print(f"DEBUG: Adjusted date for {compact} -> {result_date}")
-                            return result_date
-                        except ValueError:
-                            # Day doesn't exist in month, use base_date
-                            print(f"DEBUG: Invalid day {day_num}, using base_date {base_date}")
-                            return base_date
-                            
-                    except ValueError:
-                        print(f"DEBUG: Invalid day number in {compact}")
-                        return None
+            if compact == "TODAY":
+                return today
+            elif compact == "TOMORROW":
+                return tomorrow
             
             # Handle full format: Jan15/25
             if '/' in compact:
@@ -237,9 +210,9 @@ class BaseLLMProvider(ABC):
                     if month_match:
                         month_str, day_str = month_match.groups()
                         month_num = {
-                            'Jan': 1, 'Feb': 2, 'Mar': 3, 'Apr': 4, 'May': 5, 'Jun': 6,
-                            'Jul': 7, 'Aug': 8, 'Sep': 9, 'Oct': 10, 'Nov': 11, 'Dec': 12
-                        }.get(month_str)
+                            'JAN': 1, 'FEB': 2, 'MAR': 3, 'APR': 4, 'MAY': 5, 'JUN': 6,
+                            'JUL': 7, 'AUG': 8, 'SEP': 9, 'OCT': 10, 'NOV': 11, 'DEC': 12
+                        }.get(month_str.upper())
                         if month_num:
                             result = date(int(year), month_num, int(day_str))
                             print(f"DEBUG: Full format {compact} -> {result}")
@@ -251,7 +224,7 @@ class BaseLLMProvider(ABC):
         except Exception as e:
             print(f"DEBUG: Error in compact_to_date: {e}")
             return None
-    
+        
     def time_to_compact(self, time_obj) -> str:
         """Convert time to compact format: 14:30 -> 1430"""
         try:
@@ -275,7 +248,6 @@ class BaseLLMProvider(ABC):
         """Convert compact format back to time: 1430 -> 14:30"""
         try:
             compact = compact.strip()
-            print(f"DEBUG: Converting compact time '{compact}'")
             
             # Handle 4-digit times like 1430
             if len(compact) == 4 and compact.isdigit():
@@ -283,7 +255,6 @@ class BaseLLMProvider(ABC):
                 minutes = int(compact[2:])
                 if 0 <= hours <= 23 and 0 <= minutes <= 59:
                     result = time_module(hours, minutes)
-                    print(f"DEBUG: 4-digit time {compact} -> {result}")
                     return result
                     
             # Handle 3-digit times like 930 (9:30)
@@ -292,7 +263,6 @@ class BaseLLMProvider(ABC):
                 minutes = int(compact[1:])
                 if 0 <= hours <= 23 and 0 <= minutes <= 59:
                     result = time_module(hours, minutes)
-                    print(f"DEBUG: 3-digit time {compact} -> {result}")
                     return result
                     
             # Handle 2-digit times like 15 (assume 15:00)
@@ -300,7 +270,6 @@ class BaseLLMProvider(ABC):
                 hours = int(compact)
                 if 0 <= hours <= 23:
                     result = time_module(hours, 0)
-                    print(f"DEBUG: 2-digit time {compact} -> {result}")
                     return result
                     
             # Handle 1-digit times like 9 (assume 9:00)
@@ -308,7 +277,6 @@ class BaseLLMProvider(ABC):
                 hours = int(compact)
                 if 0 <= hours <= 9:
                     result = time_module(hours, 0)
-                    print(f"DEBUG: 1-digit time {compact} -> {result}")
                     return result
             
             print(f"DEBUG: Could not parse compact time: {compact}")
@@ -318,13 +286,265 @@ class BaseLLMProvider(ABC):
             print(f"DEBUG: Error in compact_to_time: {e}")
             return None
     
-    # ==================== EVENT PROCESSING ====================
+    # ==================== RECURRING EVENTS HANDLING ====================
     
-    def assign_event_id(self, event_name: str, date_str: str) -> str:
+    def expand_recurring_events(self, events: List) -> List[Dict]:
+        """Expand recurring events for today and tomorrow only"""
+        today, tomorrow, _, _ = self.get_current_timeframe_info()
+        expanded_events = []
+        
+        for event in events:
+            recurrence_pattern = getattr(event, 'recurrence_pattern', None)
+            
+            if not recurrence_pattern:
+                # Non-recurring event - include if within our timeframe
+                event_date = getattr(event, 'date', None)
+                if event_date:
+                    if hasattr(event_date, 'date'):
+                        check_date = event_date.date()
+                    elif isinstance(event_date, str):
+                        date_part = event_date.split(' ')[0].split('T')[0]
+                        check_date = datetime.strptime(date_part, '%Y-%m-%d').date()
+                    else:
+                        check_date = event_date
+                    
+                    if check_date in [today, tomorrow]:
+                        expanded_events.append({
+                            'original_event': event,
+                            'occurrence_date': check_date,
+                            'is_recurring': False
+                        })
+            else:
+                # Recurring event - expand for today and tomorrow
+                try:
+                    expanded_events.extend(self._expand_single_recurring_event(event, today, tomorrow))
+                except Exception as e:
+                    print(f"DEBUG: Error expanding recurring event {getattr(event, 'event_name', 'Unknown')}: {e}")
+                    continue
+        
+        return expanded_events
+    
+    def _expand_single_recurring_event(self, event, start_date: date, end_date: date) -> List[Dict]:
+        """Expand a single recurring event using rrule"""
+        recurrence_pattern = event.recurrence_pattern
+        event_date = getattr(event, 'date', None)
+        
+        if not event_date:
+            return []
+        
+        # Get the original event date
+        if hasattr(event_date, 'date'):
+            original_date = event_date.date()
+        elif isinstance(event_date, str):
+            date_part = event_date.split(' ')[0].split('T')[0]
+            original_date = datetime.strptime(date_part, '%Y-%m-%d').date()
+        else:
+            original_date = event_date
+        
+        expanded = []
+        
+        try:
+            # Parse common recurrence patterns
+            rrule_obj = self._parse_recurrence_pattern(recurrence_pattern, original_date)
+            
+            if rrule_obj:
+                # Generate occurrences for our date range
+                occurrences = rrule_obj.between(
+                    datetime.combine(start_date, datetime.min.time()),
+                    datetime.combine(end_date + timedelta(days=1), datetime.min.time()),
+                    inc=True
+                )
+                
+                for occurrence in occurrences:
+                    occurrence_date = occurrence.date()
+                    if occurrence_date in [start_date, end_date]:
+                        expanded.append({
+                            'original_event': event,
+                            'occurrence_date': occurrence_date,
+                            'is_recurring': True,
+                            'original_date': original_date
+                        })
+            
+        except Exception as e:
+            print(f"DEBUG: Error in rrule expansion: {e}")
+            # Fallback: treat as non-recurring if within range
+            if original_date in [start_date, end_date]:
+                expanded.append({
+                    'original_event': event,
+                    'occurrence_date': original_date,
+                    'is_recurring': False
+                })
+        
+        return expanded
+    
+    def _parse_recurrence_pattern(self, pattern: str, start_date: date) -> Optional[rrule.rrule]:
+        """Parse recurrence pattern string to rrule object"""
+        if not pattern:
+            return None
+        
+        pattern = pattern.upper().strip()
+        start_datetime = datetime.combine(start_date, datetime.min.time())
+        
+        # Common patterns
+        if pattern in ['DAILY', 'EVERY DAY']:
+            return rrule.rrule(rrule.DAILY, dtstart=start_datetime)
+        elif pattern in ['WEEKLY', 'EVERY WEEK']:
+            return rrule.rrule(rrule.WEEKLY, dtstart=start_datetime)
+        elif pattern in ['MONTHLY', 'EVERY MONTH']:
+            return rrule.rrule(rrule.MONTHLY, dtstart=start_datetime)
+        elif pattern in ['YEARLY', 'EVERY YEAR']:
+            return rrule.rrule(rrule.YEARLY, dtstart=start_datetime)
+        elif 'WEEKDAY' in pattern or 'MON-FRI' in pattern:
+            return rrule.rrule(rrule.DAILY, byweekday=(rrule.MO, rrule.TU, rrule.WE, rrule.TH, rrule.FR), dtstart=start_datetime)
+        elif 'WEEKEND' in pattern:
+            return rrule.rrule(rrule.WEEKLY, byweekday=(rrule.SA, rrule.SU), dtstart=start_datetime)
+        
+        # Try to parse as rrule string directly
+        try:
+            if pattern.startswith('RRULE:'):
+                return rrule.rrulestr(pattern, dtstart=start_datetime)
+            else:
+                return rrule.rrulestr(f'RRULE:{pattern}', dtstart=start_datetime)
+        except:
+            print(f"DEBUG: Could not parse recurrence pattern: {pattern}")
+            return None
+    
+    # ==================== CONFLICT DETECTION (Updated for 2-day view) ====================
+    
+    def parse_event_time(self, event_str: str) -> Optional[Dict]:
+        """Parse a compact event string into structured data"""
+        try:
+            # Format: "A:Team meeting:TODAY:1400-1530"
+            parts = event_str.split(':')
+            if len(parts) < 4:
+                return None
+                
+            event_id = parts[0]
+            event_name = parts[1]
+            date_str = parts[2]
+            time_str = parts[3]
+            
+            # Parse date
+            event_date = self.compact_to_date(date_str)
+            if not event_date:
+                return None
+            
+            # Parse time range
+            if '-' not in time_str:
+                return None
+                
+            start_str, end_str = time_str.split('-', 1)
+            start_time = self.compact_to_time(start_str)
+            end_time = self.compact_to_time(end_str)
+            
+            if not start_time or not end_time:
+                return None
+                
+            return {
+                'id': event_id,
+                'name': event_name,
+                'date': event_date,
+                'start_time': start_time,
+                'end_time': end_time,
+                'start_minutes': start_time.hour * 60 + start_time.minute,
+                'end_minutes': end_time.hour * 60 + end_time.minute,
+                'original': event_str
+            }
+        except Exception as e:
+            print(f"DEBUG: Error parsing event {event_str}: {e}")
+            return None
+    
+    def detect_conflicts(self, events_data: List[str], new_event: Dict = None) -> Dict[str, Any]:
+        """Detect scheduling conflicts within the same day"""
+        # Parse all events
+        parsed_events = []
+        for event_str in events_data:
+            parsed = self.parse_event_time(event_str)
+            if parsed:
+                parsed_events.append(parsed)
+        
+        # Add new event if provided
+        if new_event:
+            parsed_events.append(new_event)
+        
+        print(f"DEBUG CONFLICT: Checking {len(parsed_events)} events for conflicts")
+        
+        # Group by date
+        events_by_date = {}
+        for event in parsed_events:
+            date_str = event['date'].strftime('%Y-%m-%d')
+            if date_str not in events_by_date:
+                events_by_date[date_str] = []
+            events_by_date[date_str].append(event)
+        
+        # Find conflicts within each day
+        conflicts = []
+        for date_str, day_events in events_by_date.items():
+            if len(day_events) <= 1:
+                continue
+            
+            day_events.sort(key=lambda x: x['start_minutes'])
+            
+            for i in range(len(day_events)):
+                for j in range(i + 1, len(day_events)):
+                    event1, event2 = day_events[i], day_events[j]
+                    
+                    overlap_start = max(event1['start_minutes'], event2['start_minutes'])
+                    overlap_end = min(event1['end_minutes'], event2['end_minutes'])
+                    
+                    if overlap_start < overlap_end:
+                        conflicts.append({
+                            'date': date_str,
+                            'event1': event1,
+                            'event2': event2,
+                            'overlap_start': overlap_start,
+                            'overlap_end': overlap_end
+                        })
+        
+        return {
+            'has_conflicts': len(conflicts) > 0,
+            'conflicts': conflicts,
+            'total_events': len(parsed_events),
+            'events_by_date': events_by_date
+        }
+    
+    def generate_conflict_summary(self, conflicts: List[Dict]) -> str:
+        """Generate human-readable conflict summary"""
+        if not conflicts:
+            return "No scheduling conflicts detected."
+        
+        summaries = []
+        for conflict in conflicts:
+            e1 = conflict['event1']
+            e2 = conflict['event2']
+            
+            def mins_to_time(minutes):
+                hours = minutes // 60
+                mins = minutes % 60
+                period = "AM" if hours < 12 else "PM"
+                display_hours = hours if hours <= 12 else hours - 12
+                if display_hours == 0:
+                    display_hours = 12
+                return f"{display_hours}:{mins:02d} {period}"
+            
+            overlap_start = mins_to_time(conflict['overlap_start'])
+            overlap_end = mins_to_time(conflict['overlap_end'])
+            
+            summary = (f"CONFLICT: '{e1['name']}' ({mins_to_time(e1['start_minutes'])}-{mins_to_time(e1['end_minutes'])}) "
+                      f"overlaps with '{e2['name']}' ({mins_to_time(e2['start_minutes'])}-{mins_to_time(e2['end_minutes'])}) "
+                      f"during {overlap_start}-{overlap_end}")
+            summaries.append(summary)
+        
+        return "\n".join(summaries)
+    
+    # ==================== EVENT PROCESSING (Updated for recurring events) ====================
+    
+    def assign_event_id(self, event_name: str, date_str: str, is_recurring: bool = False) -> str:
         """Assign ultra-compact event ID: A, B, C, etc."""
-        key = f"{event_name.lower().strip()}_{date_str}"
+        suffix = "_R" if is_recurring else ""
+        key = f"{event_name.lower().strip()}_{date_str}{suffix}"
+        
         if key not in self._event_cache:
-            # Use single letters: A-Z, then AA-ZZ
             if self._id_counter < 26:
                 event_id = chr(ord('A') + self._id_counter)
             else:
@@ -337,67 +557,29 @@ class BaseLLMProvider(ABC):
         
         return self._event_cache[key]
     
-    def get_event_id(self, event_name: str, date_str: str) -> Optional[str]:
-        """Get existing event ID if it exists"""
-        key = f"{event_name.lower().strip()}_{date_str}"
-        return self._event_cache.get(key)
-    
-    def compress_event_name(self, name: str) -> str:
-        """Compress event names intelligently"""
-        name = name.strip()
-        
-        # Common abbreviations
-        replacements = {
-            'meeting': 'mtg', 'Meeting': 'Mtg',
-            'appointment': 'appt', 'Appointment': 'Appt',
-            'conference': 'conf', 'Conference': 'Conf',
-            'interview': 'intv', 'Interview': 'Intv',
-            'training': 'trng', 'Training': 'Trng',
-            'presentation': 'pres', 'Presentation': 'Pres',
-            'workshop': 'wksp', 'Workshop': 'Wksp',
-            'consultation': 'consult', 'Consultation': 'Consult',
-            'follow up': 'f/u', 'Follow up': 'F/u',
-            'follow-up': 'f/u', 'Follow-up': 'F/u'
-        }
-        
-        for full, abbrev in replacements.items():
-            name = name.replace(full, abbrev)
-        
-        return name
-    
     def fetch_events_ultra_compact(self) -> List[str]:
-        """Fetch events in ultra-compact format: ['A:Team mtg:M15:1400-1530', ...]"""
+        """Fetch events in ultra-compact format for today and tomorrow only"""
         if not self.events_function:
             return []
         
         try:
             all_events = self.events_function()
-            week_start, _, _ = self.get_current_week_info()
-            week_end = week_start + timedelta(days=6)
+            today, tomorrow, _, _ = self.get_current_timeframe_info()
+            
+            # Expand recurring events
+            expanded_events = self.expand_recurring_events(all_events)
             
             compact_events = []
-            self._event_cache.clear()  # Reset cache
+            self._event_cache.clear()
             self._id_counter = 0
             
-            print(f"DEBUG: Processing {len(all_events)} total events")
+            print(f"DEBUG: Processing {len(expanded_events)} expanded events for today/tomorrow")
             
-            for event in all_events:
+            for expanded_event in expanded_events:
                 try:
-                    event_date = getattr(event, 'date', None)
-                    if not event_date:
-                        continue
-                    
-                    # Check if in current week
-                    if hasattr(event_date, 'date'):
-                        check_date = event_date.date()
-                    elif isinstance(event_date, str):
-                        date_part = event_date.split(' ')[0].split('T')[0]
-                        check_date = datetime.strptime(date_part, '%Y-%m-%d').date()
-                    else:
-                        check_date = event_date
-                    
-                    if not (week_start <= check_date <= week_end):
-                        continue
+                    event = expanded_event['original_event']
+                    occurrence_date = expanded_event['occurrence_date']
+                    is_recurring = expanded_event['is_recurring']
                     
                     # Extract event info
                     name = getattr(event, 'event_name', 'Untitled')
@@ -405,30 +587,34 @@ class BaseLLMProvider(ABC):
                     end_time = getattr(event, 'end_time', '')
                     db_id = getattr(event, 'id', None)
                     
-                    # Compress and format
-                    compact_name = self.compress_event_name(name)
-                    compact_date = self.date_to_compact(check_date)
+                    # Format with TODAY/TOMORROW
+                    compact_date = self.date_to_compact(occurrence_date)
                     compact_start = self.time_to_compact(start_time)
                     compact_end = self.time_to_compact(end_time)
                     
                     # Assign compact ID
-                    event_id = self.assign_event_id(name, str(check_date))
+                    event_id = self.assign_event_id(name, str(occurrence_date), is_recurring)
                     
-                    # Store mapping to database ID - THIS IS CRITICAL
+                    # Store mapping to database ID
                     if db_id:
-                        self._event_cache[f"db_{event_id}"] = db_id
-                        print(f"DEBUG: Mapped event {event_id} -> database ID {db_id} ({name})")
+                        cache_key = f"db_{event_id}"
+                        if is_recurring:
+                            cache_key += f"_{occurrence_date.strftime('%Y%m%d')}"
+                        self._event_cache[cache_key] = db_id
+                        print(f"DEBUG: Mapped event {event_id} -> database ID {db_id} ({name}) {'[RECURRING]' if is_recurring else ''}")
+                    
+                    # Add recurring indicator to name if needed
+                    display_name = f"{name}{'🔄' if is_recurring else ''}"
                     
                     # Format: ID:Name:Date:StartTime-EndTime
-                    compact_event = f"{event_id}:{compact_name}:{compact_date}:{compact_start}-{compact_end}"
+                    compact_event = f"{event_id}:{display_name}:{compact_date}:{compact_start}-{compact_end}"
                     compact_events.append(compact_event)
                 
                 except Exception as e:
-                    print(f"DEBUG: Error processing event: {e}")
+                    print(f"DEBUG: Error processing expanded event: {e}")
                     continue
             
-            print(f"DEBUG: Created {len(compact_events)} compact events")
-            print(f"DEBUG: Final cache: {self._event_cache}")
+            print(f"DEBUG: Created {len(compact_events)} compact events for today/tomorrow")
             return compact_events
             
         except Exception as e:
@@ -436,7 +622,7 @@ class BaseLLMProvider(ABC):
             return []
 
     def parse_llm_commands(self, response: str) -> List[Dict]:
-        """Parse LLM response for calendar commands with robust error handling"""
+        """Parse LLM response for calendar commands - Updated for TODAY/TOMORROW"""
         commands = []
         print(f"DEBUG: LLM OUTPUT\n{response}")
 
@@ -446,13 +632,13 @@ class BaseLLMProvider(ABC):
         else:
             commands_section = response.strip()
 
-        # Clean up any markdown formatting
+        # Clean up formatting
         commands_section = commands_section.replace('```', '').replace('`', '')
 
-        # Split into lines and process
+        # Process each line
         for raw_line in commands_section.splitlines():
             line = raw_line.strip()
-            if not line or line.startswith("#"):  # skip empty/comment lines
+            if not line or line.startswith("#"):
                 continue
 
             print(f"DEBUG: Processing line: {line}")
@@ -465,47 +651,34 @@ class BaseLLMProvider(ABC):
                     'identifier': identifier,
                     'raw_command': line
                 })
-                print(f"DEBUG: Parsed delete command for {identifier}")
                 continue
 
-            # Split by colon - handle complex event names
+            # Split by colon
             parts = line.split(":")
             if len(parts) < 4:
-                print(f"WARNING: Skipping invalid command format (need at least 4 parts): {line}")
+                print(f"WARNING: Skipping invalid command format: {line}")
                 continue
 
             action = parts[0].strip().upper()
             
-            # Handle different command formats:
-            # For C (Change): C:ID:NewName:Date:Time
-            # For A (Add): A:EventName:Date:Time  
-            # For M (Move): M:ID:Date:Time
-            # For D (Delete): D:ID
-            
+            # Handle different command formats
             if action == 'C' and len(parts) >= 5:
-                # Change command: C:ID:NewName:Date:Time
-                event_id = parts[1].strip()    # Event ID (like 'D')
-                new_name = parts[2].strip()    # New event name  
-                date_part = parts[3].strip()   # Date
-                time_part = parts[4].strip()   # Time
-                # For change commands, we need both the ID and new name
-                identifier = event_id  # Use the event ID for lookup
-                # Store the new name for later use
+                event_id = parts[1].strip()
+                new_name = parts[2].strip()
+                date_part = parts[3].strip()
+                time_part = parts[4].strip()
+                identifier = event_id
                 new_event_name = new_name
             elif len(parts) > 4:
-                # Regular command with complex name: A:Event:Name:Date:Time
-                identifier = ":".join(parts[1:-2])  # Join middle parts
-                date_part = parts[-2]  # Second to last
-                time_part = parts[-1]  # Last
+                identifier = ":".join(parts[1:-2])
+                date_part = parts[-2]
+                time_part = parts[-1]
             else:
-                # Simple command: A:Name:Date:Time or M:ID:Date:Time
                 identifier = parts[1].strip()
                 date_part = parts[2].strip()
                 time_part = parts[3].strip()
 
-            print(f"DEBUG: Parsed - Action: {action}, Identifier: '{identifier}', Date: '{date_part}', Time: '{time_part}'")
-
-            # Convert compact date to full date
+            # Convert compact date (TODAY/TOMORROW) to full date
             full_date = self.compact_to_date(date_part.strip())
             if not full_date:
                 print(f"WARNING: Skipping command due to invalid date '{date_part}': {line}")
@@ -518,18 +691,13 @@ class BaseLLMProvider(ABC):
             
             if "-" in time_part:
                 start_str, end_str = time_part.split("-", 1)
-                start_str = start_str.strip()
-                end_str = end_str.strip()
-                
-                start_time_obj = self.compact_to_time(start_str)
-                end_time_obj = self.compact_to_time(end_str)
+                start_time_obj = self.compact_to_time(start_str.strip())
+                end_time_obj = self.compact_to_time(end_str.strip())
                 
                 if not start_time_obj or not end_time_obj:
                     print(f"WARNING: Skipping command due to invalid time range '{time_part}': {line}")
                     continue
-                    
             else:
-                # Single time - assume 1 hour duration
                 start_time_obj = self.compact_to_time(time_part)
                 if not start_time_obj:
                     print(f"WARNING: Skipping command due to invalid time '{time_part}': {line}")
@@ -540,7 +708,7 @@ class BaseLLMProvider(ABC):
                 end_dt = start_dt + timedelta(hours=1)
                 end_time_obj = end_dt.time()
 
-            # Build final command object
+            # Build command object
             command_obj = {
                 'action': action,
                 'identifier': identifier.strip(),
@@ -561,7 +729,11 @@ class BaseLLMProvider(ABC):
         return commands
     
     def execute_commands(self, commands: List[Dict], events_data: List[str]) -> Dict[str, Any]:
-        """Execute parsed commands and return results"""
+        """Execute parsed commands with enhanced debug logging"""
+        print(f"\n=== EXECUTE_COMMANDS START ===")
+        print(f"DEBUG EXEC: Received {len(commands)} commands to execute")
+        print(f"DEBUG EXEC: Current event cache keys: {list(self._event_cache.keys())}")
+        
         results = {
             'executed': [],
             'failed': [],
@@ -570,20 +742,16 @@ class BaseLLMProvider(ABC):
             'deleted': []
         }
         
-        print(f"DEBUG: Executing {len(commands)} commands")
-        print(f"DEBUG: Event cache contents: {self._event_cache}")
-        print(f"DEBUG: Available events: {events_data}")
-        
-        for cmd in commands:
+        for i, cmd in enumerate(commands):
+            print(f"\nDEBUG EXEC: Processing command {i+1}/{len(commands)}: {cmd['raw_command']}")
+            
             try:
                 action = cmd['action']
                 identifier = cmd['identifier']
                 
-                print(f"DEBUG: Processing command: {action}:{identifier}")
-                
                 if action == 'A':  # Add new event
+                    print(f"DEBUG EXEC: ADD command for '{identifier}'")
                     if self.create_event_function:
-                        print(f"DEBUG: Creating event: {identifier} on {cmd['date']} at {cmd['start_time']}-{cmd['end_time']}")
                         success = self.create_event_function(
                             event_name=identifier,
                             date=cmd['date'],
@@ -591,51 +759,52 @@ class BaseLLMProvider(ABC):
                             end_time=cmd['end_time']
                         )
                         if success:
+                            print(f"DEBUG EXEC: Successfully created event '{identifier}'")
                             results['executed'].append(cmd)
                             results['created'].append(identifier)
-                            print(f"DEBUG: Successfully created event {identifier}")
                         else:
+                            print(f"DEBUG EXEC: Failed to create event '{identifier}' - create_event_function returned False")
                             results['failed'].append(cmd)
-                            print(f"DEBUG: Failed to create event {identifier}")
                     else:
-                        print("DEBUG: Create function not available")
+                        print(f"DEBUG EXEC: Failed to create event '{identifier}' - no create_event_function")
                         results['failed'].append(cmd)
                 
                 elif action == 'D':  # Delete event
+                    print(f"DEBUG EXEC: DELETE command for '{identifier}'")
                     if self.delete_event_function:
-                        db_id = self._event_cache.get(f"db_{identifier}")
-                        print(f"DEBUG: Looking for db_id for {identifier}: {db_id}")
+                        db_id = self._find_db_id_for_identifier(identifier)
                         
                         if db_id:
+                            print(f"DEBUG EXEC: Deleting event {identifier} with db_id: {db_id}")
                             success = self.delete_event_function(event_id=db_id)
                             if success:
+                                print(f"DEBUG EXEC: Successfully deleted event '{identifier}'")
                                 results['executed'].append(cmd)
                                 results['deleted'].append(identifier)
-                                print(f"DEBUG: Successfully deleted event {identifier}")
                             else:
+                                print(f"DEBUG EXEC: Failed to delete event '{identifier}' - delete_event_function returned False")
                                 results['failed'].append(cmd)
-                                print(f"DEBUG: Failed to delete event {identifier}")
                         else:
-                            print(f"DEBUG: Event ID {identifier} not found in cache")
+                            print(f"DEBUG EXEC: Failed to delete event '{identifier}' - no db_id found")
                             results['failed'].append(cmd)
                     else:
-                        print("DEBUG: Delete function not available")
+                        print(f"DEBUG EXEC: Failed to delete event '{identifier}' - no delete_event_function")
                         results['failed'].append(cmd)
                 
-                elif action in ['M', 'C']:  # Move or Change existing event
+                elif action in ['M', 'C']:  # Move or Change
+                    print(f"DEBUG EXEC: {'MOVE' if action == 'M' else 'CHANGE'} command for '{identifier}'")
                     if self.update_event_function:
-                        db_id = self._event_cache.get(f"db_{identifier}")
-                        print(f"DEBUG: Looking for db_id for {identifier}: {db_id}")
+                        db_id = self._find_db_id_for_identifier(identifier)
                         
                         if db_id:
-                            # For change commands, use the new event name if provided
                             if action == 'C' and 'new_event_name' in cmd:
                                 event_name = cmd['new_event_name']
-                                print(f"DEBUG: Using new event name for change: {event_name}")
+                                print(f"DEBUG EXEC: Using new event name: '{event_name}'")
                             else:
                                 event_name = self.get_original_event_name(identifier, events_data)
+                                print(f"DEBUG EXEC: Using original event name: '{event_name}'")
                             
-                            print(f"DEBUG: Updating event {db_id} with name: {event_name}")
+                            print(f"DEBUG EXEC: Updating event {identifier} (db_id: {db_id}) to {cmd['date']} {cmd['start_time']}-{cmd['end_time']}")
                             
                             success = self.update_event_function(
                                 event_id=db_id,
@@ -646,47 +815,137 @@ class BaseLLMProvider(ABC):
                             )
                             
                             if success:
+                                print(f"DEBUG EXEC: Successfully updated event '{identifier}'")
                                 results['executed'].append(cmd)
                                 results['updated'].append(identifier)
-                                print(f"DEBUG: Successfully updated event {identifier}")
                             else:
+                                print(f"DEBUG EXEC: Failed to update event '{identifier}' - update_event_function returned False")
                                 results['failed'].append(cmd)
-                                print(f"DEBUG: Failed to update event {identifier}")
                         else:
-                            print(f"DEBUG: Event ID {identifier} not found for update")
+                            print(f"DEBUG EXEC: Failed to update event '{identifier}' - no db_id found")
                             results['failed'].append(cmd)
                     else:
-                        print("DEBUG: Update function not available")
+                        print(f"DEBUG EXEC: Failed to update event '{identifier}' - no update_event_function")
                         results['failed'].append(cmd)
-                        
                 else:
-                    print(f"DEBUG: Unknown action {action}")
+                    print(f"DEBUG EXEC: Unknown action '{action}' for command: {cmd}")
                     results['failed'].append(cmd)
-            
+                        
             except Exception as e:
-                print(f"DEBUG: Error executing command {cmd}: {e}")
+                print(f"DEBUG EXEC: Exception processing command {cmd}: {e}")
+                import traceback
+                traceback.print_exc()
                 results['failed'].append(cmd)
         
-        print(f"DEBUG: Execution results: {results}")
-        return results
+        print(f"\nDEBUG EXEC: Final execution results:")
+        print(f"  - Executed: {len(results['executed'])} commands")
+        print(f"  - Failed: {len(results['failed'])} commands")
+        print(f"  - Created: {results['created']}")
+        print(f"  - Updated: {results['updated']}")
+        print(f"  - Deleted: {results['deleted']}")
+        print(f"=== EXECUTE_COMMANDS END ===\n")
         
+        return results
+
+    def _find_db_id_for_identifier(self, identifier: str) -> Optional[int]:
+        """Find database ID for a given event identifier with enhanced debug logging"""
+        print(f"DEBUG ID_LOOKUP: Looking up db_id for identifier '{identifier}'")
+        print(f"DEBUG ID_LOOKUP: Available cache keys: {list(self._event_cache.keys())}")
+        
+        # Get current dates for recurring event lookups
+        today, tomorrow, _, _ = self.get_current_timeframe_info()
+        
+        # Strategy 1: Direct match for non-recurring events
+        direct_key = f"db_{identifier}"
+        if direct_key in self._event_cache:
+            db_id = self._event_cache[direct_key]
+            print(f"DEBUG ID_LOOKUP: Found db_id {db_id} using direct key: {direct_key}")
+            return db_id
+        
+        # Strategy 2: Try recurring event patterns
+        for date_check in [today, tomorrow]:
+            recurring_key = f"db_{identifier}_{date_check.strftime('%Y%m%d')}"
+            if recurring_key in self._event_cache:
+                db_id = self._event_cache[recurring_key]
+                print(f"DEBUG ID_LOOKUP: Found db_id {db_id} using recurring key: {recurring_key}")
+                return db_id
+        
+        # Strategy 3: Search all cache keys containing the identifier
+        for cache_key, db_id in self._event_cache.items():
+            if cache_key.startswith(f"db_{identifier}") and isinstance(db_id, int):
+                print(f"DEBUG ID_LOOKUP: Found db_id {db_id} using partial match key: {cache_key}")
+                return db_id
+        
+        print(f"DEBUG ID_LOOKUP: No db_id found for identifier '{identifier}'")
+        return None
+        
+    
+    
     def get_original_event_name(self, event_id: str, events_data: List[str]) -> str:
         """Get original event name from compact event data"""
         for event in events_data:
             if event.startswith(f"{event_id}:"):
                 parts = event.split(':')
                 if len(parts) >= 2:
-                    return parts[1]
+                    # Remove recurring indicator if present
+                    return parts[1].replace('🔄', '').strip()
         return event_id
     
-    def generate_ultra_compact_prompt(self, events_data: List[str], week_range: str, current_day_idx: int) -> str:
-        """Generate extremely compact system prompt"""
+    def validate_command_for_conflicts(self, command: Dict, events_data: List[str]) -> Dict[str, Any]:
+        """Validate command for conflicts - updated for 2-day view"""
+        if command['action'] not in ['A', 'M', 'C']:
+            return {'valid': True, 'conflicts': []}
+        
+        try:
+            start_time = datetime.strptime(command['start_time'], '%H:%M').time()
+            end_time = datetime.strptime(command['end_time'], '%H:%M').time()
+            event_date = datetime.strptime(command['date'], '%Y-%m-%d').date()
+            
+            mock_event = {
+                'id': command['identifier'],
+                'name': command.get('new_event_name', command['identifier']),
+                'date': event_date,
+                'start_time': start_time,
+                'end_time': end_time,
+                'start_minutes': start_time.hour * 60 + start_time.minute,
+                'end_minutes': end_time.hour * 60 + end_time.minute,
+                'original': f"TEMP:{command['identifier']}:{command['date']}:{command['start_time']}-{command['end_time']}"
+            }
+            
+            # Filter events to only the same date
+            same_day_events = []
+            for event_str in events_data:
+                parsed = self.parse_event_time(event_str)
+                if parsed and parsed['date'] == event_date:
+                    # If moving/changing, exclude the original
+                    if command['action'] in ['M', 'C'] and parsed['id'] == command['identifier']:
+                        continue
+                    same_day_events.append(event_str)
+            
+            # Check for conflicts
+            conflict_analysis = self.detect_conflicts(same_day_events, mock_event)
+            
+            return {
+                'valid': not conflict_analysis['has_conflicts'],
+                'conflicts': conflict_analysis['conflicts'],
+                'mock_event': mock_event,
+                'same_day_events_checked': len(same_day_events)
+            }
+            
+        except Exception as e:
+            return {'valid': False, 'conflicts': [], 'error': str(e)}
+    
+    def get_prompt_with_dates(self, events_data: List[str], time_range: str, current_day_idx: int) -> str:
+        """Generate prompt for today/tomorrow view"""
+        today, tomorrow, _, _ = self.get_current_timeframe_info()
+        
+        # Current day name
         day_names = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
         current_day = day_names[current_day_idx]
         
         events_str = '\n'.join(events_data) if events_data else 'None'
         
-        return f"""WEEK {week_range} (Today: {current_day})
+        return f"""TODAY/TOMORROW {time_range} (Today: {current_day})
 
 EVENTS:
 {events_str}
@@ -695,12 +954,12 @@ COMMANDS:
 M = Move, A = Add, C = Change, D = Delete
 M:ID:Date:Time   A:Name:Date:Time   C:ID:New:Date:Time   D:ID
 
-DATES: M15=Mon15, T16=Tue16, W17=Wed17, R18=Thu18, F19=Fri19, S20=Sat20, U21=Sun21
+DATES: TODAY, TOMORROW
 TIME: Use start-end in 24h format, no colon (e.g. 1430-1530 for 2:30 PM–3:30 PM).
 
 RULES:
 - You are a helpful calendar assistant
-- Edit this week only
+- Edit TODAY and TOMORROW only
 - No event overlaps permitted
 - Reschedule events for user using commands in case of conflicts
 - Add non-existing events the user asks for
@@ -708,73 +967,149 @@ RULES:
 - Keep schedules realistic
 - Chat to user in 12h time, e.g. 2:00 PM
 - Make assumptions for vague situations
-- Don't ask user for confirmation.
+- Don't ask user for confirmation
 - Mention events by their event name, not letter
-- Respond with a single friendly sentence summarizing the changes, concise and natural to user
+- Recurring events are marked with 🔄
+- Respond with a single friendly sentence summarizing the changes, concise and natural
 
 FORMAT:
 1. Natural response to user
 2. "COMMANDS:" on new line
 3. Commands listed below
 
-Example: I've cleared your 10:30 slot.
+Example: I've cleared your 10:30 slot for today.
 COMMANDS:
 D:H"""
+
+    def get_enhanced_prompt_with_conflicts(self, events_data: List[str], time_range: str, current_day_idx: int) -> str:
+        """Generate enhanced prompt with conflict analysis for 2-day view"""
+        base_prompt = self.get_prompt_with_dates(events_data, time_range, current_day_idx)
         
-    def call_llm_with_calendar(self, message: str, include_events: bool = True, **kwargs) -> Dict[str, Any]:
-        """Main method: ultra-efficient calendar LLM interaction"""
-        if not include_events or not self.events_function:
-            return self.call_llm(message, **kwargs)
+        # Analyze conflicts
+        conflict_analysis = self.detect_conflicts(events_data)
         
-        # Get ultra-compact data
-        events_data = self.fetch_events_ultra_compact()
-        week_start, current_day_idx, week_range = self.get_current_week_info()
-        
-        # Generate minimal prompt
-        system_prompt = self.generate_ultra_compact_prompt(events_data, week_range, current_day_idx)
-        
-        # Extract the prompt parameter if it exists in kwargs
-        user_prompt = kwargs.pop('prompt', None)
-        
-        # Combine prompts if user provided one
-        if user_prompt:
-            combined_prompt = f"{system_prompt}\n\nAdditional instructions: {user_prompt}"
+        # Add conflict information
+        conflict_section = ""
+        if conflict_analysis['has_conflicts']:
+            conflict_summary = self.generate_conflict_summary(conflict_analysis['conflicts'])
+            conflict_section = f"\n⚠️ ACTUAL CONFLICTS DETECTED:\n{conflict_summary}\n"
         else:
-            combined_prompt = system_prompt
+            conflict_section = "\n✅ NO SCHEDULING CONFLICTS DETECTED\n"
         
-        # Make API call with combined prompt
-        result = self.call_llm(message, prompt=combined_prompt, **kwargs)
+        # Show events by day
+        events_by_day_section = "\nCURRENT SCHEDULE:\n"
+        today, tomorrow, _, _ = self.get_current_timeframe_info()
         
-        if result.get("success"):
-            response_text = result.get("response", "")
+        for check_date, label in [(today, 'TODAY'), (tomorrow, 'TOMORROW')]:
+            date_str = check_date.strftime('%Y-%m-%d')
+            day_events = conflict_analysis['events_by_date'].get(date_str, [])
             
-            # Parse and execute commands
-            commands = self.parse_llm_commands(response_text)
+            events_by_day_section += f"{label} ({check_date.strftime('%A %b %d')}):\n"
             
-            if commands:
-                execution_results = self.execute_commands(commands, events_data)
-                result.update({
-                    'commands_found': commands,
-                    'execution_results': execution_results,
-                    'changes_applied': len(execution_results['executed']) > 0
-                })
+            if day_events:
+                sorted_events = sorted(day_events, key=lambda x: x['start_minutes'])
+                for event in sorted_events:
+                    start_12hr = event['start_time'].strftime('%I:%M %p').lstrip('0')
+                    end_12hr = event['end_time'].strftime('%I:%M %p').lstrip('0')
+                    events_by_day_section += f"  • {event['name']}: {start_12hr} - {end_12hr}\n"
+            else:
+                events_by_day_section += "  • No events scheduled\n"
+            events_by_day_section += "\n"
+        
+        # Find available slots for today
+        availability_section = f"\nAVAILABLE SLOTS TODAY:\n"
+        today_str = today.strftime('%Y-%m-%d')
+        slots = self.find_available_slots(today_str, 30, events_data, work_hours=(8, 22))
+        
+        if slots:
+            slot_times = []
+            for slot in slots[:5]:  # Top 5 slots
+                start_mins = slot['start_minutes']
+                end_mins = min(slot['end_minutes'], slot['start_minutes'] + 120)
                 
-                # Refresh events if changes were made
-                if execution_results['executed']:
-                    result['updated_events'] = self.fetch_events_ultra_compact()
+                def mins_to_12hr(minutes):
+                    hours = minutes // 60
+                    mins = minutes % 60
+                    period = "AM" if hours < 12 else "PM"
+                    display_hours = hours if hours <= 12 else hours - 12
+                    if display_hours == 0:
+                        display_hours = 12
+                    return f"{display_hours}:{mins:02d} {period}"
+                
+                duration = min(120, slot['duration'])
+                slot_times.append(f"{mins_to_12hr(start_mins)}-{mins_to_12hr(end_mins)} ({duration}min available)")
             
-            result.update({
-                'original_events': events_data,
-                'compact_format': True,
-                'token_savings': self.calculate_token_savings(events_data)
-            })
-            
-            # Clean the response for user display - remove COMMANDS: section
-            if "COMMANDS:" in response_text:
-                clean_response = response_text.split("COMMANDS:", 1)[0].strip()
-                result['response'] = clean_response
+            availability_section += "\n".join(f"  • {slot}" for slot in slot_times)
+        else:
+            availability_section += "  • No available slots found"
         
-        return result
+        enhanced_prompt = f"""{base_prompt}
+
+{conflict_section}
+{events_by_day_section}
+{availability_section}
+
+🚨 CRITICAL CONFLICT RULES:
+- Events on DIFFERENT DAYS cannot conflict (TODAY vs TOMORROW = NO CONFLICT)
+- Only check conflicts within the SAME day
+- If no conflicts shown above, DO NOT move any events
+- Only reschedule if there are ACTUAL overlapping times on the SAME day
+- When user asks to schedule something, check if time slot is actually free
+- Be VERY specific about why you're moving events (mention the exact conflict)
+- Recurring events (🔄) follow same conflict rules
+
+WRONG: "Moving X to avoid conflict with Y" (when X is TODAY and Y is TOMORROW)
+RIGHT: "Moving X because it conflicts with Y (both at 2PM today)"
+RIGHT: "Scheduling X at 3PM today - that time slot is free"
+"""
+        
+        return enhanced_prompt
+    
+    def find_available_slots(self, date: str, duration_minutes: int, 
+                           events_data: List[str], 
+                           work_hours: Tuple[int, int] = (9, 17)) -> List[Dict]:
+        """Find available time slots of specified duration"""
+        date_obj = datetime.strptime(date, '%Y-%m-%d').date() if isinstance(date, str) else date
+        
+        day_events = []
+        for event_str in events_data:
+            parsed = self.parse_event_time(event_str)
+            if parsed and parsed['date'] == date_obj:
+                day_events.append(parsed)
+        
+        # Sort by start time
+        day_events.sort(key=lambda x: x['start_minutes'])
+        
+        # Find gaps
+        available_slots = []
+        work_start = work_hours[0] * 60
+        work_end = work_hours[1] * 60
+        
+        current_time = work_start
+        
+        for event in day_events:
+            if current_time + duration_minutes <= event['start_minutes']:
+                available_slots.append({
+                    'start_minutes': current_time,
+                    'end_minutes': event['start_minutes'],
+                    'duration': event['start_minutes'] - current_time,
+                    'start_time': f"{current_time//60:02d}:{current_time%60:02d}",
+                    'end_time': f"{event['start_minutes']//60:02d}:{event['start_minutes']%60:02d}"
+                })
+            
+            current_time = max(current_time, event['end_minutes'])
+        
+        # Gap after last event
+        if current_time + duration_minutes <= work_end:
+            available_slots.append({
+                'start_minutes': current_time,
+                'end_minutes': work_end,
+                'duration': work_end - current_time,
+                'start_time': f"{current_time//60:02d}:{current_time%60:02d}",
+                'end_time': f"{work_end//60:02d}:{work_end%60:02d}"
+            })
+        
+        return available_slots
     
     def calculate_token_savings(self, compact_events: List[str]) -> Dict[str, int]:
         """Calculate approximate token savings from compression"""
@@ -784,10 +1119,8 @@ D:H"""
         # Estimate original format tokens
         original_tokens = 0
         for event in compact_events:
-            # Expand back to estimate original size
             parts = event.split(':')
             if len(parts) >= 4:
-                # Original would be: "EventName|2025-01-15|14:00-15:30"
                 original_tokens += len(parts[1]) + 12 + 11  # Name + date + time
         
         # Compressed tokens
@@ -800,6 +1133,81 @@ D:H"""
             'compression_ratio': round(compressed_tokens / max(original_tokens, 1), 2)
         }
     
+    # ==================== MAIN LLM INTERFACE METHODS ====================
+    
+    def call_llm_with_calendar(self, message: str, include_events: bool = True, use_conflict_detection: bool = True, **kwargs) -> Dict[str, Any]:
+        """Main method: ultra-efficient calendar LLM interaction for today/tomorrow only - NO VALIDATION"""
+        if not include_events or not self.events_function:
+            return self.call_llm(message, **kwargs)
+        
+        # Get ultra-compact data for today/tomorrow
+        events_data = self.fetch_events_ultra_compact()
+        today, tomorrow, current_day_idx, time_range = self.get_current_timeframe_info()
+        
+        # Choose prompt based on conflict detection setting (but we won't validate)
+        if use_conflict_detection:
+            system_prompt = self.get_enhanced_prompt_with_conflicts(events_data, time_range, current_day_idx)
+        else:
+            system_prompt = self.get_prompt_with_dates(events_data, time_range, current_day_idx)
+        
+        # Extract user prompt if provided
+        user_prompt = kwargs.pop('prompt', None)
+        
+        # Combine prompts
+        if user_prompt:
+            combined_prompt = f"{system_prompt}\n\nAdditional instructions: {user_prompt}"
+        else:
+            combined_prompt = system_prompt
+        
+        # Make API call
+        result = self.call_llm(message, prompt=combined_prompt, **kwargs)
+        
+        if result.get("success"):
+            response_text = result.get("response", "")
+            
+            # Parse commands
+            commands = self.parse_llm_commands(response_text)
+            
+            # SKIP ALL VALIDATION - Execute commands directly
+            if commands:
+                execution_results = self.execute_commands(commands, events_data)
+            else:
+                execution_results = {'executed': [], 'failed': [], 'created': [], 'updated': [], 'deleted': []}
+            
+            # Update result with command info (no validation data)
+            result.update({
+                'commands_found': commands,
+                'validated_commands': commands,  # All commands are "validated" since we skip validation
+                'conflict_warnings': [],
+                'validation_prevented_conflicts': False
+            })
+            
+            # Add execution results
+            result.update({
+                'execution_results': execution_results,
+                'changes_applied': len(execution_results['executed']) > 0
+            })
+            
+            # Refresh events if changes were made
+            if execution_results['executed']:
+                result['updated_events'] = self.fetch_events_ultra_compact()
+            
+            # Add analysis results
+            result.update({
+                'original_events': events_data,
+                'conflict_analysis': self.detect_conflicts(events_data) if use_conflict_detection else None,
+                'compact_format': True,
+                'token_savings': self.calculate_token_savings(events_data),
+                'timeframe': f"Today: {today.strftime('%A %b %d')} | Tomorrow: {tomorrow.strftime('%A %b %d')}"
+            })
+            
+            # Clean response for user display
+            if "COMMANDS:" in response_text:
+                clean_response = response_text.split("COMMANDS:", 1)[0].strip()
+                result['response'] = clean_response
+        
+        return result
+    
     def call_llm(self, message: str, prompt: str = None, max_retries: int = 3, **kwargs) -> Dict[str, Any]:
         """Call LLM API - delegates to provider implementation"""
         if not message or not message.strip():
@@ -810,6 +1218,57 @@ D:H"""
             }
         
         return self._make_api_request(message, prompt, max_retries=max_retries, **kwargs)
+
+    # ==================== CONVENIENCE METHODS ====================
+    
+    def get_schedule_summary(self, include_conflicts: bool = True) -> Dict[str, Any]:
+        """Get a summary of today/tomorrow schedule with conflict detection"""
+        events_data = self.fetch_events_ultra_compact()
+        today, tomorrow, current_day_idx, time_range = self.get_current_timeframe_info()
+        
+        summary = {
+            'timeframe': time_range,
+            'total_events': len(events_data),
+            'events_by_day': {},
+            'conflicts': None,
+            'available_slots': {}
+        }
+        
+        # Process today and tomorrow
+        for check_date, label in [(today, 'Today'), (tomorrow, 'Tomorrow')]:
+            day_events = []
+            
+            for event_str in events_data:
+                parsed = self.parse_event_time(event_str)
+                if parsed and parsed['date'] == check_date:
+                    start_12hr = parsed['start_time'].strftime('%I:%M %p').lstrip('0')
+                    end_12hr = parsed['end_time'].strftime('%I:%M %p').lstrip('0')
+                    day_events.append(f"{parsed['name']} ({start_12hr} - {end_12hr})")
+            
+            summary['events_by_day'][label] = day_events
+            
+            # Find available slots
+            slots = self.find_available_slots(check_date.strftime('%Y-%m-%d'), 30, events_data)
+            if slots:
+                slot_summaries = []
+                for slot in slots[:3]:  # Top 3 slots
+                    duration_hours = slot['duration'] // 60
+                    duration_mins = slot['duration'] % 60
+                    duration_str = f"{duration_hours}h {duration_mins}m" if duration_hours > 0 else f"{duration_mins}m"
+                    slot_summaries.append(f"{slot['start_time']}-{slot['end_time']} ({duration_str})")
+                summary['available_slots'][label] = slot_summaries
+        
+        # Add conflict analysis
+        if include_conflicts:
+            conflict_analysis = self.detect_conflicts(events_data)
+            if conflict_analysis['has_conflicts']:
+                summary['conflicts'] = self.generate_conflict_summary(conflict_analysis['conflicts'])
+        
+        return summary
+
+
+
+
 
 
 class GeminiProvider(BaseLLMProvider):
@@ -1285,7 +1744,7 @@ class LLMService:
 llm_service = LLMService()
 
 # Configuration
-WEEKLY_MESSAGE_LIMIT = 5000
+WEEKLY_MESSAGE_LIMIT = 5
 
 
 from rest_framework.decorators import api_view, permission_classes
@@ -1301,7 +1760,7 @@ def llm_text(request):
     """
     start_time = time.time()
     
-    setup_llm_with_calendar()
+    setup_llm_with_calendar(request.user)
     
     try:
         # No need to check authentication - DRF handles it automatically
@@ -1415,7 +1874,7 @@ def llm_text(request):
         # Call LLM
         try:
             if hasattr(provider, 'call_llm_with_calendar') and include_calendar:
-                result = provider.call_llm_with_calendar(message, prompt=system_prompt, **llm_kwargs)
+                result = provider.call_llm_with_calendar(message, prompt=system_prompt, **llm_kwargs, use_conflict_detection=True)
             else:
                 result = provider.call_llm(message, prompt=system_prompt, **llm_kwargs)
         except Exception as e:
@@ -1568,12 +2027,30 @@ def update_calendar_event(event_id, event_name, date, start_time, end_time):
 
 
 # Setup functions for backward compatibility and manual setup
-def setup_providers_with_calendar(events_function=None, update_event_function=None, create_event_function=None, delete_event_function=None):
-    """Setup all available providers with calendar functions"""
+def setup_providers_with_calendar_and_user(user, events_function=None, update_event_function=None, create_event_function=None, delete_event_function=None):
+    """Setup all available providers with calendar functions that include user context"""
     global llm_service
     
-    # Setup calendar functions for existing providers
-    llm_service.setup_calendar_functions(events_function, update_event_function, create_event_function, delete_event_function)
+    # Create wrapper functions that automatically include the user
+    def user_events_function():
+        return get_calendar_events(user=user)
+    
+    def user_update_function(event_id, event_name, date, start_time, end_time):
+        return update_calendar_event(event_id, event_name, date, start_time, end_time, user=user)
+    
+    def user_create_function(event_name, date, start_time, end_time):
+        return create_calendar_event(event_name, date, start_time, end_time, user=user)
+    
+    def user_delete_function(event_id):
+        return delete_calendar_event(event_id, user=user)
+    
+    # Setup calendar functions with user-aware wrappers
+    llm_service.setup_calendar_functions(
+        user_events_function, 
+        user_update_function, 
+        user_create_function, 
+        user_delete_function
+    )
     
     enabled_providers = LLMConfig.get_enabled_providers()
     
@@ -1590,25 +2067,25 @@ def setup_providers_with_calendar(events_function=None, update_event_function=No
                 provider = GeminiProvider(
                     api_key=api_key, 
                     model=model, 
-                    events_function=events_function, 
-                    update_event_function=update_event_function,
-                    create_event_function=create_event_function,
-                    delete_event_function=delete_event_function
+                    events_function=user_events_function, 
+                    update_event_function=user_update_function,
+                    create_event_function=user_create_function,
+                    delete_event_function=user_delete_function
                 )
             elif provider_name == 'openai':
                 provider = OpenAIProvider(
                     api_key=api_key, 
                     model=model,
-                    events_function=events_function, 
-                    update_event_function=update_event_function,
-                    create_event_function=create_event_function,
-                    delete_event_function=delete_event_function
+                    events_function=user_events_function, 
+                    update_event_function=user_update_function,
+                    create_event_function=user_create_function,
+                    delete_event_function=user_delete_function
                 )
             else:
                 continue
             
             llm_service.register_provider(provider_name, provider)
-            print(f"Successfully setup {provider_name} provider with calendar functions")
+            print(f"Successfully setup {provider_name} provider with calendar functions for user: {user}")
             
         except Exception as e:
             print(f"Failed to setup {provider_name} provider: {e}")
@@ -1623,30 +2100,7 @@ def get_provider_status():
 
 
 
-def delete_calendar_event(event_id):
-    """Delete a calendar event from the database"""
-    try:
-        from myapp.models import CalendarEvent  # Change 'myapp' to your actual app name
-        
-        # Get and delete the event
-        event = CalendarEvent.objects.get(id=event_id)
-        event_name = event.event_name  # Store for logging
-        event_date = event.date
-        
-        event.delete()
-        
-        print(f"Successfully deleted event {event_id}: {event_name} on {event_date}")
-        return True
-        
-    except CalendarEvent.DoesNotExist:
-        print(f"Event with id {event_id} not found")
-        return False
-    except Exception as e:
-        print(f"Error deleting event: {e}")
-        return False
-
-
-def create_calendar_event(event_name, date, start_time, end_time):
+def create_calendar_event(event_name, date, start_time, end_time, user=None):
     """Create a new calendar event in the database"""
     try:
         from myapp.models import CalendarEvent
@@ -1655,6 +2109,10 @@ def create_calendar_event(event_name, date, start_time, end_time):
         # Create new event
         event = CalendarEvent()
         event.event_name = event_name
+        
+        # Assign user if provided
+        if user:
+            event.user = user
         
         # Parse date string to date object
         if isinstance(date, str):
@@ -1695,20 +2153,129 @@ def create_calendar_event(event_name, date, start_time, end_time):
         # Save the event
         event.save()
         
-        print(f"Successfully created event: {event_name} on {event.date} from {event.start_time} to {event.end_time}")
+        print(f"Successfully created event: {event_name} on {event.date} from {event.start_time} to {event.end_time} for user: {user}")
         return True
         
     except Exception as e:
         print(f"Error creating event: {e}")
         return False
-    
-    
-    
-def get_calendar_events():
+
+
+def update_calendar_event(event_id, event_name, date, start_time, end_time, user=None):
+    """Update a calendar event in the database"""
+    try:
+        from myapp.models import CalendarEvent
+        from datetime import datetime
+        
+        # Get the event - filter by user if provided for security
+        if user:
+            event = CalendarEvent.objects.get(id=event_id, user=user)
+        else:
+            event = CalendarEvent.objects.get(id=event_id)
+        
+        # Update fields
+        event.event_name = event_name
+        
+        # Parse date string to date object
+        if isinstance(date, str):
+            event.date = datetime.strptime(date, '%Y-%m-%d').date()
+        else:
+            event.date = date
+        
+        # Parse time strings to time objects
+        if isinstance(start_time, str):
+            if ':' in start_time:
+                event.start_time = datetime.strptime(start_time, '%H:%M').time()
+            else:
+                # Handle cases like "2pm" -> "14:00"
+                start_time = start_time.lower().replace('pm', '').replace('am', '').strip()
+                if start_time.isdigit():
+                    hour = int(start_time)
+                    if 'pm' in start_time.lower() and hour != 12:
+                        hour += 12
+                    elif 'am' in start_time.lower() and hour == 12:
+                        hour = 0
+                    event.start_time = datetime.strptime(f"{hour:02d}:00", '%H:%M').time()
+                else:
+                    event.start_time = datetime.strptime(start_time, '%H:%M').time()
+        else:
+            event.start_time = start_time
+        
+        if isinstance(end_time, str):
+            if ':' in end_time:
+                event.end_time = datetime.strptime(end_time, '%H:%M').time()
+            else:
+                # Handle cases like "3pm" -> "15:00"
+                end_time = end_time.lower().replace('pm', '').replace('am', '').strip()
+                if end_time.isdigit():
+                    hour = int(end_time)
+                    if 'pm' in end_time.lower() and hour != 12:
+                        hour += 12
+                    elif 'am' in end_time.lower() and hour == 12:
+                        hour = 0
+                    event.end_time = datetime.strptime(f"{hour:02d}:00", '%H:%M').time()
+                else:
+                    event.end_time = datetime.strptime(end_time, '%H:%M').time()
+        else:
+            event.end_time = end_time
+        
+        # Save the event
+        event.save()
+        
+        print(f"Successfully updated event {event_id}: {event_name} on {event.date} from {event.start_time} to {event.end_time}")
+        return True
+        
+    except CalendarEvent.DoesNotExist:
+        print(f"Event with ID {event_id} not found or user doesn't have permission")
+        return False
+    except ValueError as e:
+        print(f"Error parsing date/time for event {event_id}: {e}")
+        return False
+    except Exception as e:
+        print(f"Error updating event {event_id}: {e}")
+        import traceback
+        traceback.print_exc()
+        return False
+
+
+def delete_calendar_event(event_id, user=None):
+    """Delete a calendar event from the database"""
+    try:
+        from myapp.models import CalendarEvent
+        
+        # Get and delete the event - filter by user if provided for security
+        if user:
+            event = CalendarEvent.objects.get(id=event_id, user=user)
+        else:
+            event = CalendarEvent.objects.get(id=event_id)
+            
+        event_name = event.event_name  # Store for logging
+        event_date = event.date
+        
+        event.delete()
+        
+        print(f"Successfully deleted event {event_id}: {event_name} on {event_date}")
+        return True
+        
+    except CalendarEvent.DoesNotExist:
+        print(f"Event with id {event_id} not found or user doesn't have permission")
+        return False
+    except Exception as e:
+        print(f"Error deleting event: {e}")
+        return False
+
+
+def get_calendar_events(user=None):
     """Get calendar events from your models"""
     try:
-        from myapp.models import CalendarEvent 
-        return CalendarEvent.objects.all()
+        from myapp.models import CalendarEvent
+        
+        if user:
+            return CalendarEvent.objects.filter(user=user)
+        else:
+            # Return all events if no user specified (for admin or system use)
+            return CalendarEvent.objects.all()
+            
     except ImportError:
         print("CalendarEvent model not found - update the import path")
         return []
@@ -1716,12 +2283,14 @@ def get_calendar_events():
         print(f"Error fetching calendar events: {e}")
         return []
 
-def setup_llm_with_calendar():
-    """Initialize LLM service with calendar integration"""
-    setup_providers_with_calendar(
+
+def setup_llm_with_calendar(user):
+    """Initialize LLM service with calendar integration for specific user"""
+    setup_providers_with_calendar_and_user(
+        user=user,  # Add the user parameter here
         events_function=get_calendar_events,
         update_event_function=update_calendar_event,
         create_event_function=create_calendar_event,
         delete_event_function=delete_calendar_event
     )
-    print("LLM service setup complete with calendar integration")
+    print(f"LLM service setup complete with calendar integration for user: {user}")

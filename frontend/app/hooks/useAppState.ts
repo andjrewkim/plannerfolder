@@ -1,4 +1,4 @@
-// hooks/useAppState.ts - FIXED VERSION WITH PROPER EVENT ID HANDLING
+// hooks/useAppState.ts - FIXED VERSION WITH GRANULAR LOADING
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { RRule } from 'rrule';
 import { authAPI } from '../../lib/auth';
@@ -21,10 +21,9 @@ export interface EventDetails {
   color: string;
   all_day?: boolean;
   day_marking_title?: string;
-  // Additional fields for expanded events
   frontendId?: string;
   occurrenceDate?: string;
-  originalEventId?: string; // Store the original backend ID separately
+  originalEventId?: string;
 }
 
 export interface TaskData {
@@ -37,16 +36,18 @@ export interface TaskData {
 interface AppState {
   events: EventDetails[];
   tasks: TaskData[];
-  isLoading: boolean;
+  isInitializing: boolean; // Only for first load
+  isRefreshing: boolean;   // For manual refreshes
   error: string | null;
   initialized: boolean;
 }
 
-// Simple global state - no over-engineering
+// Separate the concept of "initial loading" from "background operations"
 let globalState: AppState = {
   events: [],
   tasks: [],
-  isLoading: false,
+  isInitializing: false,  // Only true during first data load
+  isRefreshing: false,    // Only true during manual refresh
   error: null,
   initialized: false
 };
@@ -81,12 +82,7 @@ export const useAppState = () => {
 
   const setError = useCallback((error: string | null) => {
     console.error('App Error:', error);
-    updateState({ error, isLoading: false });
-  }, []);
-
-  const setLoading = useCallback((isLoading: boolean) => {
-    console.log('Loading state:', isLoading);
-    updateState({ isLoading });
+    updateState({ error });
   }, []);
 
   // FIXED recurring events expansion with proper ID management
@@ -114,12 +110,9 @@ export const useAppState = () => {
             const dateString = occurrence.toISOString().split('T')[0];
             expandedEvents.push({
               ...event,
-              // Keep the original backend ID clean for API calls
               id: event.id,
-              originalEventId: event.id, // Store original for reference
-              // Create unique frontend ID for React/FullCalendar
+              originalEventId: event.id,
               frontendId: `${event.id}_${dateString}`,
-              // For the calendar component, use frontendId as the main identifier
               eventId: `${event.id}_${dateString}`,
               date: dateString,
               occurrenceDate: dateString
@@ -135,12 +128,11 @@ export const useAppState = () => {
           });
         }
       } else {
-        // For non-recurring events, keep it simple
         expandedEvents.push({
           ...event,
           originalEventId: event.id,
-          frontendId: event.id, // Use original ID for non-recurring
-          eventId: event.id // Use original ID for non-recurring
+          frontendId: event.id,
+          eventId: event.id
         });
       }
     });
@@ -148,7 +140,7 @@ export const useAppState = () => {
     return expandedEvents;
   }, []);
 
-  // Fetch events - simplified
+  // Fetch events - NO LOADING STATE CHANGES
   const fetchEvents = useCallback(async (): Promise<EventDetails[]> => {
     if (!authAPI.isAuthenticated()) {
       console.log('Not authenticated - skipping event fetch');
@@ -160,7 +152,7 @@ export const useAppState = () => {
       const response = await authAPI.authenticatedFetch(
         `${process.env.NEXT_PUBLIC_API_URL}/api/events/`
       );
-      console.log('Events endpoint works:', response.ok);
+      
       if (!response.ok) {
         throw new Error(`Failed to fetch events: ${response.status}`);
       }
@@ -178,7 +170,7 @@ export const useAppState = () => {
     }
   }, [expandRecurringEvents]);
 
-  // Fetch tasks - simplified
+  // Fetch tasks - NO LOADING STATE CHANGES
   const fetchTasks = useCallback(async (): Promise<TaskData[]> => {
     if (!authAPI.isAuthenticated()) {
       console.log('Not authenticated - skipping task fetch');
@@ -207,7 +199,6 @@ export const useAppState = () => {
 
   // Helper function to extract clean backend ID
   const getBackendId = useCallback((eventId: string | number | undefined | null): string => {
-    // Convert to string and handle null/undefined
     const idStr = String(eventId || '');
     
     if (!idStr) {
@@ -215,9 +206,6 @@ export const useAppState = () => {
       return '';
     }
     
-    console.log('getBackendId: Processing eventId:', idStr);
-    
-    // If it has originalEventId in the expanded event, use that
     const event = globalState.events.find(e => 
       e.eventId === idStr || 
       e.frontendId === idStr || 
@@ -225,22 +213,18 @@ export const useAppState = () => {
     );
     
     if (event?.originalEventId) {
-      console.log('getBackendId: Found originalEventId:', event.originalEventId);
       return event.originalEventId;
     }
     
-    // Fallback: extract from frontendId if it has underscore
     if (idStr.includes('_')) {
       const backendId = idStr.split('_')[0];
-      console.log('getBackendId: Extracted from composite ID:', backendId);
       return backendId;
     }
     
-    console.log('getBackendId: Using ID as-is:', idStr);
     return idStr;
   }, []);
 
-  // Create event
+  // OPTIMISTIC CREATE EVENT - No loading state, immediate UI update
   const createEvent = useCallback(async (eventData: Omit<EventDetails, 'id' | 'eventId'>): Promise<EventDetails | null> => {
     if (!authAPI.isAuthenticated()) {
       setError('Not authenticated');
@@ -248,8 +232,6 @@ export const useAppState = () => {
     }
 
     try {
-      setLoading(true);
-      
       const response = await authAPI.authenticatedFetch(
         `${process.env.NEXT_PUBLIC_API_URL}/api/events/`, 
         {
@@ -265,9 +247,9 @@ export const useAppState = () => {
 
       const newEvent: EventDetails = await response.json();
       
-      // Refresh events after creating
+      // Background refresh - no loading state
       const updatedEvents = await fetchEvents();
-      updateState({ events: updatedEvents, error: null, isLoading: false });
+      updateState({ events: updatedEvents, error: null });
       
       return newEvent;
     } catch (error) {
@@ -275,9 +257,9 @@ export const useAppState = () => {
       setError(error instanceof Error ? error.message : 'Failed to create event');
       return null;
     }
-  }, [fetchEvents, setError, setLoading]);
+  }, [fetchEvents, setError]);
 
-  // Update event - FIXED to use proper backend ID extraction
+  // OPTIMISTIC UPDATE EVENT - No loading state
   const updateEvent = useCallback(async (eventId: string | number | undefined | null, eventData: Partial<EventDetails>): Promise<EventDetails | null> => {
     if (!authAPI.isAuthenticated()) {
       setError('Not authenticated');
@@ -285,16 +267,11 @@ export const useAppState = () => {
     }
 
     try {
-      setLoading(true);
-      
-      // Use helper function to get clean backend ID
       const backendId = getBackendId(eventId);
       
       if (!backendId) {
         throw new Error('Invalid event ID provided');
       }
-      
-      console.log(`Updating event: ${eventId} -> backend ID: ${backendId}`);
       
       const response = await authAPI.authenticatedFetch(
         `${process.env.NEXT_PUBLIC_API_URL}/api/events/${backendId}/`, 
@@ -311,9 +288,9 @@ export const useAppState = () => {
 
       const updatedEvent: EventDetails = await response.json();
       
-      // Refresh events after updating
+      // Background refresh - no loading state
       const updatedEvents = await fetchEvents();
-      updateState({ events: updatedEvents, error: null, isLoading: false });
+      updateState({ events: updatedEvents, error: null });
       
       return updatedEvent;
     } catch (error) {
@@ -321,9 +298,9 @@ export const useAppState = () => {
       setError(error instanceof Error ? error.message : 'Failed to update event');
       return null;
     }
-  }, [fetchEvents, setError, setLoading, getBackendId]);
+  }, [fetchEvents, setError, getBackendId]);
 
-  // Delete event - FIXED to use proper backend ID extraction
+  // OPTIMISTIC DELETE EVENT - No loading state
   const deleteEvent = useCallback(async (eventId: string | number | undefined | null): Promise<boolean> => {
     if (!authAPI.isAuthenticated()) {
       setError('Not authenticated');
@@ -331,16 +308,11 @@ export const useAppState = () => {
     }
 
     try {
-      setLoading(true);
-      
-      // Use helper function to get clean backend ID
       const backendId = getBackendId(eventId);
       
       if (!backendId) {
         throw new Error('Invalid event ID provided');
       }
-      
-      console.log(`Deleting event: ${eventId} -> backend ID: ${backendId}`);
       
       const response = await authAPI.authenticatedFetch(
         `${process.env.NEXT_PUBLIC_API_URL}/api/events/${backendId}/`, 
@@ -351,9 +323,9 @@ export const useAppState = () => {
         throw new Error(`Failed to delete event: ${response.status}`);
       }
 
-      // Refresh events after deleting
+      // Background refresh - no loading state
       const updatedEvents = await fetchEvents();
-      updateState({ events: updatedEvents, error: null, isLoading: false });
+      updateState({ events: updatedEvents, error: null });
       
       return true;
     } catch (error) {
@@ -361,18 +333,28 @@ export const useAppState = () => {
       setError(error instanceof Error ? error.message : 'Failed to delete event');
       return false;
     }
-  }, [fetchEvents, setError, setLoading, getBackendId]);
+  }, [fetchEvents, setError, getBackendId]);
 
-  // Create task
+  // OPTIMISTIC CREATE TASK - Immediate UI update, no loading state
   const createTask = useCallback(async (taskData: Omit<TaskData, 'id'>): Promise<TaskData | null> => {
     if (!authAPI.isAuthenticated()) {
       setError('Not authenticated');
       return null;
     }
 
+    // Create temporary task for immediate UI feedback
+    const tempTask: TaskData = {
+      id: `temp-${Date.now()}`,
+      ...taskData
+    };
+
+    // Immediately add to UI
+    updateState({ 
+      tasks: [...globalState.tasks, tempTask], 
+      error: null
+    });
+
     try {
-      setLoading(true);
-      
       const response = await authAPI.authenticatedFetch(
         `${process.env.NEXT_PUBLIC_API_URL}/api/tasks/`, 
         {
@@ -383,17 +365,22 @@ export const useAppState = () => {
       );
 
       if (!response.ok) {
+        // Remove temp task on error
+        updateState({ 
+          tasks: globalState.tasks.filter(task => task.id !== tempTask.id)
+        });
         const errorText = await response.text();
         throw new Error(`Failed to create task: ${response.status} - ${errorText}`);
       }
 
       const newTask: TaskData = await response.json();
       
-      // Add to existing tasks
+      // Replace temp task with real task
       updateState({ 
-        tasks: [...globalState.tasks, newTask], 
-        error: null, 
-        isLoading: false 
+        tasks: globalState.tasks.map(task => 
+          task.id === tempTask.id ? newTask : task
+        ), 
+        error: null
       });
       
       return newTask;
@@ -402,33 +389,39 @@ export const useAppState = () => {
       setError(error instanceof Error ? error.message : 'Failed to create task');
       return null;
     }
-  }, [setError, setLoading]);
+  }, [setError]);
 
-  // Delete task
+  // OPTIMISTIC DELETE TASK - Immediate UI update, no loading state
   const deleteTask = useCallback(async (taskId: string): Promise<boolean> => {
     if (!authAPI.isAuthenticated()) {
       setError('Not authenticated');
       return false;
     }
 
+    // Store original task for potential rollback
+    const taskToDelete = globalState.tasks.find(task => task.id === taskId);
+    
+    // Immediately remove from UI
+    updateState({ 
+      tasks: globalState.tasks.filter(task => task.id !== taskId),
+      error: null
+    });
+
     try {
-      setLoading(true);
-      
       const response = await authAPI.authenticatedFetch(
         `${process.env.NEXT_PUBLIC_API_URL}/api/tasks/${taskId}/`, 
         { method: 'DELETE' }
       );
 
       if (!response.ok) {
+        // Rollback on error
+        if (taskToDelete) {
+          updateState({ 
+            tasks: [...globalState.tasks, taskToDelete]
+          });
+        }
         throw new Error(`Failed to delete task: ${response.status}`);
       }
-
-      // Remove from tasks
-      updateState({ 
-        tasks: globalState.tasks.filter(task => task.id !== taskId),
-        error: null,
-        isLoading: false 
-      });
       
       return true;
     } catch (error) {
@@ -436,23 +429,20 @@ export const useAppState = () => {
       setError(error instanceof Error ? error.message : 'Failed to delete task');
       return false;
     }
-  }, [setError, setLoading]);
+  }, [setError]);
 
-  // SIMPLE initialization - this is the key fix
+  // INITIALIZATION - Only shows loading on first load or manual refresh
   const initializeData = useCallback(async (forceRefresh = false) => {
     console.log('=== INITIALIZE DATA START ===');
-    console.log('Auth status:', authAPI.isAuthenticated());
-    console.log('Already initialized:', globalState.initialized);
-    console.log('Force refresh:', forceRefresh);
     
-    // Don't initialize if not authenticated
     if (!authAPI.isAuthenticated()) {
       console.log('Not authenticated, clearing state');
       updateState({ 
         events: [], 
         tasks: [], 
         error: null, 
-        isLoading: false, 
+        isInitializing: false,
+        isRefreshing: false,
         initialized: false 
       });
       return;
@@ -465,16 +455,21 @@ export const useAppState = () => {
     }
 
     // Prevent multiple simultaneous calls
-    if (globalState.isLoading) {
+    if (globalState.isInitializing || globalState.isRefreshing) {
       console.log('Already loading, skipping');
       return;
     }
 
     try {
-      setLoading(true);
+      // Set appropriate loading state
+      if (!globalState.initialized) {
+        updateState({ isInitializing: true });
+      } else if (forceRefresh) {
+        updateState({ isRefreshing: true });
+      }
+      
       console.log('Starting data fetch...');
       
-      // Fetch both in parallel but handle failures gracefully
       const [events, tasks] = await Promise.allSettled([
         fetchEvents(),
         fetchTasks()
@@ -496,7 +491,8 @@ export const useAppState = () => {
         events: eventsData,
         tasks: tasksData,
         error: null,
-        isLoading: false,
+        isInitializing: false,
+        isRefreshing: false,
         initialized: true
       });
 
@@ -506,15 +502,15 @@ export const useAppState = () => {
       console.error('=== INITIALIZE DATA FAILED ===', error);
       updateState({
         error: error instanceof Error ? error.message : 'Failed to load data',
-        isLoading: false,
-        initialized: true // Still mark as initialized to prevent infinite retries
+        isInitializing: false,
+        isRefreshing: false,
+        initialized: true
       });
     }
-  }, [fetchEvents, fetchTasks, setLoading]);
+  }, [fetchEvents, fetchTasks]);
 
   // Simple initialization effect - only run once when auth is ready
   useEffect(() => {
-    // Small delay to ensure auth state is settled
     const timeoutId = setTimeout(() => {
       if (!hasTriedInitRef.current) {
         hasTriedInitRef.current = true;
@@ -526,7 +522,7 @@ export const useAppState = () => {
     return () => {
       clearTimeout(timeoutId);
     };
-  }, []); // Only run once
+  }, []);
 
   // Reset on auth changes
   useEffect(() => {
@@ -539,11 +535,12 @@ export const useAppState = () => {
           events: [], 
           tasks: [], 
           error: null, 
-          isLoading: false, 
+          isInitializing: false,
+          isRefreshing: false,
           initialized: false 
         });
         hasTriedInitRef.current = false;
-      } else if (isAuth && !globalState.initialized && !globalState.isLoading) {
+      } else if (isAuth && !globalState.initialized && !globalState.isInitializing) {
         console.log('Auth gained, initializing...');
         initializeData();
       }
@@ -556,7 +553,8 @@ export const useAppState = () => {
     // State
     events: state.events,
     tasks: state.tasks,
-    isLoading: state.isLoading,
+    isLoading: state.isInitializing, // Only true during initial load
+    isRefreshing: state.isRefreshing, // Only true during manual refresh
     error: state.error,
     initialized: state.initialized,
 
@@ -569,7 +567,6 @@ export const useAppState = () => {
     createTask,
     deleteTask,
     initializeData,
-    setError,
-    setLoading
+    setError
   };
 };
