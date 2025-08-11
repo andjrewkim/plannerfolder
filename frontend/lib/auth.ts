@@ -6,7 +6,6 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL
 class AuthService {
   private getAuthHeaders(): Record<string, string> {
     const token = this.getToken();
-    console.log('Token being sent:', token); // ← Add this debug
 
     return {
       'Content-Type': 'application/json',

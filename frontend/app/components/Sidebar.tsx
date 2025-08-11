@@ -26,6 +26,10 @@ interface APIEvent {
   start_time: string;
   end_time: string;
   color: string;
+  timingInfo?: {
+    hoursUntil: number | null;
+    status: 'upcoming' | 'ongoing' | 'past';
+  };
 }
 
 interface SidebarProps {
@@ -229,14 +233,21 @@ const Sidebar: React.FC<SidebarProps> = ({
           const eventDateString = event.date.split('T')[0];
           return eventDateString === todayString;
         })
-        .map((event: EventDetails) => ({
-          id: parseInt(event.id || event.eventId || '0'),
-          event_name: event.event_name,
-          date: event.date,
-          start_time: event.start_time || '',
-          end_time: event.end_time || '',
-          color: event.color
-        }))
+        .map((event: EventDetails) => {
+          // Calculate timing info ONCE here during mapping
+          const timingInfo = calculateHoursUntil(event.date, event.start_time || '', event.end_time || '');
+          
+          return {
+            id: parseInt(event.id || event.eventId || '0'),
+            event_name: event.event_name,
+            date: event.date,
+            start_time: event.start_time || '',
+            end_time: event.end_time || '',
+            color: event.color,
+            // Store the calculated timing info
+            timingInfo
+          };
+        })
         .sort((a, b) => {
           return a.start_time.localeCompare(b.start_time);
         });
@@ -246,6 +257,7 @@ const Sidebar: React.FC<SidebarProps> = ({
       setTodayEvents([]);
     }
   }, [events, calculateHoursUntil]);
+
 
   // Handle refresh trigger with debouncing
   useEffect(() => {
@@ -621,303 +633,303 @@ const Sidebar: React.FC<SidebarProps> = ({
     );
   }
 
-  return (
-    <div className="app-layout">
-      <aside
-        className="app-sidebar bg-[hsl(var(--background))] text-[hsl(var(--foreground))]"
-        style={{ overflowY: 'auto', maxHeight: '100vh' }}
+return (
+  <div className="app-layout">
+    <aside
+      className="app-sidebar bg-[hsl(var(--background))] text-[hsl(var(--foreground))]"
+      style={{ overflowY: 'auto', maxHeight: '100vh' }}
+    >
+
+      {/* Event Form Section */}
+      <section 
+        className={`sidebar-section ${activeSection === 'eventForm' ? 'resizing' : ''}`}
+        data-section="eventForm"
+        style={{ 
+          marginTop: '10px', 
+          height: `${sectionHeights.eventForm}px`,
+          minHeight: '120px',
+          transition: isResizing ? 'none' : 'height 0.2s ease-out'
+        }}
       >
-
-        {/* Event Form Section */}
-        <section 
-          className={`sidebar-section ${activeSection === 'eventForm' ? 'resizing' : ''}`}
-          data-section="eventForm"
-          style={{ 
-            marginTop: '10px', 
-            height: `${sectionHeights.eventForm}px`,
-            minHeight: '120px',
-            transition: isResizing ? 'none' : 'height 0.2s ease-out'
-          }}
-        >
-          <h3 className="section-title">Create Event</h3>
-          <div className="section-content" style={{ overflow: 'hidden' }}>
-            <EventForm 
-              setResult={setEventResults} 
-              setError={setEventError}
-              onEventResult={handleEventResult}
-            />
-          </div>
-          <div 
-            className={`resize-handle ${activeSection === 'eventForm' ? 'active' : ''}`}
-            onMouseDown={startResize('eventForm')}
+        <h3 className="section-title">Create Event</h3>
+        <div className="section-content" style={{ overflow: 'hidden' }}>
+          <EventForm 
+            setResult={setEventResults} 
+            setError={setEventError}
+            onEventResult={handleEventResult}
           />
-        </section>
+        </div>
+        <div 
+          className={`resize-handle ${activeSection === 'eventForm' ? 'active' : ''}`}
+          onMouseDown={startResize('eventForm')}
+        />
+      </section>
 
-        {/* Today's Schedule Section */}
-        <section 
-          className={`sidebar-section ${activeSection === 'schedule' ? 'resizing' : ''}`}
-          data-section="schedule"
-          style={{ 
-            height: `${sectionHeights.schedule}px`,
-            minHeight: '120px',
-            transition: isResizing ? 'none' : 'height 0.2s ease-out'
-          }}
-        >
-          <h3 className="section-title">Today's Schedule</h3>
-          <div className="section-content" style={{ overflowY: 'auto', maxHeight: `${sectionHeights.schedule - 60}px` }}>
-            {displayError && !isLoading ? (
-              <div className="error-message" style={{ color: 'red', padding: '10px' }}>
-                {displayError}
-              </div>
-            ) : !initialized ? (
-              <div className="loading-message">Loading events...</div>
-            ) : todayEvents.length > 0 ? (
-              <ul className="event-list">
-                {todayEvents.map((event, index) => {
-                  const result = calculateHoursUntil(event.date, event.start_time, event.end_time);
-                  const { hoursUntil, status } = result;
-                  
-                  // Find the first upcoming event for timer display
-                  const firstUpcomingIndex = todayEvents.findIndex(e => {
-                    const eventResult = calculateHoursUntil(e.date, e.start_time, e.end_time);
-                    return eventResult.status === 'upcoming';
-                  });
-                  
-                  const showTimer = status === 'upcoming' && index === firstUpcomingIndex && hoursUntil !== null;
-                  
-                  console.log('Event:', event.event_name, 'Status:', status, 'Hours until:', hoursUntil, 'Show timer:', showTimer, 'End time:', event.end_time);
-                  
-                  return (
-                    <li
-                      key={event.id}
-                      className="event-item"
-                      style={{
-                        '--event-color': event.color,
-                        ...(status === 'past' && {
-                          opacity: 0.5
-                        }),
-                        ...(status === 'ongoing' && {
-                          backgroundColor: 'rgba(0, 123, 255, 0.1)',
-                        })
-                      } as React.CSSProperties}
-                    >
-                      <span 
-                        className="event-name"
-                        style={{
-                          ...(status === 'past' && {
-                            textDecoration: 'line-through',
-                            color: '#888'
-                          })
-                        }}
-                      >
-                        {event.event_name}
-                        {status === 'ongoing' && (
-                          <span style={{
-                            marginLeft: '8px',
-                            fontSize: '11px',
-                            color: '#007bff',
-                            fontWeight: 'bold'
-                          }}>
-                            LIVE
-                          </span>
-                        )}
-                      </span>
-                      <span 
-                        className="event-time"
-                        style={{
-                          ...(status === 'past' && {
-                            textDecoration: 'line-through',
-                            color: '#888'
-                          })
-                        }}
-                      >
-                        {showTimer && (
-                          <span style={{ 
-                            fontSize: '11px', 
-                            fontWeight: 'bold', 
-                            color: '#007bff',
-                            marginRight: '8px'
-                          }}>
-                            (in {formatHoursUntil(hoursUntil)})
-                          </span>
-                        )}
-                        {status === 'ongoing' && event.end_time ? 
-                          `ends at: ${formatEventTime(event.date, event.end_time)}` :
-                          formatEventTime(event.date, event.start_time)
-                        }
-                      </span>
-                    </li>
-                  );
-                })}
-              </ul>
-            ) : (
-              <div className="empty-state">No events for today</div>
-            )}
-          </div>
-          <div 
-            className={`resize-handle ${activeSection === 'schedule' ? 'active' : ''}`}
-            onMouseDown={startResize('schedule')}
-          />
-        </section>
-
-        {/* Tasks Section */}
-        <section 
-          className="sidebar-section"
-          data-section="tasks"
-          style={{ 
-            height: `${sectionHeights.tasks}px`,
-            minHeight: '120px',
-            transition: isResizing ? 'none' : 'height 0.2s ease-out'
-          }}
-        >
-          <h3 className="section-title">
-            Tasks
-            {isResettingTasks && (
-              <span style={{
-                marginLeft: '8px',
-                fontSize: '12px',
-                color: '#007bff',
-                fontWeight: 'normal'
-              }}>
-                (Resetting...)
-              </span>
-            )}
-          </h3>
-          <div 
-            className="section-content clickable-area"
-            onClick={handleTaskAreaClick}
-            style={{ 
-              overflowY: 'auto', 
-              maxHeight: `${sectionHeights.tasks - 60}px`
-            }}
-          >
-            {!initialized ? (
-              <div className="loading-message">Loading tasks...</div>
-            ) : (
-
-              <>
-                {regularTasks.length > 0 && (
-                  <ul className="task-list">
-                    {regularTasks.map((task) => (
-                      <li 
-                        key={task.id} 
-                        className={`task-item ${deletingTasks.has(task.id || '') ? 'deleting' : ''}`}
-                        style={{
-                          opacity: deletingTasks.has(task.id || '') ? 0.5 : 1,
-                          transition: 'opacity 0.3s ease'
-                        }}
-                      >
-                        <label className="task-label">
-                          <input
-                            type="checkbox"
-                            onChange={() => task.id && handleTaskComplete(task.id)}
-                            className="task-checkbox"
-                            disabled={deletingTasks.has(task.id || '') || isResettingTasks}
-                          />
-                          <span 
-                            className="task-text"
-                            style={{
-                              color: 'var(--foreground, #000)',
-                              fontSize: '14px',
-                              lineHeight: '1.4'
-                            }}
-                          >
-                            {task.event}
-                          </span>
-                        </label>
-                      </li>
-                    ))}
-                  </ul>
-                )}
+      {/* Today's Schedule Section */}
+      <section 
+        className={`sidebar-section ${activeSection === 'schedule' ? 'resizing' : ''}`}
+        data-section="schedule"
+        style={{ 
+          height: `${sectionHeights.schedule}px`,
+          minHeight: '120px',
+          transition: isResizing ? 'none' : 'height 0.2s ease-out'
+        }}
+      >
+        <h3 className="section-title">Today's Schedule</h3>
+        <div className="section-content" style={{ overflowY: 'auto', maxHeight: `${sectionHeights.schedule - 60}px` }}>
+          {displayError && !isLoading ? (
+            <div className="error-message" style={{ color: 'red', padding: '10px' }}>
+              {displayError}
+            </div>
+          ) : !initialized ? (
+            <div className="loading-message">Loading events...</div>
+          ) : todayEvents.length > 0 ? (
+            <ul className="event-list">
+              {todayEvents.map((event, index) => {
+                // Use pre-calculated timing info
+                const { hoursUntil, status } = event.timingInfo || { hoursUntil: null, status: 'past' as const };
                 
-                {isAddingTask ? (
-                  <form onSubmit={handleCreateTask} className="task-form">
-                    <input
-                      type="text"
-                      ref={taskInputRef}
-                      value={newTaskText}
-                      onChange={(e) => setNewTaskText(e.target.value)}
-                      placeholder="Enter new task..."
-                      className="task-input"
+                // Find the first upcoming event for timer display
+                const firstUpcomingIndex = todayEvents.findIndex(e => 
+                  e.timingInfo?.status === 'upcoming'
+                );
+                
+                const showTimer = status === 'upcoming' && index === firstUpcomingIndex && hoursUntil !== null;
+                
+                return (
+                  <li
+                    key={event.id}
+                    className="event-item"
+                    style={{
+                      '--event-color': event.color,
+                      ...(status === 'past' && {
+                        opacity: 0.5
+                      }),
+                      ...(status === 'ongoing' && {
+                        backgroundColor: 'rgba(0, 123, 255, 0.1)',
+                      })
+                    } as React.CSSProperties}
+                  >
+                    <span 
+                      className="event-name"
+                      style={{
+                        ...(status === 'past' && {
+                          textDecoration: 'line-through',
+                          color: '#888'
+                        })
+                      }}
+                    >
+                      {event.event_name}
+                      {status === 'ongoing' && (
+                        <span style={{
+                          marginLeft: '8px',
+                          fontSize: '11px',
+                          color: '#007bff',
+                          fontWeight: 'bold'
+                        }}>
+                          LIVE
+                        </span>
+                      )}
+                    </span>
+                    <span 
+                      className="event-time"
+                      style={{
+                        ...(status === 'past' && {
+                          textDecoration: 'line-through',
+                          color: '#888'
+                        })
+                      }}
+                    >
+                      {showTimer && hoursUntil !== null && (
+                        <span style={{ 
+                          fontSize: '11px', 
+                          fontWeight: 'bold', 
+                          color: '#007bff',
+                          marginRight: '8px'
+                        }}>
+                          (in {formatHoursUntil(hoursUntil)})
+                        </span>
+                      )}
+                      {status === 'ongoing' && event.end_time ? 
+                        `ends at: ${formatEventTime(event.date, event.end_time)}` :
+                        formatEventTime(event.date, event.start_time)
+                      }
+                    </span>
+                  </li>
+                );
+              })}
+            </ul>
+          ) : (
+            <div className="empty-state">No events for today</div>
+          )}
+        </div>
+        <div 
+          className={`resize-handle ${activeSection === 'schedule' ? 'active' : ''}`}
+          onMouseDown={startResize('schedule')}
+        />
+      </section>
+
+      {/* Tasks Section */}
+      <section 
+        className="sidebar-section"
+        data-section="tasks"
+        style={{ 
+          height: `${sectionHeights.tasks}px`,
+          minHeight: '120px',
+          transition: isResizing ? 'none' : 'height 0.2s ease-out'
+        }}
+      >
+        <h3 className="section-title">
+          Tasks
+          {isResettingTasks && (
+            <span style={{
+              marginLeft: '8px',
+              fontSize: '12px',
+              color: '#007bff',
+              fontWeight: 'normal'
+            }}>
+              (Resetting...)
+            </span>
+          )}
+        </h3>
+        <div 
+          className="section-content clickable-area"
+          onClick={handleTaskAreaClick}
+          style={{ 
+            overflowY: 'auto', 
+            maxHeight: `${sectionHeights.tasks - 60}px`
+          }}
+        >
+          {!initialized ? (
+            <div className="loading-message">Loading tasks...</div>
+          ) : (
+            <>
+              {regularTasks.length > 0 && (
+                <ul className="task-list">
+                  {regularTasks.map((task) => (
+                    <li 
+                      key={task.id} 
+                      className={`task-item ${deletingTasks.has(task.id || '') ? 'deleting' : ''}`}
+                      style={{
+                        opacity: deletingTasks.has(task.id || '') ? 0.5 : 1,
+                        transition: 'opacity 0.3s ease'
+                      }}
+                    >
+                      <label className="task-label">
+                        <input
+                          type="checkbox"
+                          onChange={() => task.id && handleTaskComplete(task.id)}
+                          className="task-checkbox"
+                          disabled={deletingTasks.has(task.id || '') || isResettingTasks}
+                        />
+                        <span 
+                          className="task-text"
+                          style={{
+                            color: 'var(--foreground, #000)',
+                            fontSize: '14px',
+                            lineHeight: '1.4'
+                          }}
+                        >
+                          {task.event}
+                        </span>
+                      </label>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              
+              {isAddingTask ? (
+                <form onSubmit={handleCreateTask} className="task-form">
+                  <input
+                    type="text"
+                    ref={taskInputRef}
+                    value={newTaskText}
+                    onChange={(e) => setNewTaskText(e.target.value)}
+                    placeholder="Enter new task..."
+                    className="task-input"
+                    disabled={isCreatingTask || isResettingTasks}
+                    style={{
+                      width: '100%',
+                      padding: '8px',
+                      border: '1px solid #ccc',
+                      borderRadius: '4px',
+                      fontSize: '14px'
+                    }}
+                  />
+                  <div className="task-form-buttons" style={{ marginTop: '8px' }}>
+                    <button 
+                      type="submit" 
+                      className="btn btn-save"
+                      disabled={isCreatingTask || !newTaskText.trim() || isResettingTasks}
+                      style={{
+                        padding: '6px 12px',
+                        marginRight: '8px',
+                        backgroundColor: (isCreatingTask || isResettingTasks) ? '#ccc' : '#007bff',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '4px',
+                        cursor: (isCreatingTask || isResettingTasks) ? 'not-allowed' : 'pointer'
+                      }}
+                    >
+                      {isCreatingTask ? 'Saving...' : 'Save'}
+                    </button>
+                    <button 
+                      type="button" 
+                      className="btn btn-cancel"
+                      onClick={handleCancelTask}
                       disabled={isCreatingTask || isResettingTasks}
                       style={{
-                        width: '100%',
-                        padding: '8px',
-                        border: '1px solid #ccc',
+                        padding: '6px 12px',
+                        backgroundColor: '#6c757d',
+                        color: 'white',
+                        border: 'none',
                         borderRadius: '4px',
-                        fontSize: '14px'
+                        cursor: (isCreatingTask || isResettingTasks) ? 'not-allowed' : 'pointer'
                       }}
-                    />
-                    <div className="task-form-buttons" style={{ marginTop: '8px' }}>
-                      <button 
-                        type="submit" 
-                        className="btn btn-save"
-                        disabled={isCreatingTask || !newTaskText.trim() || isResettingTasks}
-                        style={{
-                          padding: '6px 12px',
-                          marginRight: '8px',
-                          backgroundColor: (isCreatingTask || isResettingTasks) ? '#ccc' : '#007bff',
-                          color: 'white',
-                          border: 'none',
-                          borderRadius: '4px',
-                          cursor: (isCreatingTask || isResettingTasks) ? 'not-allowed' : 'pointer'
-                        }}
-                      >
-                        {isCreatingTask ? 'Saving...' : 'Save'}
-                      </button>
-                      <button 
-                        type="button" 
-                        className="btn btn-cancel"
-                        onClick={handleCancelTask}
-                        disabled={isCreatingTask || isResettingTasks}
-                        style={{
-                          padding: '6px 12px',
-                          backgroundColor: '#6c757d',
-                          color: 'white',
-                          border: 'none',
-                          borderRadius: '4px',
-                          cursor: (isCreatingTask || isResettingTasks) ? 'not-allowed' : 'pointer'
-                        }}
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                    {localError && (
-                      <div className="error-message" style={{ 
-                        color: 'red', 
-                        fontSize: '12px', 
-                        marginTop: '4px' 
-                      }}>
-                        {localError}
-                      </div>
-                    )}
-                  </form>
-                ) : (
-                  <div className="empty-state" style={{ 
-                    padding: '20px', 
-                    textAlign: 'center', 
-                    color: '#666',
-                    cursor: isResettingTasks ? 'not-allowed' : 'pointer',
-                    opacity: isResettingTasks ? 0.5 : 1
-                  }}>
-                    {isResettingTasks ? 'Resetting tasks...' : 'Click here to add tasks'}
+                    >
+                      Cancel
+                    </button>
                   </div>
-                )}
-              </>
-            )}
-          </div>
-        </section>
-      </aside>
+                  {localError && (
+                    <div className="error-message" style={{ 
+                      color: 'red', 
+                      fontSize: '12px', 
+                      marginTop: '4px' 
+                    }}>
+                      {localError}
+                    </div>
+                  )}
+                </form>
+              ) : (
+                <div className="empty-state" style={{ 
+                  padding: '20px', 
+                  textAlign: 'center', 
+                  color: '#666',
+                  cursor: isResettingTasks ? 'not-allowed' : 'pointer',
+                  opacity: isResettingTasks ? 0.5 : 1
+                }}>
+                  {regularTasks.length === 0 ? (
+                    isResettingTasks ? 'Resetting tasks...' : 'Click here to add tasks'
+                  ) : (
+                    isResettingTasks ? 'Resetting tasks...' : 'Click here to add more tasks'
+                  )}
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      </section>
+    </aside>
 
-      <main className="app-content">
-        {eventError && (
-          <div className="error-message" style={{ margin: '20px', color: 'red' }}>
-            {eventError}
-          </div>
-        )}
-      </main>
-    </div>
-  );
-};
+    <main className="app-content">
+      {eventError && (
+        <div className="error-message" style={{ margin: '20px', color: 'red' }}>
+          {eventError}
+        </div>
+      )}
+    </main>
+  </div>
+);
+}
 
 export default Sidebar;
