@@ -1,3 +1,4 @@
+// Sidebar.tsx - FIXED VERSION - Removes refresh trigger system
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import EventForm from './EventForm';
 import '../styles/container.css';
@@ -34,7 +35,7 @@ interface APIEvent {
 
 interface SidebarProps {
   onEventChange?: () => void;
-  refreshTrigger?: number;
+  refreshTrigger?: number; // Keep prop but don't use it
 }
 
 interface SectionHeights {
@@ -45,21 +46,9 @@ interface SectionHeights {
 
 const LAST_RESET_KEY = 'tasks_last_reset_date';
 
-// Debounce utility function
-const debounce = <T extends (...args: any[]) => void>(
-  func: T,
-  wait: number
-): ((...args: Parameters<T>) => void) => {
-  let timeout: NodeJS.Timeout | null = null;
-  return (...args: Parameters<T>) => {
-    if (timeout) clearTimeout(timeout);
-    timeout = setTimeout(() => func(...args), wait);
-  };
-};
-
 const Sidebar: React.FC<SidebarProps> = ({ 
   onEventChange, 
-  refreshTrigger
+  refreshTrigger // Keep prop but ignore it completely
 }) => {
   const {
     events,
@@ -88,7 +77,6 @@ const Sidebar: React.FC<SidebarProps> = ({
   const taskInputRef = useRef<HTMLInputElement>(null);
   const isMountedRef = useRef<boolean>(true);
   const resetTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const refreshInProgressRef = useRef<boolean>(false);
 
   // Section heights for resizing
   const [sectionHeights, setSectionHeights] = useState<SectionHeights>({
@@ -202,24 +190,6 @@ const Sidebar: React.FC<SidebarProps> = ({
     }
   }, []);
 
-  // Debounced refresh function
-  const debouncedRefresh = useCallback(
-    debounce(async () => {
-      if (refreshInProgressRef.current || !isMountedRef.current) return;
-      
-      refreshInProgressRef.current = true;
-      try {
-        await initializeData(true);
-        if (onEventChange) {
-          onEventChange();
-        }
-      } finally {
-        refreshInProgressRef.current = false;
-      }
-    }, 500),
-    [initializeData, onEventChange]
-  );
-
   // Update today's events when events change
   useEffect(() => {
     if (!isMountedRef.current) return;
@@ -258,14 +228,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     }
   }, [events, calculateHoursUntil]);
 
-
-  // Handle refresh trigger with debouncing
-  useEffect(() => {
-    if (!isMountedRef.current || !refreshTrigger || refreshTrigger <= 0) return;
-
-    console.log('Refresh trigger activated:', refreshTrigger);
-    debouncedRefresh();
-  }, [refreshTrigger, debouncedRefresh]);
+  // REMOVED: No more refreshTrigger handling - let useAppState handle everything
 
   // Focus input when adding task
   useEffect(() => {
@@ -274,14 +237,14 @@ const Sidebar: React.FC<SidebarProps> = ({
     }
   }, [isAddingTask]);
 
-  // Event result handler with debouncing
+  // SIMPLIFIED: Event result handler - no more manual refresh calls
   const handleEventResult = useCallback(async (results: EventData[]) => {
     if (!isMountedRef.current) return;
 
-    console.log('Event created, refreshing data...');
+    console.log('Event created - useAppState will handle refresh automatically');
     setEventResults(results);
-    debouncedRefresh();
-  }, [debouncedRefresh]);
+    // REMOVED: No more manual refresh calls - useAppState debounced refresh handles it
+  }, []);
 
   // Task area click handler
   const handleTaskAreaClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
