@@ -121,6 +121,42 @@ const restoreScrollPosition = (calendarRef: React.RefObject<FullCalendar>, scrol
   });
 };
 
+// NEW: Calculate visible date range based on current view and date
+const getVisibleDateRange = (currentView: string, currentDate: Date) => {
+  const now = new Date();
+  let start: Date, end: Date;
+
+  switch (currentView) {
+    case 'dayGridMonth':
+      // For month view, show current month + 1 month buffer on each side
+      start = new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1);
+      end = new Date(currentDate.getFullYear(), currentDate.getMonth() + 2, 0); // Last day of next month
+      break;
+    case 'timeGridWeek':
+      // For week view, show current week + 2 weeks buffer on each side
+      const startOfWeek = new Date(currentDate);
+      startOfWeek.setDate(currentDate.getDate() - currentDate.getDay() - 14); // 2 weeks before
+      const endOfWeek = new Date(currentDate);
+      endOfWeek.setDate(currentDate.getDate() + (6 - currentDate.getDay()) + 14); // 2 weeks after
+      start = startOfWeek;
+      end = endOfWeek;
+      break;
+    case 'timeGridDay':
+      // For day view, show current day + 7 days buffer on each side
+      start = new Date(currentDate);
+      start.setDate(currentDate.getDate() - 7);
+      end = new Date(currentDate);
+      end.setDate(currentDate.getDate() + 7);
+      break;
+    default:
+      // Fallback to month view logic
+      start = new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1);
+      end = new Date(currentDate.getFullYear(), currentDate.getMonth() + 2, 0);
+  }
+
+  return { start, end };
+};
+
 export function useCalendarLogic(refreshTrigger: number, onEventChange?: () => void, onViewChange?: (newView: string) => void) {
   // Use the centralized app state hook
   const {
@@ -155,6 +191,9 @@ export function useCalendarLogic(refreshTrigger: number, onEventChange?: () => v
   const [originalEventPosition, setOriginalEventPosition] = useState(null);
   // Add this new state to keep track of temporary events
   const [temporaryEvent, setTemporaryEvent] = useState<CustomEventInput | null>(null);
+
+  // NEW: Track visible date range to limit event expansion
+  const [visibleDateRange, setVisibleDateRange] = useState<{start: Date, end: Date} | null>(null);
 
   // Track the last view change to prevent unnecessary onViewChange calls
   const lastNotifiedView = useRef<string>('');
@@ -202,13 +241,27 @@ export function useCalendarLogic(refreshTrigger: number, onEventChange?: () => v
       
       setCurrentView(initialView);
       setCurrentDate(today);
+      
+      // NEW: Set initial visible date range
+      const initialRange = getVisibleDateRange(initialView, today);
+      setVisibleDateRange(initialRange);
+      
       lastNotifiedView.current = initialView;
       lastNotifiedDate.current = today;
       setHasInitialized(true);
       
-      console.log('Initialization - view:', initialView, 'date:', today);
+      console.log('Initialization - view:', initialView, 'date:', today, 'range:', initialRange);
     }
   }, []);
+
+  // NEW: Update visible date range when view or date changes
+  useEffect(() => {
+    if (currentView && currentDate && hasInitialized) {
+      const newRange = getVisibleDateRange(currentView, currentDate);
+      setVisibleDateRange(newRange);
+      console.log('Updated visible date range:', newRange);
+    }
+  }, [currentView, currentDate, hasInitialized]);
 
   // Optimized URL update with immediate onViewChange call
   const updateUrlAndNotify = useCallback((view: string, date: Date) => {
@@ -251,17 +304,18 @@ export function useCalendarLogic(refreshTrigger: number, onEventChange?: () => v
     }
   }, [currentView, currentDate, updateUrlAndNotify]);
 
-  // Memoized and optimized recurring events expansion
+  // OPTIMIZED: Only expand recurring events for visible date range
   const expandRecurringEvents = useMemo(() => {
-    return (events: EventDetails[]): EventDetails[] => {
-      if (!events.length) return [];
+    return (events: EventDetails[], dateRange: {start: Date, end: Date} | null): EventDetails[] => {
+      if (!events.length || !dateRange) return [];
       
       const expandedEvents: EventDetails[] = [];
-      const today = new Date();
-      const futureLimit = new Date(today.getFullYear() + 2, today.getMonth(), today.getDate());
+      const { start: rangeStart, end: rangeEnd } = dateRange;
       
-      // Use Map for better performance than Set with string keys
+      // Use Map for better performance
       const addedInstances = new Map<string, boolean>();
+
+      console.log('Expanding events for date range:', rangeStart, 'to', rangeEnd);
 
       events.forEach(event => {
         if (event.recurrence_pattern && event.recurrence_pattern.trim() !== '') {
@@ -274,18 +328,17 @@ export function useCalendarLogic(refreshTrigger: number, onEventChange?: () => v
             
             const rule = RRule.fromString(ruleString);
             
-            const occurrences = rule.between(
-              new Date(Math.min(baseDate.getTime(), today.getTime() - 30 * 24 * 60 * 60 * 1000)),
-              futureLimit,
-              true
-            );
+            // OPTIMIZED: Only get occurrences within visible range
+            const occurrences = rule.between(rangeStart, rangeEnd, true);
 
+            // Include original date if it's in range and not already included
             const originalDateString = baseDate.toISOString().split('T')[0];
+            const originalInRange = baseDate >= rangeStart && baseDate <= rangeEnd;
             const hasOriginalDate = occurrences.some(occ => 
               occ.toISOString().split('T')[0] === originalDateString
             );
 
-            if (!hasOriginalDate) {
+            if (originalInRange && !hasOriginalDate) {
               occurrences.unshift(baseDate);
             }
 
@@ -293,10 +346,8 @@ export function useCalendarLogic(refreshTrigger: number, onEventChange?: () => v
               const eventDate = new Date(occurrence);
               const dateString = eventDate.toISOString().split('T')[0];
               
-              // Create a unique identifier based on the original event ID and the specific date
               const uniqueInstanceId = `${event.id}_${dateString}`;
               
-              // Only add if we haven't already added this specific instance
               if (!addedInstances.has(uniqueInstanceId)) {
                 addedInstances.set(uniqueInstanceId, true);
                 
@@ -312,32 +363,39 @@ export function useCalendarLogic(refreshTrigger: number, onEventChange?: () => v
             });
           } catch (error) {
             console.error('Error parsing RRule:', event.recurrence_pattern, error);
-            // Only add the original event if we haven't already added it
+            // Only add the original event if it's in range
+            const baseDate = new Date(event.date);
+            if (baseDate >= rangeStart && baseDate <= rangeEnd) {
+              const uniqueInstanceId = `${event.id}_${event.date}`;
+              if (!addedInstances.has(uniqueInstanceId)) {
+                addedInstances.set(uniqueInstanceId, true);
+                expandedEvents.push(event);
+              }
+            }
+          }
+        } else {
+          // For non-recurring events, only include if in range
+          const baseDate = new Date(event.date);
+          if (baseDate >= rangeStart && baseDate <= rangeEnd) {
             const uniqueInstanceId = `${event.id}_${event.date}`;
             if (!addedInstances.has(uniqueInstanceId)) {
               addedInstances.set(uniqueInstanceId, true);
               expandedEvents.push(event);
             }
           }
-        } else {
-          // For non-recurring events, use the same pattern for consistency
-          const uniqueInstanceId = `${event.id}_${event.date}`;
-          if (!addedInstances.has(uniqueInstanceId)) {
-            addedInstances.set(uniqueInstanceId, true);
-            expandedEvents.push(event);
-          }
         }
       });
 
+      console.log('Expanded', events.length, 'base events to', expandedEvents.length, 'instances for visible range');
       return expandedEvents;
     };
-  }, []); // Remove hookEvents dependency to prevent unnecessary recalculations
+  }, []);
 
-  // Optimized event formatting with dependency tracking
+  // OPTIMIZED: Only format events within visible range
   const formattedEvents = useMemo(() => {
-    if (!hookEvents.length) return [];
+    if (!hookEvents.length || !visibleDateRange) return [];
     
-    const expandedEvents = expandRecurringEvents(hookEvents);
+    const expandedEvents = expandRecurringEvents(hookEvents, visibleDateRange);
     
     const formatted = expandedEvents.map((event: EventDetails) => ({
       id: String(event.id),
@@ -398,7 +456,7 @@ export function useCalendarLogic(refreshTrigger: number, onEventChange?: () => v
     }
 
     return formatted;
-  }, [hookEvents, expandRecurringEvents, isDragging, draggedEventPosition, originalEventPosition, draggedEventId, temporaryEvent, isModalOpen]);
+  }, [hookEvents, visibleDateRange, expandRecurringEvents, isDragging, draggedEventPosition, originalEventPosition, draggedEventId, temporaryEvent, isModalOpen]);
 
   // Update currentEvents when formattedEvents change
   useEffect(() => {

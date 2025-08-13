@@ -228,6 +228,18 @@ const EventModal: React.FC<EventModalProps> = ({
     onClose();
   };
 
+  const handleSubmit = (e: React.FormEvent) => {
+    onSubmit(e);
+    handleClose();
+  };
+
+  const handleDelete = (eventId: string) => {
+    if (onDelete) {
+      onDelete(eventId);
+      handleClose();
+    }
+  };
+
   const rruleToHumanReadable = (rrule: string): string => {
     if (!rrule) return "";
     
@@ -354,7 +366,7 @@ const EventModal: React.FC<EventModalProps> = ({
           <h2 className="modal-header">
             {selectedEvent.eventId ? "Edit Event" : "Add New Event"}
           </h2>
-          <form onSubmit={onSubmit}>
+          <form onSubmit={handleSubmit}>
             <div className="form-row">
               <div className="form-field-full">
                 <label className="form-label">Event Name</label>
@@ -537,7 +549,7 @@ const EventModal: React.FC<EventModalProps> = ({
               {selectedEvent.eventId && onDelete && (
                 <button
                   type="button"
-                  onClick={() => onDelete(selectedEvent.eventId)}
+                  onClick={() => handleDelete(selectedEvent.eventId)}
                   className="modal-button modal-button-delete"
                 >
                   Delete
