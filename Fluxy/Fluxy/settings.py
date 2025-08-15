@@ -1,39 +1,20 @@
 # Fluxy/settings.py
 import os
-
-PORT = os.getenv('PORT', 8080)
-
 import dj_database_url
 from pathlib import Path
-
-BUILDING = os.getenv('RAILWAY_STATIC_URL') is not None or os.getenv('BUILD_PHASE') == 'true'
-
-if BUILDING:
-    # Use SQLite during build phase
-    DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.sqlite3',
-            'NAME': ':memory:',
-        }
-    }
-else:
-    # Use your normal database configuration
-    DATABASES = {
-        'default': dj_database_url.config(
-            conn_max_age=600,
-            conn_health_checks=True,
-        )
-    }
-
 from dotenv import load_dotenv
-load_dotenv()  # Load from .env file
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
+load_dotenv()  # Load from .env file
+
+# Check if we're in build phase
+BUILDING = os.getenv('RAILWAY_STATIC_URL') is not None or os.getenv('BUILD_PHASE') == 'true' or 'collectstatic' in os.sys.argv
+
+PORT = os.getenv('PORT', 8080)
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
 DEFAULT_LLM_PROVIDER = "gemini"
 ENABLED_LLM_PROVIDERS = ["gemini", "openai"]
-
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -56,10 +37,8 @@ CSRF_TRUSTED_ORIGINS = [
     "https://127.0.0.1:3000",
 ]
 
-
 #DUCKLING STUFF
 DUCKLING_URL = os.environ.get('DUCKLING_URL', 'http://127.0.0.1:8080')
-
 
 LOGGING = {
     'version': 1,
@@ -84,7 +63,6 @@ LOGGING = {
     },
 }
 #DUCKLING STUFF
-
 
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
@@ -114,7 +92,7 @@ REST_FRAMEWORK = {
         'rest_framework.permissions.IsAuthenticated',
     ],
     'DEFAULT_AUTHENTICATION_CLASSES': [
-        'rest_framework.authentication.TokenAuthentication',  # Primary authentication
+        'rest_framework.authentication.TokenAuthentication',
         'rest_framework.authentication.SessionAuthentication',
         'rest_framework.authentication.BasicAuthentication',
     ],
@@ -123,13 +101,10 @@ REST_FRAMEWORK = {
     ],
 }
 
-
-
-
 CORS_ALLOW_HEADERS = [
     'accept',
     'accept-encoding',
-    'authorization',  # ← This is critical!
+    'authorization',
     'content-type',
     'dnt',
     'origin',
@@ -152,7 +127,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'corsheaders',
     'rest_framework',
-    'rest_framework.authtoken',  # This is CRUCIAL for token authentication
+    'rest_framework.authtoken',
     'myapp.apps.YourAppConfig',     
     'whitenoise.runserver_nostatic',
 ]
@@ -189,21 +164,34 @@ TEMPLATES = [
     },
 ]
 
-
-
-"""
-# Database
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'postgres',
-        'USER': 'postgres',
-        'PASSWORD': 'Horosny1414!',
-        'HOST': 'localhost',
-        'PORT': '5432',
+# Database configuration - avoid DB access during build
+if BUILDING:
+    # Use dummy database during build
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': ':memory:',
+        }
     }
-}
-"""
+else:
+    # Use your production database
+    DATABASE_URL = os.getenv('DATABASE_URL')
+    if DATABASE_URL:
+        DATABASES = {
+            'default': dj_database_url.config(
+                default=DATABASE_URL,
+                conn_max_age=600,
+                conn_health_checks=True,
+            )
+        }
+    else:
+        # Fallback for local development
+        DATABASES = {
+            'default': {
+                'ENGINE': 'django.db.backends.sqlite3',
+                'NAME': BASE_DIR / 'db.sqlite3',
+            }
+        }
 
 # Password validation
 AUTH_PASSWORD_VALIDATORS = [
