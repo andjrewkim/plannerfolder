@@ -173,6 +173,30 @@ if 'collectstatic' in sys.argv:
             'NAME': ':memory:',
         }
     }
+    
+    # Disable migrations during collectstatic
+    class DisableMigrations:
+        def __contains__(self, item):
+            return True
+        def __getitem__(self, item):
+            return None
+    
+    MIGRATION_MODULES = DisableMigrations()
+    
+    # Minimal apps for collectstatic
+    INSTALLED_APPS = [
+        'django.contrib.contenttypes',
+        'django.contrib.staticfiles',
+        'whitenoise.runserver_nostatic',
+    ]
+    
+    # Minimal middleware
+    MIDDLEWARE = [
+        'django.middleware.security.SecurityMiddleware',
+        'whitenoise.middleware.WhiteNoiseMiddleware',
+        'django.middleware.common.CommonMiddleware',
+    ]
+    
 else:
     DATABASES = {
         'default': dj_database_url.config(conn_max_age=600)
