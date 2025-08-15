@@ -24,14 +24,14 @@ SECRET_KEY = 'django-insecure-o$6dky9m&k81lced^&l+93@g4bgsjh&&#6thp$_%w#63)@4@e&
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['fluxyfolder.vercel.app', '127.0.0.1', 'localhost', "flux-backend-ggea.onrender.com"]
+ALLOWED_HOSTS = ['fluxcalendar.vercel.app', '127.0.0.1', 'localhost', "flux-backend-ggea.onrender.com", "flux-backend-production-e861.up.railway.app"]
 
 # CSRF and CORS settings
 CSRF_COOKIE_NAME = "csrftoken"
 CSRF_COOKIE_SECURE = False  # Only for development, set to True in production with HTTPS
 CSRF_TRUSTED_ORIGINS = [
     'http://localhost:3000',
-    'https://fluxyfolder.vercel.app',
+    'https://fluxcalendar.vercel.app',
     "https://127.0.0.1:3000",
 ]
 
@@ -65,7 +65,7 @@ LOGGING = {
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
     "http://127.0.0.1:3000",
-    "https://fluxyfolder.vercel.app",
+    "https://fluxcalendar.vercel.app",
 ]
 
 CORS_ALLOW_METHODS = [
