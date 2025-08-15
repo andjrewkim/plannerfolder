@@ -6,7 +6,6 @@ import sys
 
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'Fluxy.settings')
 
-print("DATABASE_URL:", os.getenv("DATABASE_URL"))
 
 def main():
     """Run administrative tasks."""

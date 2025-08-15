@@ -6,7 +6,24 @@ PORT = os.getenv('PORT', 8080)
 import dj_database_url
 from pathlib import Path
 
+BUILDING = os.getenv('RAILWAY_STATIC_URL') is not None or os.getenv('BUILD_PHASE') == 'true'
 
+if BUILDING:
+    # Use SQLite during build phase
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': ':memory:',
+        }
+    }
+else:
+    # Use your normal database configuration
+    DATABASES = {
+        'default': dj_database_url.config(
+            conn_max_age=600,
+            conn_health_checks=True,
+        )
+    }
 
 from dotenv import load_dotenv
 load_dotenv()  # Load from .env file
@@ -172,10 +189,6 @@ TEMPLATES = [
     },
 ]
 
-DATABASES = {
-    'default': dj_database_url.config(conn_max_age=600)
-
-}
 
 
 """
