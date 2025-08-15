@@ -183,8 +183,9 @@ if 'collectstatic' in sys.argv:
     
     MIGRATION_MODULES = DisableMigrations()
     
-    # Minimal apps for collectstatic
+    # Minimal apps for collectstatic - include auth for AUTH_USER_MODEL
     INSTALLED_APPS = [
+        'django.contrib.auth',
         'django.contrib.contenttypes',
         'django.contrib.staticfiles',
         'whitenoise.runserver_nostatic',
