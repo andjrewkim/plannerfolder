@@ -81,8 +81,11 @@ CORS_ALLOW_CREDENTIALS = True
 CSRF_COOKIE_SAMESITE = 'Lax'
 CSRF_COOKIE_HTTPONLY = False
 
-# Custom user model
-AUTH_USER_MODEL = 'myapp.CustomUser'
+# Custom user model - disable during collectstatic
+if 'collectstatic' in sys.argv:
+    AUTH_USER_MODEL = 'auth.User'  # Use default User model during collectstatic
+else:
+    AUTH_USER_MODEL = 'myapp.CustomUser'
 
 # REST Framework configuration
 REST_FRAMEWORK = {
