@@ -47,7 +47,7 @@ class AuthService {
 
   async register(userData: RegisterData): Promise<AuthResponse> {
     try {
-      console.log('Registering user:', userData);
+      //console.log('Registering user:', userData);
       
       const response = await fetch(`${API_BASE_URL}/api/register/`, {
         method: 'POST',

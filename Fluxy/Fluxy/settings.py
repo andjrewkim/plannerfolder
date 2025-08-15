@@ -81,11 +81,8 @@ CORS_ALLOW_CREDENTIALS = True
 CSRF_COOKIE_SAMESITE = 'Lax'
 CSRF_COOKIE_HTTPONLY = False
 
-# Custom user model - disable during collectstatic
-if 'collectstatic' in sys.argv:
-    AUTH_USER_MODEL = 'auth.User'  # Use default User model during collectstatic
-else:
-    AUTH_USER_MODEL = 'myapp.CustomUser'
+# Custom user model
+AUTH_USER_MODEL = 'myapp.CustomUser'
 
 # REST Framework configuration
 REST_FRAMEWORK = {
@@ -165,42 +162,24 @@ TEMPLATES = [
     },
 ]
 
-# Skip database operations during collectstatic
-if 'collectstatic' in sys.argv:
+# Database configuration
+DATABASE_URL = os.getenv('DATABASE_URL')
+
+if DATABASE_URL:
+    DATABASES = {
+        'default': dj_database_url.config(
+            default=DATABASE_URL,
+            conn_max_age=600,
+            conn_health_checks=True,
+        )
+    }
+else:
+    # Fallback to SQLite for local development
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.sqlite3',
-            'NAME': ':memory:',
+            'NAME': BASE_DIR / 'db.sqlite3',
         }
-    }
-    
-    # Disable migrations during collectstatic
-    class DisableMigrations:
-        def __contains__(self, item):
-            return True
-        def __getitem__(self, item):
-            return None
-    
-    MIGRATION_MODULES = DisableMigrations()
-    
-    # Minimal apps for collectstatic - include auth for AUTH_USER_MODEL
-    INSTALLED_APPS = [
-        'django.contrib.auth',
-        'django.contrib.contenttypes',
-        'django.contrib.staticfiles',
-        'whitenoise.runserver_nostatic',
-    ]
-    
-    # Minimal middleware
-    MIDDLEWARE = [
-        'django.middleware.security.SecurityMiddleware',
-        'whitenoise.middleware.WhiteNoiseMiddleware',
-        'django.middleware.common.CommonMiddleware',
-    ]
-    
-else:
-    DATABASES = {
-        'default': dj_database_url.config(conn_max_age=600)
     }
 
 # Password validation
