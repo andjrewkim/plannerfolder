@@ -1,13 +1,11 @@
 # Fluxy/settings.py
 import os
+import sys
 import dj_database_url
 from pathlib import Path
 from dotenv import load_dotenv
 
 load_dotenv()  # Load from .env file
-
-# Check if we're in build phase
-BUILDING = os.getenv('RAILWAY_STATIC_URL') is not None or os.getenv('BUILD_PHASE') == 'true' or 'collectstatic' in os.sys.argv
 
 PORT = os.getenv('PORT', 8080)
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
@@ -92,7 +90,7 @@ REST_FRAMEWORK = {
         'rest_framework.permissions.IsAuthenticated',
     ],
     'DEFAULT_AUTHENTICATION_CLASSES': [
-        'rest_framework.authentication.TokenAuthentication',
+        'rest_framework.authentication.TokenAuthentication',  # Primary authentication
         'rest_framework.authentication.SessionAuthentication',
         'rest_framework.authentication.BasicAuthentication',
     ],
@@ -104,7 +102,7 @@ REST_FRAMEWORK = {
 CORS_ALLOW_HEADERS = [
     'accept',
     'accept-encoding',
-    'authorization',
+    'authorization',  # ← This is critical!
     'content-type',
     'dnt',
     'origin',
@@ -127,7 +125,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'corsheaders',
     'rest_framework',
-    'rest_framework.authtoken',
+    'rest_framework.authtoken',  # This is CRUCIAL for token authentication
     'myapp.apps.YourAppConfig',     
     'whitenoise.runserver_nostatic',
 ]
@@ -164,9 +162,8 @@ TEMPLATES = [
     },
 ]
 
-# Database configuration - avoid DB access during build
-if BUILDING:
-    # Use dummy database during build
+# Skip database operations during collectstatic
+if 'collectstatic' in sys.argv:
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.sqlite3',
@@ -174,24 +171,9 @@ if BUILDING:
         }
     }
 else:
-    # Use your production database
-    DATABASE_URL = os.getenv('DATABASE_URL')
-    if DATABASE_URL:
-        DATABASES = {
-            'default': dj_database_url.config(
-                default=DATABASE_URL,
-                conn_max_age=600,
-                conn_health_checks=True,
-            )
-        }
-    else:
-        # Fallback for local development
-        DATABASES = {
-            'default': {
-                'ENGINE': 'django.db.backends.sqlite3',
-                'NAME': BASE_DIR / 'db.sqlite3',
-            }
-        }
+    DATABASES = {
+        'default': dj_database_url.config(conn_max_age=600)
+    }
 
 # Password validation
 AUTH_PASSWORD_VALIDATORS = [
