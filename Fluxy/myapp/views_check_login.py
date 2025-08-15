@@ -6,6 +6,7 @@ from rest_framework.response import Response
 @api_view(['GET'])
 @permission_classes([AllowAny])  # Temporarily change this
 def check_login(request):
+    """
     print("=== DETAILED CHECK LOGIN DEBUG ===")
     print(f"Request method: {request.method}")
     print(f"User agent: {request.META.get('HTTP_USER_AGENT', 'No user agent')}")
@@ -15,7 +16,7 @@ def check_login(request):
     print(f"Is AJAX: {request.headers.get('X-Requested-With') == 'XMLHttpRequest'}")
     print(f"Accept header: {request.META.get('HTTP_ACCEPT', 'No accept header')}")
     print(f"Auth header: {request.META.get('HTTP_AUTHORIZATION', 'No auth header')}")
-    
+    """
     # Check if it's a browser navigation vs fetch
     accept_header = request.META.get('HTTP_ACCEPT', '')
     if 'text/html' in accept_header:

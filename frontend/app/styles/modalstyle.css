@@ -1,3 +1,18 @@
+.disabled-checkbox {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.disabled-checkbox input[type="checkbox"]:disabled {
+  cursor: not-allowed;
+}
+
+.checkbox-text-disabled {
+  cursor: not-allowed;
+  color: #888;
+}
+
+
 .modal-overlay {
   position: fixed;
   inset: 0;

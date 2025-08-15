@@ -55,7 +55,7 @@ const LLMChat: React.FC = () => {
     isLoading: appLoading,
     error: appError,
     setError: setAppError,
-    setLoading: setAppLoading,
+    // Removed setLoading as it does not exist in useAppState
     initializeData,
     events,
     tasks
@@ -219,14 +219,14 @@ const LLMChat: React.FC = () => {
   const refreshCalendarData = useCallback(async (reason: string) => {
     console.log(`Refreshing calendar data: ${reason}`);
     try {
-      setAppLoading(true);
+      setIsChatLoading(true);
       await initializeData(true); // Force refresh
       console.log('Calendar data refreshed successfully');
     } catch (error) {
       console.error('Failed to refresh calendar data:', error);
       setAppError('Failed to refresh calendar data after LLM action');
     }
-  }, [initializeData, setAppLoading, setAppError]);
+  }, [initializeData, setAppError]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

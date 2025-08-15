@@ -5,11 +5,11 @@ import { RRule } from 'rrule';
 import { useAppState, EventDetails } from '../../hooks/useAppState';
 
 // Types
-interface CustomEventInput extends EventInput {
+declare interface CustomEventInput extends EventInput {
   id: string;
   title: string;
   start: string;
-  end?: string;
+  end?: string | undefined;
   backgroundColor: string;
   borderColor: string;
   extendedProps: {
@@ -59,14 +59,12 @@ const formatToISOString = (date: string, time: string | null): string => {
 const saveScrollPosition = (calendarRef: React.RefObject<FullCalendar>) => {
   const calendar = calendarRef.current;
   if (!calendar) return null;
-  
   const calendarApi = calendar.getApi();
   const view = calendarApi.view;
-  
   let scrollContainer: HTMLElement | null = null;
-  
   if (view.type === 'timeGridWeek' || view.type === 'timeGridDay') {
-    const calendarEl = calendar.elRef.current;
+    // Use public API to get the DOM node
+    const calendarEl = (calendar as any).el;
     if (calendarEl) {
       scrollContainer = calendarEl.querySelector('.fc-scroller-liquid-absolute') as HTMLElement;
       if (!scrollContainer) {
@@ -77,32 +75,26 @@ const saveScrollPosition = (calendarRef: React.RefObject<FullCalendar>) => {
       }
     }
   }
-  
   if (scrollContainer) {
     return {
       scrollTop: scrollContainer.scrollTop,
       scrollLeft: scrollContainer.scrollLeft
     };
   }
-  
   return null;
 };
 
 const restoreScrollPosition = (calendarRef: React.RefObject<FullCalendar>, scrollPos: { scrollTop: number; scrollLeft: number } | null) => {
   if (!scrollPos) return;
-  
   const calendar = calendarRef.current;
   if (!calendar) return;
-  
   const calendarApi = calendar.getApi();
   const view = calendarApi.view;
-  
-  // Single requestAnimationFrame instead of double nesting
   requestAnimationFrame(() => {
     let scrollContainer: HTMLElement | null = null;
-    
     if (view.type === 'timeGridWeek' || view.type === 'timeGridDay') {
-      const calendarEl = calendar.elRef.current;
+      // Use public API to get the DOM node
+      const calendarEl = (calendar as any).el;
       if (calendarEl) {
         scrollContainer = calendarEl.querySelector('.fc-scroller-liquid-absolute') as HTMLElement;
         if (!scrollContainer) {
@@ -113,7 +105,6 @@ const restoreScrollPosition = (calendarRef: React.RefObject<FullCalendar>, scrol
         }
       }
     }
-    
     if (scrollContainer) {
       scrollContainer.scrollTop = scrollPos.scrollTop;
       scrollContainer.scrollLeft = scrollPos.scrollLeft;
@@ -421,11 +412,11 @@ export function useCalendarLogic(refreshTrigger: number, onEventChange?: () => v
 
     // Add temporary event if it exists and modal is open
     if (temporaryEvent && isModalOpen) {
-      formatted.push(temporaryEvent);
+      formatted.push(temporaryEvent as any);
     }
 
     if (isDragging && draggedEventPosition && originalEventPosition) {
-      const events = [];
+      const events: CustomEventInput[] = [];
       formatted.forEach(event => {
         const eventId = event.extendedProps?.originalId || event.id;
         
@@ -433,20 +424,21 @@ export function useCalendarLogic(refreshTrigger: number, onEventChange?: () => v
           events.push({
             ...event,
             id: `${event.id}_ghost`,
-            start: originalEventPosition.start,
-            end: originalEventPosition.end,
+            start: (originalEventPosition as any).start,
+            end: (originalEventPosition as any).end,
             backgroundColor: event.backgroundColor + '40',
             borderColor: event.borderColor + '40',
             extendedProps: {
               ...event.extendedProps,
+              // @ts-expect-error: isGhost is used for UI only
               isGhost: true
             }
           });
           
           events.push({
             ...event,
-            start: draggedEventPosition.start,
-            end: draggedEventPosition.end
+            start: (draggedEventPosition as any).start,
+            end: (draggedEventPosition as any).end
           });
         } else {
           events.push(event);
@@ -601,7 +593,7 @@ export function useCalendarLogic(refreshTrigger: number, onEventChange?: () => v
       end_time: formatTime(endDate),
       location: '',
       virtual: false,
-      urgency: 'medium',
+      urgency: 'medium' as 'low' | 'medium' | 'high',
       notes: '',
       event_type: '',
       category: '',

@@ -1,37 +1,20 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useEffect, useCallback } from 'react';
 import { EventSourceInput } from '@fullcalendar/core';
 import '../styles/daymarking.css';
-import { useTheme } from '../services/themeContext'; // Import theme context
-import { authAPI } from '../../lib/auth'; // Import the auth service
+import { useTheme } from '../services/themeContext';
+import { useAppState } from '../hooks/useAppState';
 
 interface DayMarkingHighlighterProps {
   onMarkingsLoaded: (events: EventSourceInput) => void;
-  apiEndpoint?: string;
   refreshTrigger?: unknown;
-}
-
-// Define interfaces for API response data
-interface EventData {
-  id: string | number;
-  day_marking_title?: string;
-  event_name?: string;
-  date: string;
-  start_time?: string;
-  end_time?: string;
-  urgency?: 'low' | 'medium' | 'high';
-  category?: string;
-  description?: string;
 }
 
 const DayMarkingHighlighter: React.FC<DayMarkingHighlighterProps> = ({
   onMarkingsLoaded,
-  apiEndpoint = `${process.env.NEXT_PUBLIC_API_URL}/api/events/`,
   refreshTrigger
 }) => {
-  // Keep state variables but avoid the linting errors by using them
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const { currentTheme } = useTheme(); // Get current theme from context
+  const { currentTheme } = useTheme();
+  const { events, isLoading, error, initialized } = useAppState();
 
   // Apply theme colors to CSS variables
   useEffect(() => {
@@ -61,91 +44,65 @@ const DayMarkingHighlighter: React.FC<DayMarkingHighlighterProps> = ({
     root.style.setProperty('--day-marking-high-bg', hexToRgba(highColor, 0.2));
   }, [currentTheme]);
 
-  const fetchDayMarkings = useCallback(async () => {
-    setIsLoading(true);
-    try {
-      // Check if user is authenticated first
-      if (!authAPI.isAuthenticated()) {
-        setError('Please log in to view day markings');
-        onMarkingsLoaded([]); // Pass empty array when not authenticated
-        return;
-      }
-
-      const response = await authAPI.authenticatedFetch(apiEndpoint);
-      
-      if (!response.ok) {
-        if (response.status === 401) {
-          setError('Please log in to view day markings');
-          onMarkingsLoaded([]);
-          return;
-        }
-        throw new Error('Failed to fetch day markings');
-      }
-      
-      const data: EventData[] = await response.json();
-      
-      // Filter for events that have a non-empty day_marking_title
-      // Backend handles time filtering, so we only check for valid day marking titles
-      const dayMarkings = data.filter(event => 
-        event.day_marking_title && 
-        event.day_marking_title.trim() !== ''
-      );
-      
-      // Transform the data into FullCalendar compatible format with theme awareness
-      const formattedMarkings = dayMarkings.map(event => ({
-        id: String(event.id),
-        title: event.day_marking_title || event.event_name || '',
-        start: event.date,
-        display: 'background',
-        classNames: [
-          'day-marking',
-          event.urgency ? `day-marking-${event.urgency.toLowerCase()}` : 'day-marking-low'
-        ].filter(Boolean),
-        allDay: true,
-        extendedProps: {
-          isDayMarking: true,
-          category: event.category || '',
-          urgency: event.urgency || 'low',
-          description: event.description || ''
-        }
-      }));
-      
-      // Pass the formatted events to the parent component
-      onMarkingsLoaded(formattedMarkings);
-      setError(null);
-    } catch (err) {
-      console.error('Error fetching day markings:', err);
-      setError('Failed to load day markings');
-      onMarkingsLoaded([]); // Pass empty array on error
-    } finally {
-      setIsLoading(false);
-    }
-  }, [apiEndpoint, onMarkingsLoaded]); // Only include stable dependencies
-
-  // Effect for initial load and refresh trigger
-  useEffect(() => {
-    // Only fetch data if user is authenticated
-    if (authAPI.isAuthenticated()) {
-      fetchDayMarkings();
-    } else {
-      // Clear markings and show error if not authenticated
+  // Process events and extract day markings
+  const processEvents = useCallback(() => {
+    if (!events || events.length === 0) {
       onMarkingsLoaded([]);
-      setError('Please log in to access day markings');
+      return;
     }
-  }, [refreshTrigger]); // Only depend on refreshTrigger, not fetchDayMarkings
 
-  // Separate effect for debugging that doesn't cause re-renders
-  useEffect(() => {
-    // For debugging - showing that we're using the state variables
-    // so TypeScript doesn't complain about unused variables
-    if (isLoading) {
-      console.debug('Loading day markings...');
-    }
+    // Filter for events that have a non-empty day_marking_title
+    const dayMarkings = events.filter(event => 
+      event.day_marking_title && 
+      event.day_marking_title.trim() !== ''
+    );
     
-    if (error) {
-      console.debug('Error state:', error);
+    // Transform the data into FullCalendar compatible format with theme awareness
+    const formattedMarkings = dayMarkings.map(event => ({
+      id: String(event.frontendId || event.eventId || event.id || ''),
+      title: event.day_marking_title || event.event_name || '',
+      start: event.date,
+      display: 'background',
+      classNames: [
+        'day-marking',
+        event.urgency ? `day-marking-${event.urgency.toLowerCase()}` : 'day-marking-low'
+      ].filter(Boolean),
+      allDay: true,
+      extendedProps: {
+        isDayMarking: true,
+        category: event.category || '',
+        urgency: event.urgency || 'low',
+        description: event.notes || ''
+      }
+    }));
+    
+    onMarkingsLoaded(formattedMarkings);
+  }, [events, onMarkingsLoaded]);
+
+  // Process events whenever events data changes or refreshTrigger is updated
+  useEffect(() => {
+    if (initialized && !isLoading) {
+      processEvents();
+    } else if (!initialized) {
+      // Clear markings while initializing
+      onMarkingsLoaded([]);
     }
-  }, [isLoading, error]); // This is separate so it doesn't trigger fetches
+  }, [events, initialized, isLoading, processEvents, refreshTrigger]);
+
+  // Handle errors by clearing markings
+  useEffect(() => {
+    if (error) {
+      console.debug('DayMarkingHighlighter error:', error);
+      onMarkingsLoaded([]);
+    }
+  }, [error, onMarkingsLoaded]);
+
+  // Debug logging
+  useEffect(() => {
+    if (isLoading) {
+      console.debug('DayMarkingHighlighter: Loading day markings...');
+    }
+  }, [isLoading]);
 
   // This component doesn't render anything visible
   return null;

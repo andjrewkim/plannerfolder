@@ -1,11 +1,44 @@
-import React, { useEffect, useRef, useMemo, useCallback } from 'react';
+import React, { useEffect, useRef, useMemo, useCallback, RefObject } from 'react';
+
+// Extend the type for event.extendedProps to include frontendId and eventId
+type ExtendedEventProps = {
+  originalId?: string;
+  location?: string;
+  virtual?: boolean;
+  urgency?: string;
+  notes?: string;
+  event_type?: string;
+  category?: string;
+  subcategories?: string;
+  recurrence_pattern?: string;
+  // isDayMarking?: boolean;
+  // day_marking_title?: string;
+  frontendId?: string;
+  eventId?: string;
+  [key: string]: any;
+};
+
+type EventDetails = {
+  eventId: string;
+  event_name: string;
+  date: string;
+  start_time: string;
+  end_time: string;
+  location: string;
+  notes: string;
+  recurrence_pattern: string;
+  color: string;
+  all_day: boolean;
+  // day_marking_title?: string;
+  frontendId?: string;
+};
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin from '@fullcalendar/interaction';
 
 import EventModal from '../EventModal';
-import DayMarkingHighlighter from '../DayMarkingHIghlighter';
+// import DayMarkingHighlighter from '../DayMarkingHIghlighter';
 import CustomCalendarHeader from '../CustomCalHeader';
 import { DayDetailPopup } from './DayDetailPopup';
 
@@ -17,19 +50,9 @@ import { useAppState, EventDetails as AppStateEventDetails } from '../../hooks/u
 import '../../styles/calendar.css';
 import '../../globals.css';
 
-interface EventDetails {
-  eventId: string;
-  event_name: string;
-  date: string;
-  start_time: string;
-  end_time: string;
-  location: string;
-  notes: string;
-  recurrence_pattern: string;
-  color: string;
-  all_day: boolean;
-  day_marking_title?: string;
-}
+// ...existing code...
+
+// Extend the type for event.extendedProps to include frontendId and eventId
 
 interface CalendarProps {
   refreshTrigger: number;
@@ -46,7 +69,7 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange, onViewChange, refres
   const {
     // State
     currentEvents,
-    dayMarkings,
+    // dayMarkings,
     isModalOpen,
     selectedEvent,
     modalPosition,
@@ -56,7 +79,7 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange, onViewChange, refres
     currentView,
     currentDate,
     hasInitialized,
-    calendarRef,
+  calendarRef,
     hoverTimerRef,
     formattedEvents,
     
@@ -72,7 +95,7 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange, onViewChange, refres
     handleDateSelect,
     handleDeleteEvent,
     handleEventResize,
-    handleDayMarkingsLoaded,
+    // handleDayMarkingsLoaded,
     handleModalOpen,
     handleModalClose,
     handleEventClick,
@@ -81,14 +104,14 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange, onViewChange, refres
 
   // Use day hover logic hook
   const { handleDayCellDidMount } = useDayHover({
-    calendarRef,
+  calendarRef: calendarRef as RefObject<FullCalendar>,
     isModalOpen,
     hoverTimerRef,
     setHoveredDay
   });
 
   // Optimized event drop handler
-  const handleEventDropFixed = useCallback(async (dropInfo) => {
+  const handleEventDropFixed = useCallback(async (dropInfo: { event: any; revert: () => void }) => {
     const event = dropInfo.event;
     const newStart = event.start;
     const newEnd = event.end;
@@ -122,7 +145,7 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange, onViewChange, refres
   }, [updateEvent]);
 
   // Optimized event resize handler
-  const handleEventResizeFixed = useCallback(async (resizeInfo) => {
+  const handleEventResizeFixed = useCallback(async (resizeInfo: { event: any; revert: () => void }) => {
     const event = resizeInfo.event;
     const newStart = event.start;
     const newEnd = event.end;
@@ -154,7 +177,7 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange, onViewChange, refres
   }, [updateEvent]);
 
   // Helper function to extract backend ID
-  const getBackendIdFromEvent = useCallback((fcEvent) => {
+  const getBackendIdFromEvent = useCallback((fcEvent: { extendedProps?: ExtendedEventProps; id: string }) => {
     const originalId = fcEvent.extendedProps?.originalEventId;
     if (originalId) return originalId;
     
@@ -169,21 +192,21 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange, onViewChange, refres
   // Memoized events preparation
   const allEvents = useMemo(() => [
     ...sortEventsByTime(currentEvents || []).map(event => ({
-      id: event.extendedProps?.frontendId || event.id,
+      id: (event.extendedProps as ExtendedEventProps)?.frontendId || event.id,
       title: event.title,
       start: event.start,
       end: event.end,
       backgroundColor: event.backgroundColor,
       borderColor: event.borderColor,
       extendedProps: {
-        ...event.extendedProps,
-        eventId: event.extendedProps?.eventId || event.id,
-        frontendId: event.extendedProps?.frontendId || event.id,
-        originalEventId: event.extendedProps?.originalEventId,
+        ...(event.extendedProps as ExtendedEventProps),
+        eventId: (event.extendedProps as ExtendedEventProps)?.eventId || event.id,
+        frontendId: (event.extendedProps as ExtendedEventProps)?.frontendId || event.id,
+        originalEventId: (event.extendedProps as ExtendedEventProps)?.originalId,
       },
     })),
-    ...(Array.isArray(dayMarkings) ? dayMarkings : [])
-  ], [currentEvents, dayMarkings]);
+    // ...(Array.isArray(dayMarkings) ? dayMarkings : [])
+  ], [currentEvents]); // Removed dayMarkings from dependencies
 
   // Optimized events for day function
   const getEventsForDay = useCallback((date: Date) => {
@@ -287,7 +310,6 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange, onViewChange, refres
 
   const memoizedSelectedEvent = useMemo(() => {
     if (!selectedEvent) return null;
-    
     return {
       ...selectedEvent,
       eventId: selectedEvent.eventId || '',
@@ -297,7 +319,15 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange, onViewChange, refres
   }, [selectedEvent]);
 
   // Optimized datesSet handler to prevent unnecessary onViewChange calls
-  const handleDatesSet = useCallback((dateInfo) => {
+  interface DatesSetInfo {
+    view: {
+      title: string;
+      type: string;
+      currentStart: Date;
+    };
+  }
+
+  const handleDatesSet = useCallback((dateInfo: DatesSetInfo) => {
     setCurrentTitle(dateInfo.view.title);
     const newView = dateInfo.view.type;
     const newDate = dateInfo.view.currentStart;
@@ -314,9 +344,9 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange, onViewChange, refres
         </div>
 
         <div className="flex-1 flex flex-col">
-          <DayMarkingHighlighter
+          {/* <DayMarkingHighlighter
             onMarkingsLoaded={handleDayMarkingsLoaded}
-          />
+          /> */}
 
           {/* Custom Header */}
           <CustomCalendarHeader 
@@ -342,7 +372,7 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange, onViewChange, refres
             </style>
             {hasInitialized && (
             <FullCalendar
-              ref={calendarRef}
+              ref={calendarRef as RefObject<FullCalendar>}
               plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
               headerToolbar={false}
               initialView={currentView}
@@ -354,7 +384,7 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange, onViewChange, refres
 
               displayEventEnd={false}
               displayEventTime={true}
-              eventResizable={true}
+              // Removed invalid property 'eventResizable'
               
               eventDrop={handleEventDropFixed}
               eventResize={handleEventResizeFixed}
@@ -503,7 +533,7 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange, onViewChange, refres
               setHoveredDay={setHoveredDay}
               onEventEdit={handleEventEditFromPopup}
               onEventUpdate={handleEventUpdateFromPopup}
-              calendarContainerRef={calendarContainerRef}
+              calendarContainerRef={calendarContainerRef as React.RefObject<HTMLElement>}
             />
           )}
 
@@ -512,9 +542,15 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange, onViewChange, refres
             <EventModal
               isOpen={isModalOpen}
               onClose={handleModalClose}
-              selectedEvent={selectedEvent}
+              selectedEvent={selectedEvent ? { 
+                ...selectedEvent, 
+                eventId: selectedEvent.eventId || '', 
+                start_time: selectedEvent.start_time ?? '', 
+                end_time: selectedEvent.end_time ?? '', 
+                all_day: selectedEvent.all_day ?? false
+              } : null}
               position={modalPosition}
-              calendarContainerRef={calendarContainerRef}
+              calendarContainerRef={calendarContainerRef as React.RefObject<HTMLElement>}
               onChange={handleEventChange}
               onSubmit={handleEventSubmit}
               onDelete={handleDeleteEvent}

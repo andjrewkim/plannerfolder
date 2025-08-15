@@ -156,7 +156,7 @@ const EventModal: React.FC<EventModalProps> = ({
 
   // Set default times for new events - removed setTimeout to eliminate delay
   useEffect(() => {
-    if (isOpen && selectedEvent && !selectedEvent.eventId && !selectedEvent.all_day) {
+    if (isOpen && selectedEvent && !selectedEvent.eventId && !selectedEvent.day_marking_title) {
       // Only set defaults for new events (no eventId) and if times are empty or 00:00
       if ((!selectedEvent.start_time || selectedEvent.start_time === '00:00' || selectedEvent.start_time === '') && 
           (!selectedEvent.end_time || selectedEvent.end_time === '00:00' || selectedEvent.end_time === '')) {
@@ -392,19 +392,27 @@ const EventModal: React.FC<EventModalProps> = ({
                 />
               </div>
               <div className="form-field">
-                <label className="checkbox-wrapper">
+                <label className="checkbox-wrapper disabled-checkbox">
                   <input
                     type="checkbox"
-                    checked={selectedEvent.all_day}
-                    onChange={(e) => onChange('all_day', e.target.checked)}
+                    checked={!!selectedEvent.day_marking_title}
+                    onChange={(e) => {
+                      // Disabled functionality - do nothing
+                    }}
                     className="modal-checkbox"
+                    disabled={true}
                   />
-                  <span>All Day</span>
+                  <span className="checkbox-text-disabled">
+                    <span style={{ textDecoration: 'line-through' }}>Day Marking</span>
+                    <small style={{ display: 'block', color: '#888', fontSize: '11px', marginTop: '2px' }}>
+                      Coming Soon
+                    </small>
+                  </span>
                 </label>
               </div>
             </div>
 
-            {!selectedEvent.all_day && (
+            {!selectedEvent.day_marking_title && (
               <div className="form-row">
                 <div className="form-field">
                   <label className="form-label">Start Time</label>
@@ -413,7 +421,7 @@ const EventModal: React.FC<EventModalProps> = ({
                     value={selectedEvent.start_time}
                     onChange={(e) => onChange('start_time', e.target.value)}
                     className="modal-input"
-                    required={!selectedEvent.all_day}
+                    required={!selectedEvent.day_marking_title}
                   />
                 </div>
                 <div className="form-field">
@@ -423,7 +431,7 @@ const EventModal: React.FC<EventModalProps> = ({
                     value={selectedEvent.end_time}
                     onChange={(e) => onChange('end_time', e.target.value)}
                     className="modal-input"
-                    required={!selectedEvent.all_day}
+                    required={!selectedEvent.day_marking_title}
                   />
                 </div>
               </div>
