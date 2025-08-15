@@ -1,8 +1,6 @@
 # Fluxy/settings.py
 import os
-from dotenv import load_dotenv
 
-load_dotenv(os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env'))
 PORT = os.getenv('PORT', 8080)
 
 import dj_database_url
