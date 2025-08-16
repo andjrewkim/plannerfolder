@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo, useLayoutEffect } from 'react';
 import FullCalendar from '@fullcalendar/react';
 import { DateSelectArg, EventApi, EventDropArg, EventSourceInput, EventInput } from '@fullcalendar/core';
 import { RRule } from 'rrule';
@@ -9,7 +9,7 @@ declare interface CustomEventInput extends EventInput {
   id: string;
   title: string;
   start: string;
-  end?: string | undefined;
+  end: string; // Made required instead of optional
   backgroundColor: string;
   borderColor: string;
   extendedProps: {
@@ -180,8 +180,10 @@ export function useCalendarLogic(refreshTrigger: number, onEventChange?: () => v
   const [draggedEventPosition, setDraggedEventPosition] = useState(null);
   const [draggedEventId, setDraggedEventId] = useState(null);
   const [originalEventPosition, setOriginalEventPosition] = useState(null);
-  // Add this new state to keep track of temporary events
-  const [temporaryEvent, setTemporaryEvent] = useState<CustomEventInput | null>(null);
+  
+  // FIXED: Better temporary event management
+  const [temporaryEvents, setTemporaryEvents] = useState<Map<string, CustomEventInput>>(new Map());
+  const [pendingEventId, setPendingEventId] = useState<string | null>(null);
 
   // NEW: Track visible date range to limit event expansion
   const [visibleDateRange, setVisibleDateRange] = useState<{start: Date, end: Date} | null>(null);
@@ -382,10 +384,11 @@ export function useCalendarLogic(refreshTrigger: number, onEventChange?: () => v
     };
   }, []);
 
-  // OPTIMIZED: Only format events within visible range
+  // FIXED: Better event formatting with seamless temporary event integration
   const formattedEvents = useMemo(() => {
-    if (!hookEvents.length || !visibleDateRange) return [];
+    if (!visibleDateRange) return [];
     
+    // Get expanded real events
     const expandedEvents = expandRecurringEvents(hookEvents, visibleDateRange);
     
     const formatted = expandedEvents.map((event: EventDetails) => ({
@@ -410,10 +413,9 @@ export function useCalendarLogic(refreshTrigger: number, onEventChange?: () => v
       }
     }));
 
-    // Add temporary event if it exists and modal is open
-    if (temporaryEvent && isModalOpen) {
-      formatted.push(temporaryEvent as any);
-    }
+    // Add all temporary events
+    const tempEventsArray = Array.from(temporaryEvents.values());
+    formatted.push(...tempEventsArray);
 
     if (isDragging && draggedEventPosition && originalEventPosition) {
       const events: CustomEventInput[] = [];
@@ -448,12 +450,22 @@ export function useCalendarLogic(refreshTrigger: number, onEventChange?: () => v
     }
 
     return formatted;
-  }, [hookEvents, visibleDateRange, expandRecurringEvents, isDragging, draggedEventPosition, originalEventPosition, draggedEventId, temporaryEvent, isModalOpen]);
+  }, [hookEvents, visibleDateRange, expandRecurringEvents, isDragging, draggedEventPosition, originalEventPosition, draggedEventId, temporaryEvents]);
 
   // Update currentEvents when formattedEvents change
   useEffect(() => {
     setCurrentEvents(formattedEvents);
   }, [formattedEvents]);
+
+  useLayoutEffect(() => {
+    if (hookEvents.length > 0 && temporaryEvents.size > 0) {
+      setTemporaryEvents(new Map());
+      setPendingEventId(null);
+      console.log("Cleared all temporary events before paint");
+    }
+  }, [hookEvents.length]);
+
+
 
   // Simplified refresh effect
   useEffect(() => {
@@ -475,7 +487,7 @@ export function useCalendarLogic(refreshTrigger: number, onEventChange?: () => v
     };
   }, []);
 
-  // Event handlers
+  // FIXED: Seamless event submission
   const handleEventSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedEvent) return;
@@ -502,23 +514,84 @@ export function useCalendarLogic(refreshTrigger: number, onEventChange?: () => v
       let result;
       
       if (selectedEvent.eventId) {
+        // Updating existing event
         result = await updateEvent(selectedEvent.eventId, formattedEvent);
+        if (result) {
+          // For updates, just close modal immediately since the event already exists
+          setIsModalOpen(false);
+          setTemporaryEvents(prev => {
+            const newMap = new Map(prev);
+            newMap.delete('temp-event');
+            return newMap;
+          });
+        }
       } else {
+        // Creating new event - generate a temporary ID that will match the real one
+        const tempId = `temp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+        
+        // Update the temporary event to look exactly like it will when saved
+        const permanentTempEvent: CustomEventInput = {
+          id: tempId,
+          title: formattedEvent.event_name || 'New Event',
+          start: formatToISOString(formattedEvent.date, formattedEvent.start_time),
+          end: formatToISOString(formattedEvent.date, formattedEvent.end_time),
+          backgroundColor: formattedEvent.color || '#3788d8',
+          borderColor: formattedEvent.color || '#3788d8',
+          extendedProps: {
+            originalId: tempId,
+            location: formattedEvent.location || '',
+            virtual: formattedEvent.virtual || false,
+            urgency: formattedEvent.urgency || 'medium',
+            notes: formattedEvent.notes || '',
+            event_type: formattedEvent.event_type || '',
+            category: formattedEvent.category || '',
+            subcategories: formattedEvent.subcategories || '',
+            recurrence_pattern: formattedEvent.recurrence_pattern || '',
+            isDayMarking: formattedEvent.event_type === 'marking',
+            day_marking_title: formattedEvent.day_marking_title
+          }
+        };
+
+        // Replace temp-event with the permanent version
+        setTemporaryEvents(prev => {
+          const newMap = new Map(prev);
+          newMap.delete('temp-event');
+          newMap.set(tempId, permanentTempEvent);
+          return newMap;
+        });
+
+        // Close modal immediately
+        setIsModalOpen(false);
+
+        // Now create the real event
         result = await createEvent(formattedEvent);
+        
+        if (result) {
+          // Don't track pending anymore - just let the cleanup timer handle it
+          console.log('Created event successfully');
+        } else {
+          // If creation failed, remove the temporary event immediately
+          setTemporaryEvents(prev => {
+            const newMap = new Map(prev);
+            newMap.delete(tempId);
+            return newMap;
+          });
+          throw new Error('Failed to save event');
+        }
       }
       
       if (result) {
-        setIsModalOpen(false);
-        setTemporaryEvent(null); // Clear temporary event
         if (onEventChange) onEventChange();
         setError(null);
-      } else {
-        throw new Error('Failed to save event');
       }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'An unexpected error occurred';
       console.error('Error:', errorMessage);
       setError(errorMessage);
+      
+      // Remove temporary event on error
+      setTemporaryEvents(new Map());
+      setPendingEventId(null);
     } finally {
       setIsLoading(false);
     }
@@ -555,7 +628,12 @@ export function useCalendarLogic(refreshTrigger: number, onEventChange?: () => v
             day_marking_title: updated.day_marking_title
           }
         };
-        setTemporaryEvent(tempEvent);
+        
+        setTemporaryEvents(prev => {
+          const newMap = new Map(prev);
+          newMap.set('temp-event', tempEvent);
+          return newMap;
+        });
       }
       
       return updated;
@@ -627,7 +705,11 @@ export function useCalendarLogic(refreshTrigger: number, onEventChange?: () => v
       }
     };
     
-    setTemporaryEvent(tempEvent);
+    setTemporaryEvents(prev => {
+      const newMap = new Map(prev);
+      newMap.set('temp-event', tempEvent);
+      return newMap;
+    });
     
     // Small delay to prevent the flash
     requestAnimationFrame(() => {
@@ -727,7 +809,7 @@ export function useCalendarLogic(refreshTrigger: number, onEventChange?: () => v
     }
 
     // Don't open modal for temporary events
-    if (clickInfo.event.id === 'temp-event') {
+    if (clickInfo.event.id === 'temp-event' || clickInfo.event.id.startsWith('temp-')) {
       return;
     }
 
@@ -785,7 +867,14 @@ export function useCalendarLogic(refreshTrigger: number, onEventChange?: () => v
 
   const handleModalClose = useCallback(() => {
     setIsModalOpen(false);
-    setTemporaryEvent(null); // Clear temporary event when modal closes
+    
+    // Clear temporary events when modal closes
+    setTemporaryEvents(prev => {
+      const newMap = new Map(prev);
+      newMap.delete('temp-event');
+      return newMap;
+    });
+    
     document.querySelectorAll('.fc-daygrid-day.hovered').forEach(day => {
       day.classList.remove('hovered');
     });

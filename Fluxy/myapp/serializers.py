@@ -84,8 +84,8 @@ class CalendarEventSerializer(serializers.ModelSerializer):
             data = dict(data)
         
         # DEBUG: Print the processed data
-        print(f"DEBUG - Processed data: {data}")
-        print(f"DEBUG - Subcategories after QueryDict processing: {data.get('subcategories')}")
+        #print(f"DEBUG - Processed data: {data}")
+        #print(f"DEBUG - Subcategories after QueryDict processing: {data.get('subcategories')}")
         
         # Map 'type' to 'event_type' if it exists
         if 'type' in data:
@@ -158,7 +158,6 @@ class CalendarEventSerializer(serializers.ModelSerializer):
         
         try:
             result = super().to_internal_value(data)
-            print(f"DEBUG - Validation passed: {result}")
             return result
         except Exception as e:
             print(f"DEBUG - Validation failed: {e}")
@@ -202,10 +201,9 @@ class CalendarEventSerializer(serializers.ModelSerializer):
 
     def validate(self, data):
         """Add overall validation with debug info"""
-        print(f"DEBUG - Final validation of data: {data}")
+        #print(f"DEBUG - Final validation of data: {data}")
         try:
             result = super().validate(data)
-            print(f"DEBUG - Overall validation passed")
             return result
         except Exception as e:
             print(f"DEBUG - Overall validation error: {e}")

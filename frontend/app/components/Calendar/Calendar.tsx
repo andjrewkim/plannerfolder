@@ -11,8 +11,6 @@ type ExtendedEventProps = {
   category?: string;
   subcategories?: string;
   recurrence_pattern?: string;
-  // isDayMarking?: boolean;
-  // day_marking_title?: string;
   frontendId?: string;
   eventId?: string;
   [key: string]: any;
@@ -29,16 +27,15 @@ type EventDetails = {
   recurrence_pattern: string;
   color: string;
   all_day: boolean;
-  // day_marking_title?: string;
   frontendId?: string;
 };
+
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin from '@fullcalendar/interaction';
 
 import EventModal from '../EventModal';
-// import DayMarkingHighlighter from '../DayMarkingHIghlighter';
 import CustomCalendarHeader from '../CustomCalHeader';
 import { DayDetailPopup } from './DayDetailPopup';
 
@@ -49,10 +46,6 @@ import { useAppState, EventDetails as AppStateEventDetails } from '../../hooks/u
 
 import '../../styles/calendar.css';
 import '../../globals.css';
-
-// ...existing code...
-
-// Extend the type for event.extendedProps to include frontendId and eventId
 
 interface CalendarProps {
   refreshTrigger: number;
@@ -69,7 +62,6 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange, onViewChange, refres
   const {
     // State
     currentEvents,
-    // dayMarkings,
     isModalOpen,
     selectedEvent,
     modalPosition,
@@ -79,7 +71,7 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange, onViewChange, refres
     currentView,
     currentDate,
     hasInitialized,
-  calendarRef,
+    calendarRef,
     hoverTimerRef,
     formattedEvents,
     
@@ -95,20 +87,36 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange, onViewChange, refres
     handleDateSelect,
     handleDeleteEvent,
     handleEventResize,
-    // handleDayMarkingsLoaded,
     handleModalOpen,
     handleModalClose,
     handleEventClick,
-    handleViewChange, // New optimized handler
+    handleViewChange,
   } = useCalendarLogic(refreshTrigger, onEventChange, onViewChange);
 
   // Use day hover logic hook
   const { handleDayCellDidMount } = useDayHover({
-  calendarRef: calendarRef as RefObject<FullCalendar>,
+    calendarRef: calendarRef as RefObject<FullCalendar>,
     isModalOpen,
     hoverTimerRef,
     setHoveredDay
   });
+
+  // Enhanced modal close handler that resets hover timer
+  const handleModalCloseWithHoverReset = useCallback(() => {
+    console.log('Modal closing - resetting hover timer');
+    
+    // Clear any existing hover timer
+    if (hoverTimerRef.current) {
+      clearTimeout(hoverTimerRef.current);
+      hoverTimerRef.current = null;
+    }
+    
+    // Clear hovered day state
+    setHoveredDay(null);
+    
+    // Call original modal close
+    handleModalClose();
+  }, [handleModalClose, hoverTimerRef, setHoveredDay]);
 
   // Optimized event drop handler
   const handleEventDropFixed = useCallback(async (dropInfo: { event: any; revert: () => void }) => {
@@ -189,9 +197,10 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange, onViewChange, refres
     return eventId;
   }, []);
 
-  // Memoized events preparation
-  const allEvents = useMemo(() => [
-    ...sortEventsByTime(currentEvents || []).map(event => ({
+  // STABLE events - use formattedEvents directly from the hook
+  // The hook handles temporary events internally now
+  const allEvents = useMemo(() => {
+    return formattedEvents.map(event => ({
       id: (event.extendedProps as ExtendedEventProps)?.frontendId || event.id,
       title: event.title,
       start: event.start,
@@ -204,9 +213,8 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange, onViewChange, refres
         frontendId: (event.extendedProps as ExtendedEventProps)?.frontendId || event.id,
         originalEventId: (event.extendedProps as ExtendedEventProps)?.originalId,
       },
-    })),
-    // ...(Array.isArray(dayMarkings) ? dayMarkings : [])
-  ], [currentEvents]); // Removed dayMarkings from dependencies
+    }));
+  }, [formattedEvents]);
 
   // Optimized events for day function
   const getEventsForDay = useCallback((date: Date) => {
@@ -256,20 +264,30 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange, onViewChange, refres
     });
   }, [currentEvents]);
 
-  // Memoized hovered day info
+  // Memoized hovered day info - but don't show if modal is open
   const updatedHoveredDayInfo = useMemo(() => {
+    // Don't show hover popup if modal is open
+    if (isModalOpen) return null;
+    
     return hoveredDay ? {
       ...hoveredDay,
       events: getEventsForDay(hoveredDay.date)
     } : null;
-  }, [hoveredDay, getEventsForDay]);
+  }, [hoveredDay, getEventsForDay, isModalOpen]);
 
   const calendarContainerRef = useRef<HTMLDivElement>(null);
 
   // Handle event edit from DayDetailPopup
   const handleEventEditFromPopup = useCallback((event: any) => {
     console.log('Event clicked from popup:', event);
-  }, []);
+    
+    // Clear hover state when opening modal from popup
+    if (hoverTimerRef.current) {
+      clearTimeout(hoverTimerRef.current);
+      hoverTimerRef.current = null;
+    }
+    setHoveredDay(null);
+  }, [hoverTimerRef, setHoveredDay]);
 
   // Handle event update from DayDetailPopup
   const handleEventUpdateFromPopup = useCallback(async (eventDetails: EventDetails) => {
@@ -344,10 +362,6 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange, onViewChange, refres
         </div>
 
         <div className="flex-1 flex flex-col">
-          {/* <DayMarkingHighlighter
-            onMarkingsLoaded={handleDayMarkingsLoaded}
-          /> */}
-
           {/* Custom Header */}
           <CustomCalendarHeader 
             calendarRef={calendarRef}
@@ -384,7 +398,6 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange, onViewChange, refres
 
               displayEventEnd={false}
               displayEventTime={true}
-              // Removed invalid property 'eventResizable'
               
               eventDrop={handleEventDropFixed}
               eventResize={handleEventResizeFixed}
@@ -524,8 +537,8 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange, onViewChange, refres
             )}
           </div>
 
-          {/* Day Detail Popup */}
-          {updatedHoveredDayInfo && !isModalOpen && (
+          {/* Day Detail Popup - Only show when modal is NOT open */}
+          {updatedHoveredDayInfo && (
             <DayDetailPopup 
               info={updatedHoveredDayInfo} 
               handleDeleteEvent={handleDeleteEvent}
@@ -541,7 +554,7 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange, onViewChange, refres
           {selectedEvent && (
             <EventModal
               isOpen={isModalOpen}
-              onClose={handleModalClose}
+              onClose={handleModalCloseWithHoverReset}  // Use the enhanced close handler
               selectedEvent={selectedEvent ? { 
                 ...selectedEvent, 
                 eventId: selectedEvent.eventId || '', 

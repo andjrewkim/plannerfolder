@@ -107,7 +107,7 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
   const [messages, setMessages] = useState<Message[]>([
     {
       id: '1',
-      content: 'Hello! I\'m your AI assistant. I can help you edit events, answer questions, and schedule your day.',
+      content: 'Hello! I\'m your AI assistant. I can help you edit events, answer questions, and schedule your day. You are limited to 5 messages a week.',
       sender: 'ai',
       timestamp: new Date()
     }

@@ -84,7 +84,7 @@ class UserSettings(models.Model):
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='settings')
     default_calendar_view = models.CharField(max_length=10, choices=VIEW_CHOICES, default='month')
     week_starts_on = models.CharField(max_length=6, choices=WEEK_START_CHOICES, default='sunday')
-    dark_mode = models.BooleanField(default=False)
+    dark_mode = models.BooleanField(default=True)
     theme = models.CharField(max_length=20, choices=THEME_CHOICES, default='classic')
 
     def __str__(self):
