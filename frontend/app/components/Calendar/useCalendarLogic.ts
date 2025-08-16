@@ -16,14 +16,14 @@ declare interface CustomEventInput extends EventInput {
     originalId: string;
     location: string;
     virtual: boolean;
-    urgency: string;
+    urgency: 'low' | 'medium' | 'high';
     notes: string;
     event_type: string;
     category: string;
     subcategories: string;
     recurrence_pattern: string;
     isDayMarking: boolean;
-    day_marking_title?: string;
+    day_marking_title?: string; // Keep this optional with ?
   };
 }
 
@@ -385,13 +385,14 @@ export function useCalendarLogic(refreshTrigger: number, onEventChange?: () => v
   }, []);
 
   // FIXED: Better event formatting with seamless temporary event integration
-  const formattedEvents = useMemo(() => {
+  const formattedEvents = useMemo((): CustomEventInput[] => {
     if (!visibleDateRange) return [];
     
     // Get expanded real events
     const expandedEvents = expandRecurringEvents(hookEvents, visibleDateRange);
     
-    const formatted = expandedEvents.map((event: EventDetails) => ({
+    // Create the formatted array with explicit typing
+    const formatted: CustomEventInput[] = expandedEvents.map((event: EventDetails): CustomEventInput => ({
       id: String(event.id),
       title: event.day_marking_title || event.event_name,
       start: formatToISOString(event.date, event.start_time),
@@ -413,9 +414,10 @@ export function useCalendarLogic(refreshTrigger: number, onEventChange?: () => v
       }
     }));
 
-    // Add all temporary events
-    const tempEventsArray = Array.from(temporaryEvents.values());
-    formatted.push(...tempEventsArray);
+    // Add all temporary events one by one to avoid spread operator issues
+    temporaryEvents.forEach((tempEvent) => {
+      formatted.push(tempEvent);
+    });
 
     if (isDragging && draggedEventPosition && originalEventPosition) {
       const events: CustomEventInput[] = [];
@@ -451,6 +453,9 @@ export function useCalendarLogic(refreshTrigger: number, onEventChange?: () => v
 
     return formatted;
   }, [hookEvents, visibleDateRange, expandRecurringEvents, isDragging, draggedEventPosition, originalEventPosition, draggedEventId, temporaryEvents]);
+
+
+
 
   // Update currentEvents when formattedEvents change
   useEffect(() => {
