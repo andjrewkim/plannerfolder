@@ -33,6 +33,7 @@ CSRF_TRUSTED_ORIGINS = [
     'http://localhost:3000',
     'https://fluxcalendar.vercel.app',
     "https://127.0.0.1:3000",
+    "https://flux-backend-production-e861.up.railway.app"
 ]
 
 #DUCKLING STUFF
