@@ -3,7 +3,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Eye, EyeOff, Calendar, Mail, Lock, User } from 'lucide-react';
+import { Eye, EyeOff, Calendar, Mail, Lock } from 'lucide-react';
 import { authAPI } from '../../lib/auth';
 import { FormData, FormErrors } from '../../types/auth';
 
@@ -67,9 +67,6 @@ const LoginPage: React.FC = () => {
       if (!formData.last_name.trim()) {
         newErrors.last_name = 'Last name is required';
       }
-      if (!formData.username.trim()) {
-        newErrors.username = 'Username is required';
-      }
       if (!formData.password_confirm) {
         newErrors.password_confirm = 'Please confirm your password';
       } else if (formData.password !== formData.password_confirm) {
@@ -99,14 +96,14 @@ const LoginPage: React.FC = () => {
         
         router.push('/calendar');
       } else {
-        // Registration
+        // Registration - use email as username
         const response = await authAPI.register({
           email: formData.email,
           password: formData.password,
           password_confirm: formData.password_confirm,
           first_name: formData.first_name,
           last_name: formData.last_name,
-          username: formData.username || formData.email,
+          username: formData.email, // Use email as username
         });
         
         authAPI.setAuthData(response.token, response.user);
@@ -162,65 +159,42 @@ const LoginPage: React.FC = () => {
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* Name fields (signup only) */}
             {!isLogin && (
-              <>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label htmlFor="first_name" className="block text-sm font-medium text-gray-700 mb-2">
-                      First Name
-                    </label>
-                    <input
-                      id="first_name"
-                      name="first_name"
-                      type="text"
-                      value={formData.first_name}
-                      onChange={handleInputChange}
-                      className={`w-full px-3 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200 ${
-                        errors.first_name ? 'border-red-500' : 'border-gray-300'
-                      }`}
-                      placeholder="First name"
-                    />
-                    {errors.first_name && <p className="mt-1 text-sm text-red-600">{errors.first_name}</p>}
-                  </div>
-                  <div>
-                    <label htmlFor="last_name" className="block text-sm font-medium text-gray-700 mb-2">
-                      Last Name
-                    </label>
-                    <input
-                      id="last_name"
-                      name="last_name"
-                      type="text"
-                      value={formData.last_name}
-                      onChange={handleInputChange}
-                      className={`w-full px-3 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200 ${
-                        errors.last_name ? 'border-red-500' : 'border-gray-300'
-                      }`}
-                      placeholder="Last name"
-                    />
-                    {errors.last_name && <p className="mt-1 text-sm text-red-600">{errors.last_name}</p>}
-                  </div>
-                </div>
-
+              <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label htmlFor="username" className="block text-sm font-medium text-gray-700 mb-2">
-                    Username
+                  <label htmlFor="first_name" className="block text-sm font-medium text-gray-700 mb-2">
+                    First Name
                   </label>
-                  <div className="relative">
-                    <User className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-                    <input
-                      id="username"
-                      name="username"
-                      type="text"
-                      value={formData.username}
-                      onChange={handleInputChange}
-                      className={`w-full pl-10 pr-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200 ${
-                        errors.username ? 'border-red-500' : 'border-gray-300'
-                      }`}
-                      placeholder="Choose a username"
-                    />
-                  </div>
-                  {errors.username && <p className="mt-1 text-sm text-red-600">{errors.username}</p>}
+                  <input
+                    id="first_name"
+                    name="first_name"
+                    type="text"
+                    value={formData.first_name}
+                    onChange={handleInputChange}
+                    className={`w-full px-3 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200 ${
+                      errors.first_name ? 'border-red-500' : 'border-gray-300'
+                    }`}
+                    placeholder="First name"
+                  />
+                  {errors.first_name && <p className="mt-1 text-sm text-red-600">{errors.first_name}</p>}
                 </div>
-              </>
+                <div>
+                  <label htmlFor="last_name" className="block text-sm font-medium text-gray-700 mb-2">
+                    Last Name
+                  </label>
+                  <input
+                    id="last_name"
+                    name="last_name"
+                    type="text"
+                    value={formData.last_name}
+                    onChange={handleInputChange}
+                    className={`w-full px-3 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200 ${
+                      errors.last_name ? 'border-red-500' : 'border-gray-300'
+                    }`}
+                    placeholder="Last name"
+                  />
+                  {errors.last_name && <p className="mt-1 text-sm text-red-600">{errors.last_name}</p>}
+                </div>
+              </div>
             )}
 
             {/* Email field */}

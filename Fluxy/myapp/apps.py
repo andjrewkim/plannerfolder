@@ -3,12 +3,17 @@
 import os
 from django.apps import AppConfig
 from django.conf import settings
+import posthog
 
 class YourAppConfig(AppConfig):
     default_auto_field = 'django.db.models.BigAutoField'
     name = 'myapp'  # Update if your app name is different
 
     def ready(self):
+        posthog.api_key = 'phc_pAf2ERGqruJ2pmDOTZZFzADQ1nGxoHsSdm3Q9HI9MVi'
+        posthog.host = 'https://us.i.posthog.com'
+        posthog.capture("user_signed_up", properties={"example_property": "with_some_value"})
+
         from .views_llm_text import (
             llm_service,
             OpenAIProvider,
