@@ -240,11 +240,14 @@ const Sidebar: React.FC<SidebarProps> = ({
   const handleEventResult = useCallback(async (results: EventData[]) => {
     if (!isMountedRef.current) return;
 
-    console.log('Event created - useAppState will handle refresh automatically');
+    console.log('Event created - notifying parent component');
     setEventResults(results);
-    // REMOVED: No more manual refresh calls - useAppState debounced refresh handles it
-  }, []);
-
+    
+    // Notify parent component that events have changed
+    if (onEventChange) {
+      onEventChange();
+    }
+  }, [onEventChange]);
   // Task area click handler
   const handleTaskAreaClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
     if (!isMountedRef.current || isCreatingTask) return;

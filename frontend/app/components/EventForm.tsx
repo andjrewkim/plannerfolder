@@ -45,7 +45,6 @@ const EventForm: React.FC<EventFormProps> = ({ setResult, setError, onEventResul
   const [showDetails, setShowDetails] = useState(false);
   const [parsedEventData, setParsedEventData] = useState<EventData | null>(null);
   const [editedEventData, setEditedEventData] = useState<EventData | null>(null);
-  const [isTaskToday, setIsTaskToday] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   
   // Animation states
@@ -174,7 +173,6 @@ const EventForm: React.FC<EventFormProps> = ({ setResult, setError, onEventResul
     setShowDetails(false);
     setParsedEventData(null);
     setEditedEventData(null);
-    setIsTaskToday(false);
     setSuccessMessage(null);
     setError(null);
     setIsError(false);
@@ -230,11 +228,6 @@ const EventForm: React.FC<EventFormProps> = ({ setResult, setError, onEventResul
       if (processedData.date && processedData.date.includes('T')) {
         processedData.date = processedData.date.split('T')[0];
       }
-      
-      // Check if task is today
-      const todayDate = getTodayDate();
-      const taskIsToday = processedData.date === todayDate;
-      setIsTaskToday(taskIsToday);
       
       setParsedEventData(processedData);
       setEditedEventData(processedData);
@@ -391,46 +384,6 @@ const EventForm: React.FC<EventFormProps> = ({ setResult, setError, onEventResul
     }
   };
 
-  const toggleAllDayEvent = () => {
-    if (editedEventData) {
-      const newValue = !editedEventData.is_all_day;
-      const updatedData = { 
-        ...editedEventData, 
-        is_all_day: newValue,
-      };
-      
-      if (newValue) {
-        // For all-day events, set times to 00:00
-        updatedData.start_time = "00:00";
-        updatedData.end_time = "00:00";
-        updatedData.day_marking_title = editedEventData.event_name;
-        updatedData.event_type = 'marking';
-      } else {
-        updatedData.day_marking_title = '';
-        updatedData.event_type = 'event';
-        // Set default times to 9:00 AM and 10:00 AM when switching back from all-day
-        updatedData.start_time = "09:00";
-        updatedData.end_time = "10:00";
-      }
-      
-      setEditedEventData(updatedData);
-    }
-  };
-
-  const handleTaskTodayToggle = () => {
-    if (editedEventData) {
-      const newValue = !isTaskToday;
-      setIsTaskToday(newValue);
-      
-      const updatedData = { 
-        ...editedEventData, 
-        date: newValue ? getTodayDate() : editedEventData.date
-      };
-      
-      setEditedEventData(updatedData);
-    }
-  };
-
   // CSS styles with animations
   const animationStyles = `
     @keyframes fadeSlideOut {
@@ -510,9 +463,6 @@ const EventForm: React.FC<EventFormProps> = ({ setResult, setError, onEventResul
             placeholder="Enter event details..."
             className="event-textarea"
             disabled={isSubmitting}
-            style={{
-
-            }}
           />
           <button
             onClick={handleInitialSubmit}
@@ -526,9 +476,6 @@ const EventForm: React.FC<EventFormProps> = ({ setResult, setError, onEventResul
                 ? 'hsl(var(--muted-foreground))' 
                 : 'hsl(var(--primary-foreground))',
               transition: 'all 0.2s ease',
-              ':hover': {
-                backgroundColor: 'hsl(var(--primary) / 0.9)'
-              }
             } as React.CSSProperties}
           >
             {isSubmitting ? (
@@ -657,44 +604,8 @@ const EventForm: React.FC<EventFormProps> = ({ setResult, setError, onEventResul
               />
             </div>
 
-            {/* Task Today Toggle */}
-            {editedEventData.event_type === 'task' && (
-              <div
-                className="detail-row"
-                style={{ 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  gap: '4px',
-                  padding: '4px'
-                }}
-              >
-                <Tag size={14} color="transparent" style={{ visibility: 'hidden' }} />
-                <label
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '3px',
-                    cursor: 'pointer',
-                    fontSize: '13px',
-                    margin: 0,
-                    padding: 0,
-                    color: 'hsl(var(--text-color))',
-                    transition: 'all 0.2s ease'
-                  }}
-                >
-                  <input
-                    type="checkbox"
-                    checked={isTaskToday}
-                    onChange={handleTaskTodayToggle}
-                    style={{ width: '14px', height: '14px', margin: 0, padding: 0 }}
-                  />
-                  Today task
-                </label>
-              </div>
-            )}
-
-            {/* Date */}
-            {(editedEventData.event_type !== 'task' || !isTaskToday) && (
+            {/* Date - Only show for events */}
+            {editedEventData.event_type !== 'task' && (
               <div
                 className="detail-row"
                 style={{ 
@@ -728,9 +639,9 @@ const EventForm: React.FC<EventFormProps> = ({ setResult, setError, onEventResul
             )}
          
             {/* Event-specific fields */}
-            {(editedEventData.event_type === 'event' || editedEventData.event_type === 'marking') && (
+            {editedEventData.event_type === 'event' && (
               <>
-                {/* All-day toggle */}
+                {/* All-day toggle - DISABLED */}
                 <div className="detail-row" style={{ 
                   display: 'flex', 
                   alignItems: 'center', 
@@ -742,72 +653,77 @@ const EventForm: React.FC<EventFormProps> = ({ setResult, setError, onEventResul
                     display: 'flex', 
                     alignItems: 'center', 
                     gap: '3px', 
-                    cursor: 'pointer', 
+                    cursor: 'not-allowed', 
                     fontSize: '13px',
-                    color: 'hsl(var(--text-color))',
+                    color: 'hsl(var(--text-muted))',
+                    opacity: 0.6,
                     transition: 'all 0.2s ease'
                   }}>
                     <input
                       type="checkbox"
-                      checked={editedEventData.is_all_day || false}
-                      onChange={toggleAllDayEvent}
-                      style={{ width: '14px', height: '14px' }}
+                      checked={false} // Always unchecked and doesn't affect anything
+                      onChange={() => {}} // Disabled - no-op
+                      disabled={true}
+                      style={{ 
+                        width: '14px', 
+                        height: '14px',
+                        cursor: 'not-allowed',
+                        opacity: 0.6
+                      }}
                     />
                     All-day event
                   </label>
                 </div>
 
                 
-                {/* Time inputs */}
-                {!editedEventData.is_all_day && (
-                  <div className="detail-row" style={{ 
-                    display: 'flex', 
-                    alignItems: 'center', 
-                    gap: '4px', 
-                    padding: '4px'
-                  }}>
-                    <Clock size={14} color="hsl(var(--border))" />
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flex: 1 }}>
-                      <input
-                        type="time"
-                        value={editedEventData.start_time || ''}
-                        onChange={(e) => handleEdit('start_time', e.target.value)}
-                        className="time-input"
-                        style={{
-                          padding: '2px 4px',
-                          border: '1px solid hsl(var(--border))',
-                          borderRadius: '6px',
-                          fontSize: '13px',
-                          flex: 1,
-                          minHeight: '20px',
-                          backgroundColor: 'hsl(var(--input-field-bg))',
-                          color: 'hsl(var(--text-color))',
-                          colorScheme: 'dark',
-                          transition: 'all 0.2s ease'
-                        }}
-                      />
-                      <span style={{ color: 'hsl(var(--text-muted))', fontSize: '12px' }}>to</span>
-                      <input
-                        type="time"
-                        value={editedEventData.end_time || ''}
-                        onChange={(e) => handleEdit('end_time', e.target.value)}
-                        className="time-input"
-                        style={{
-                          padding: '2px 4px',
-                          border: '1px solid hsl(var(--border))',
-                          borderRadius: '6px',
-                          fontSize: '13px',
-                          flex: 1,
-                          minHeight: '20px',
-                          backgroundColor: 'hsl(var(--input-field-bg))',
-                          color: 'hsl(var(--text-color))',
-                          colorScheme: 'dark',
-                          transition: 'all 0.2s ease'
-                        }}
-                      />
-                    </div>
+                {/* Time inputs - Always show for events */}
+                <div className="detail-row" style={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  gap: '4px', 
+                  padding: '4px'
+                }}>
+                  <Clock size={14} color="hsl(var(--border))" />
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flex: 1 }}>
+                    <input
+                      type="time"
+                      value={editedEventData.start_time || ''}
+                      onChange={(e) => handleEdit('start_time', e.target.value)}
+                      className="time-input"
+                      style={{
+                        padding: '2px 4px',
+                        border: '1px solid hsl(var(--border))',
+                        borderRadius: '6px',
+                        fontSize: '13px',
+                        flex: 1,
+                        minHeight: '20px',
+                        backgroundColor: 'hsl(var(--input-field-bg))',
+                        color: 'hsl(var(--text-color))',
+                        colorScheme: 'dark',
+                        transition: 'all 0.2s ease'
+                      }}
+                    />
+                    <span style={{ color: 'hsl(var(--text-muted))', fontSize: '12px' }}>to</span>
+                    <input
+                      type="time"
+                      value={editedEventData.end_time || ''}
+                      onChange={(e) => handleEdit('end_time', e.target.value)}
+                      className="time-input"
+                      style={{
+                        padding: '2px 4px',
+                        border: '1px solid hsl(var(--border))',
+                        borderRadius: '6px',
+                        fontSize: '13px',
+                        flex: 1,
+                        minHeight: '20px',
+                        backgroundColor: 'hsl(var(--input-field-bg))',
+                        color: 'hsl(var(--text-color))',
+                        colorScheme: 'dark',
+                        transition: 'all 0.2s ease'
+                      }}
+                    />
                   </div>
-                )}
+                </div>
 
                 {/* Recurrence */}
                 <div className="detail-row" style={{ 
@@ -875,6 +791,7 @@ const EventForm: React.FC<EventFormProps> = ({ setResult, setError, onEventResul
               className="confirm-button"
               disabled={isSubmitting}
               style={{
+
                 padding: '4px 10px',
                 border: 'none',
                 borderRadius: '2px',
