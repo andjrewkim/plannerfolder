@@ -9,10 +9,13 @@ import Navigation from '../components/Navigation';
 import '../globals.css';
 import { ThemeProvider } from '../services/themeContext';
 import { useAppState } from '../hooks/useAppState';
+import { PostHogProvider, usePostHog } from 'posthog-js/react';
 
 import { EventData } from '../components/EventForm';
 
-const Page = () => {
+const AppContent = () => {
+  const posthog = usePostHog();
+  
   // Use the centralized state hook
   const {
     events,
@@ -40,6 +43,15 @@ const Page = () => {
   useEffect(() => {
     initializeData();
   }, [initializeData]);
+
+  // Track only major view changes for analytics
+  useEffect(() => {
+    if (posthog) {
+      posthog.capture('calendar_view_used', {
+        view: view
+      });
+    }
+  }, [posthog, view]);
 
   // Disable scrolling on mount and re-enable on unmount
   useEffect(() => {
@@ -87,7 +99,7 @@ const Page = () => {
     setRightSidebarOpen(!rightSidebarOpen);
   };
 
-  // Fixed task handlers to match expected return types
+  // Regular task handlers - no tracking of individual actions
   const handleSidebarTaskCreate = async (taskData: any): Promise<void> => {
     const newTask = await createTask(taskData);
     if (newTask) {
@@ -116,7 +128,6 @@ const Page = () => {
     }
   };
 
-  // Fixed to return boolean as expected by the interface
   const handleSidebarTaskDelete = async (taskId: string): Promise<boolean> => {
     try {
       const success = await deleteTask(taskId);
@@ -131,7 +142,7 @@ const Page = () => {
     }
   };
 
-  // Event handlers
+  // Regular event handlers - no tracking of individual actions
   const handleEventCreate = async (eventData: any): Promise<void> => {
     const newEvent = await createEvent(eventData);
     if (newEvent) {
@@ -148,7 +159,6 @@ const Page = () => {
     }
   };
 
-  // Fixed to return boolean as expected by the interface
   const handleEventDelete = async (eventId: string): Promise<boolean> => {
     try {
       const success = await deleteEvent(eventId);
@@ -165,73 +175,106 @@ const Page = () => {
   };
 
   return (
-    <ThemeProvider>
-      <Navigation rightSidebarOpen={rightSidebarOpen}>
-        <div className="h-screen overflow-hidden">
-          {/* Sidebar - based on the actual SidebarProps interface */}
-          <Sidebar 
-            onEventChange={handleEventChange}
-            refreshTrigger={refreshEvents}
-          />
-          
-          {/* Main content area */}
-          <div className="ewfsf">
-            <div className="form-content">
-              {error && <p style={{ color: 'red' }}>{error}</p>}
-            </div>
-          </div>
-
-          {/* Calendar component - only pass props that CalendarProps expects */}
-          <div 
-            className="calendar-container"
-            style={{
-              marginRight: rightSidebarOpen ? '349px' : '30px',
-              marginLeft: '10px',
-            }}
-          >
-            {/* Calendar - based on the actual CalendarProps interface */}
-            <Calendar 
-              refreshTrigger={refreshEvents}
-              onEventChange={handleEventChange} 
-              onViewChange={handleViewChange}
-            />
-          </div>
-
-          {/* AI Assistant Sidebar */}
-          <RightSidebar 
-            isOpen={rightSidebarOpen}
-            onToggle={handleRightSidebarToggle}
-            forceClose={false}
-            navbarVisible={navbarVisible}
-            events={events}
-            tasks={tasks}
-            onEventCreate={handleEventCreate}
-            onEventUpdate={handleEventUpdate}
-            onEventDelete={handleEventDelete}
-            onTaskCreate={handleSidebarTaskCreate}
-            onTaskUpdate={handleSidebarTaskUpdate}
-            onTaskDelete={handleSidebarTaskDelete}
-            onEventChange={handleEventChange}
-          />
-
-          <style jsx>{`
-            @media (max-width: 768px) {
-              .calendar-container {
-                margin-right: 0 !important;
-              }
-            }
-          `}</style>
-
-          <style jsx global>{`
-            html, body {
-              overflow: hidden !important;
-              height: 100%;
-            }
-          `}</style>
+    <div className="h-screen overflow-hidden">
+      {/* Sidebar */}
+      <Sidebar 
+        onEventChange={handleEventChange}
+        refreshTrigger={refreshEvents}
+      />
+      
+      {/* Main content area */}
+      <div className="ewfsf">
+        <div className="form-content">
+          {error && <p style={{ color: 'red' }}>{error}</p>}
         </div>
-      </Navigation>
-    </ThemeProvider>
+      </div>
+
+      {/* Calendar component */}
+      <div 
+        className="calendar-container"
+        style={{
+          marginRight: rightSidebarOpen ? '349px' : '30px',
+          marginLeft: '10px',
+        }}
+      >
+        <Calendar 
+          refreshTrigger={refreshEvents}
+          onEventChange={handleEventChange} 
+          onViewChange={handleViewChange}
+        />
+      </div>
+
+      {/* AI Assistant Sidebar */}
+      <RightSidebar 
+        isOpen={rightSidebarOpen}
+        onToggle={handleRightSidebarToggle}
+        forceClose={false}
+        navbarVisible={navbarVisible}
+        events={events}
+        tasks={tasks}
+        onEventCreate={handleEventCreate}
+        onEventUpdate={handleEventUpdate}
+        onEventDelete={handleEventDelete}
+        onTaskCreate={handleSidebarTaskCreate}
+        onTaskUpdate={handleSidebarTaskUpdate}
+        onTaskDelete={handleSidebarTaskDelete}
+        onEventChange={handleEventChange}
+      />
+
+      <style jsx>{`
+        @media (max-width: 768px) {
+          .calendar-container {
+            margin-right: 0 !important;
+          }
+        }
+      `}</style>
+
+      <style jsx global>{`
+        html, body {
+          overflow: hidden !important;
+          height: 100%;
+        }
+      `}</style>
+    </div>
   );
-}
+};
+
+const Page = () => {
+  const posthogKey = process.env.NEXT_PUBLIC_POSTHOG_KEY;
+  const posthogHost = process.env.NEXT_PUBLIC_POSTHOG_HOST;
+  
+  // PostHog configuration
+  const posthogOptions = {
+    api_host: posthogHost || 'https://us.i.posthog.com',
+    person_profiles: "identified_only" as const,
+    capture_pageview: true,
+    capture_pageleave: true,
+  };
+
+  // If no PostHog key, render without analytics
+  if (!posthogKey) {
+    return (
+      <ThemeProvider>
+        <Navigation rightSidebarOpen={true}>
+          <AppContent />
+        </Navigation>
+      </ThemeProvider>
+    );
+  }
+
+  // Render with PostHog analytics
+  return (
+    <PostHogProvider 
+      apiKey={posthogKey}
+      options={posthogOptions}
+    >
+      <ThemeProvider>
+        <Navigation rightSidebarOpen={true}>
+          <AppContent />
+        </Navigation>
+      </ThemeProvider>
+    </PostHogProvider>
+  );
+};
 
 export default Page;
