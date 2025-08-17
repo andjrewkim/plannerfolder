@@ -220,7 +220,7 @@ const LLMChat: React.FC = () => {
     console.log(`Refreshing calendar data: ${reason}`);
     try {
       setIsChatLoading(true);
-      await initializeData(true); // Force refresh
+      await initializeData(); // Force refresh
       console.log('Calendar data refreshed successfully');
     } catch (error) {
       console.error('Failed to refresh calendar data:', error);

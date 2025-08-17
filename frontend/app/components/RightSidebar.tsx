@@ -143,7 +143,7 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
       
       refreshInProgressRef.current = true;
       try {
-        await initializeData(true); // Force fresh data fetch
+        await initializeData(); // Force fresh data fetch
         if (onEventChange) {
           onEventChange(); // Update refresh trigger
         }
