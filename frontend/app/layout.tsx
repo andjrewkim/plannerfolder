@@ -22,11 +22,10 @@ const poppins = Poppins({
 
 // Initialize PostHog
 if (typeof window !== 'undefined') {
-  posthog.init('VITE_PUBLIC_POSTHOG_KEY', {
-    api_host: 'https://us.i.posthog.com', // or your self-hosted URL
-    // Optional: Add other configuration options
+  posthog.init(process.env.NEXT_PUBLIC_POSTHOG_KEY!, {
+    api_host: process.env.NEXT_PUBLIC_POSTHOG_HOST!,
     autocapture: true,
-    capture_pageview: true, // Disable automatic pageview capture since you're doing it manually
+    capture_pageview: true, // or false if you want manual tracking
   });
 }
 
