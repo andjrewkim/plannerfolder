@@ -115,7 +115,7 @@ export const themes: Theme[] = [
       chart4: '45 90% 60%',             // Golden yellow
       chart5: '30 80% 60%',             // Soft orange
 
-      mainBackground: '222 20% 7%',
+      mainBackground: '222 20% 8%',
       sidebarItemColor: '222 10% 18%',
 
       sidebar: '220 10% 10%',           // Slightly lighter than bg

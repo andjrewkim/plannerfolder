@@ -57,7 +57,7 @@ const EventModal: React.FC<EventModalProps> = ({
     '#007AFF', // Blue
     '#5856D6', // Indigo
     '#AF52DE', // Violet
-    '#FF2D55'  // Pink 
+    '#FF2D9C' // Pink 
   ];
 
   // Day mapping for custom recurrence
@@ -216,7 +216,7 @@ const EventModal: React.FC<EventModalProps> = ({
     { value: "yearly", label: "Yearly" },
     { value: "weekdays", label: "Every weekday" },
     { value: "weekends", label: "Every weekend" },
-    { value: "custom", label: "Custom" }
+    { value: "custom", label: "Custom(in dev)" }
   ];
 
   const handleClose = () => {

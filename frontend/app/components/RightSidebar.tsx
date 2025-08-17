@@ -107,7 +107,7 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
   const [messages, setMessages] = useState<Message[]>([
     {
       id: '1',
-      content: 'Hello! I\'m your AI assistant. I can help you edit events, answer questions, and schedule your day. You are limited to 5 messages a week.',
+      content: 'Hello! I\'m your scheduling assistant. I can help you edit events, answer questions, and schedule your day. You are limited to 5 messages a week.',
       sender: 'ai',
       timestamp: new Date()
     }
@@ -370,7 +370,7 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
                   className="text-lg font-semibold"
                   style={{ color: 'hsl(var(--foreground))' }}
                 >
-                  AI Assistant
+                  Schedule Assistant
                 </h2>
                 <p 
                   className="text-xs"

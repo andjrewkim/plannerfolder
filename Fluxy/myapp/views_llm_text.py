@@ -945,7 +945,7 @@ class BaseLLMProvider(ABC):
         
         events_str = '\n'.join(events_data) if events_data else 'None'
         
-        return f"""TODAY/TOMORROW {time_range} (Today: {current_day})
+        return f"""TODAY/TOMORROW {time_range} (Today: {current_day}, 2025)
 
 EVENTS:
 {events_str}
@@ -954,7 +954,7 @@ COMMANDS:
 M = Move, A = Add, C = Change, D = Delete
 M:ID:Date:Time   A:Name:Date:Time   C:ID:New:Date:Time   D:ID
 
-DATES: TODAY, TOMORROW
+DATES: TODAY, TOMORROW, or <3-letter-month><day>/<2-digit-year> (e.g., Jan15/25)
 TIME: Use start-end in 24h format, no colon (e.g. 1430-1530 for 2:30 PM–3:30 PM).
 
 RULES:
@@ -2149,6 +2149,8 @@ def create_calendar_event(event_name, date, start_time, end_time, user=None):
                     event.end_time = datetime.strptime(end_time, '%H:%M').time()
         else:
             event.end_time = end_time
+        
+        event.color = "#AF52DE"
         
         # Save the event
         event.save()
