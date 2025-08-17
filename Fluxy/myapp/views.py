@@ -2065,128 +2065,190 @@ class AdvancedScheduleExtractor:
 
     def _extract_event_name(self, text):
         """
-        Extract meaningful event name from natural language input using advanced NLP techniques.
-        Creates context-aware, intelligent event names handling complex scenarios.
+        Extract meaningful event name from natural language input using intelligent parsing.
+        Identifies multi-word event names and stops at temporal/contextual boundaries.
         
         Args:
             text (str): Natural language input describing the event
                 
         Returns:
-            str: Intelligently formatted event name
+            str: Intelligently extracted event name
         """
         import re
-        from collections import defaultdict
         
-        patterns = {
-            'activities': [
-                # Exercise & Sports
-        r'(?i)(workout|gym|training|exercising|lifting|cardio|running|swimming|cycling|hiking|climbing|jogging|skiing|snowboarding|surfing|boxing|martial arts|sparring|fitness|pilates|yoga|crossfit|jump rope|sprints|stretching|rowing|spin class|aerobics|kickboxing|gymnastics|Zumba|boxing match|wrestling|taekwondo|archery)',
-        r'(?i)(gaming|streaming|playing|speedrunning|streaming|raid|match|game night|board games|video games|party games|poker|chess|esports|multiplayer|LAN party|role-playing|strategy games|arcade|trivia|quiz night|virtual reality|card games|tabletop games|dungeons and dragons|game tournament)',
-        r'(?i)(sleep|nap|rest|relaxing|meditation|mindfulness|break|chill|hanging out|lounging|unwinding|downtime|taking it easy|power nap|catnap|recharging|repose|siesta|mental health break)',
-        r'(?i)(drinking|partying|clubbing|bar hopping|pub crawl|night out|cocktail hour|happy hour|celebration|event|date|hangout|meetup|gathering|get-together|catch up|party|birthday|wedding|reunion|socializing|festival|theater|show|concert|performance|gig|open mic|music concert|comedy show|karaoke|stand-up|art exhibit|gallery opening|film screening)',
-        r'(?i)(eating|dining|lunch|dinner|breakfast|brunch|snack|cookout|bbq|barbecue|picnic|potluck|feast|tasting|restaurant|cafe|food truck|coffee date|food delivery|grocery shopping|meal prep|grilling|cooking|baking|meal planning|food prep|fast food|takeout|cooking class|wine tasting|tea time)',
-        r'(?i)(flight|trip|journey|travel|commute|drive|ride|vacation|getaway|tour|expedition|excursion|visit|holiday|road trip|staycation|business trip|cruise|weekend trip|tourism|flight booking|trip planning|transportation|bus ride|train ride|subway ride|carpool|uber|lyft|taxi|public transport)',
-        r'(?i)(meeting|call|conference|presentation|interview|training|work|shift|overtime|project|task|assignment|deadline|briefing|consultation|workshop|teleconference|seminar|team call|virtual meeting|project planning|client call|one-on-one|review|catch-up|business lunch|networking event|performance review|business presentation|job interview|coaching session|audit|staff meeting|conference call)',
-        r'(?i)(haircut|massage|spa|therapy|doctor|dentist|checkup|appointment|consultation|treatment|procedure|wellness check|facial|pedicure|manicure|skin care|acupuncture|chiropractic appointment|health screening|medical checkup|optometrist|physiotherapy|dental cleaning|therapist appointment|personal grooming|beauty treatment)',
-        r'(?i)(cleaning|laundry|groceries|shopping|errands|chores|maintenance|repair|installation|setup|moving|organizing|decluttering|dishwashing|vacuuming|dusting|mopping|yard work|gardening|lawn care|car wash|home repairs|home improvement|grocery shopping|decluttering|home organizing|home decor shopping|tidying up|spring cleaning|furniture assembly)',
-        r'(?i)(studying|reading|learning|practice|homework|research|class|lecture|seminar|workshop|tutorial|lesson|exam|test|assignment|project|course|degree|certificate|online course|webinar|conference|self-study|study session|reading group|language class|coding bootcamp|e-learning|training session|workshop|educational event|book club|learning new skill|personal development)',
-        r'(?i)(painting|drawing|sculpting|crafting|diy|knitting|crocheting|sewing|embroidery|pottery|art class|craft fair|art exhibit|crafting workshop|creative writing|photography|videography|film making|digital art|scrapbooking|origami|jewelry making|woodworking|printmaking|design|calligraphy|graphic design|makeup artistry)',
-        r'(?i)(hiking|camping|fishing|picnic|beach day|gardening|stargazing|birdwatching|boating|kayaking|canoeing|rock climbing|nature walk|outdoor adventure|barbecue|nature hike|wildlife watching|forest walk|trail walking|cycling trip|backpacking|outdoor sports|wilderness exploration|campfire|fishing trip|lake day|mountain climbing)',
-        r'(?i)(baby sitting|childcare|family outing|family gathering|family dinner|parenting|playdate|birthday party|school event|school run|parent-teacher meeting|baby shower|family vacation|kids party|birthday celebration|family game night|parenting class|school pick-up|school drop-off)',
-        r'(?i)(church|mass|temple|mosque|prayer|bible study|sabbath|spiritual gathering|meditation group|spiritual retreat|fasting|pilgrimage|holy day|religious service|spiritual cleansing|baptism|bar mitzvah|christening|ritual|satsang|yoga retreat|religious celebration|prayer group|faith meeting)',
-        r'(?i)(volunteer|charity|donation|fundraising|food drive|community event|service project|nonprofit|volunteer work|charity event|outreach program|donation drive|blood donation|helping hand|community service|social cause|volunteering|group project|neighborhood meeting|donation pickup)',
-        r'(?i)(shopping|fashion|clothing|store visit|outlet|shopping spree|retail therapy|online shopping|wardrobe update|styling|shoe shopping|accessory shopping|jewelry shopping|makeup shopping|designer shopping|gift shopping|thrift store|second-hand shopping|vintage shopping|buying new clothes|fashion consultation)',
-        r'(?i)(coding|programming|hacking|gaming|tech meetup|hackathon|startup|software development|hardware building|AI project|machine learning|data science|tech conference|technology lecture|robotics|tech seminar|3d printing|gadget testing|app development|blockchain|cybersecurity|virtual reality demo|AR workshop|developer meetup)',
-        r'(?i)(conference|workshop|meeting|event|session|presentation|discussion|webinar|seminar|forum|training|retreat|summit|exhibition|webcast|showcase|product launch|grand opening|press release|panel discussion|open house|expo|trade show|announcement|live demo|show and tell|lecture)',
-        r'(?i)(therapy session|counseling|self-care|mental health day|personal retreat|yoga|journaling|meditation|mindfulness|relaxation|breathing exercises|positive thinking|therapy appointment|stress relief|mental health checkup|wellness session|personal development|self-improvement|emotional well-being)',
-        r'(?i)(blogging|vlogging|writing|photography|crafting|diy project|gardening|drawing|painting|knitting|piano practice|musical instrument|songwriting|modeling|filmmaking|creative writing|scrapbooking|woodworking|pottery|sewing|photography session|creative session|hobby project|home improvement project|art project)',
-        r'(?i)(vet appointment|dog walk|cat playtime|pet grooming|pet training|pet sitting|dog park|animal rescue|pet adoption|animal shelter|pet care|pet feeding|dog run|pet therapy|pet check-up|pet playdate|horseback riding|dog obedience training|bird watching)',
-        r'(?i)(interior design|home improvement|furniture shopping|decorating|home renovation|home styling|housewarming|painting|remodeling|flooring installation|appliance shopping|lighting upgrade|space planning|organization|reorganization|design consultation|cleaning out closet|furniture assembly|wallpaper installation)'
-            ],
-            'modifiers': [
-                r'(?i)(weekly|daily|regular|quick|long|intense|casual)',
-                r'(?i)(group|solo|team|private|public|social|virtual)',
-                r'(?i)(business|personal|family|friend|work|school)',
-            ]
-        }
+        # Clean and normalize input
+        text = re.sub(r'[^\w\s\-\'&]', ' ', text)  # Keep hyphens, apostrophes, ampersands
+        text = ' '.join(text.split())  # Normalize whitespace
+        words = text.split()
         
-        # Clean input text
-        cleaned_text = ' '.join(re.sub(r'[^\w\s]', ' ', text).split())
-        text_lower = cleaned_text.lower()
+        if not words:
+            return "Event"
         
-        # Words to ignore
-        ignore_words = {
-            # Time-related
-            'today', 'tomorrow', 'tonight', 'morning', 'afternoon', 'evening',
+        # Temporal and contextual stop words that mark end of event name
+        stop_words = {
+            # Temporal
+            'today', 'tomorrow', 'tonight', 'yesterday', 'later', 'soon', 'now',
+            'morning', 'afternoon', 'evening', 'night',
             'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday',
-            'next', 'last', 'this', 'every', 'daily', 'weekly', 'monthly',
-            # Prepositions and articles
-            'to', 'at', 'in', 'on', 'the', 'a', 'an', 'for', 'with', 'by',
-            # Action verbs to ignore
-            'going', 'having', 'doing', 'attending', 'planning', 'scheduled'
+            'jan', 'january', 'feb', 'february', 'mar', 'march', 'apr', 'april',
+            'may', 'jun', 'june', 'jul', 'july', 'aug', 'august', 'sep', 'september',
+            'oct', 'october', 'nov', 'november', 'dec', 'december',
+            'next', 'last', 'this', 'every', 'each', 'weekly', 'daily', 'monthly',
+            
+            # Time indicators
+            'at', 'on', 'in', 'from', 'until', 'before', 'after', 'during',
+            'am', 'pm', 'oclock', "o'clock",
+            
+            # Prepositions that usually end event names
+            'with', 'for', 'about', 'regarding', 'concerning',
+            
+            # Activity indicators that aren't part of the name
+            'going', 'attend', 'attending', 'have', 'having', 'do', 'doing',
+            'scheduled', 'planning', 'need', 'want', 'should', 'will', 'would',
+            'meeting', 'session', 'class', 'appointment', 'event',
+            
+            # Location prepositions
+            'near', 'around', 'by', 'close', 'far',
+            
+            # Numbers that usually indicate time/date
+            '1st', '2nd', '3rd', '4th', '5th', '6th', '7th', '8th', '9th', '10th',
+            '11th', '12th', '13th', '14th', '15th', '16th', '17th', '18th', '19th', '20th',
+            '21st', '22nd', '23rd', '24th', '25th', '26th', '27th', '28th', '29th', '30th', '31st'
         }
         
-        def find_main_activity(text):
-            """Find the primary activity/event from the text"""
-            matches = []
+        # Skip words that commonly start descriptions but aren't event names
+        skip_start_words = {
+            'i', 'im', "i'm", 'we', 'were', "we're", 'my', 'our', 'the', 'a', 'an',
+            'going', 'have', 'having', 'need', 'want', 'should', 'will', 'would',
+            'attending', 'planning', 'scheduled', 'supposed', 'going'
+        }
+        
+        # Words that are likely to be part of proper nouns/event names
+        proper_indicators = {
+            # Common proper noun patterns
+            'boy', 'girl', 'saint', 'st', 'mount', 'mt', 'lake', 'river',
+            'first', 'second', 'third', 'annual', 'international', 'national',
+            'local', 'community', 'church', 'school', 'university', 'college',
+            'company', 'corp', 'inc', 'llc', 'association', 'society', 'club',
+            'group', 'team', 'band', 'orchestra', 'choir'
+        }
+        
+        def is_likely_proper_noun(word, next_word=None):
+            """Check if word is likely part of a proper noun"""
+            word_lower = word.lower()
             
-            # Look for activity patterns
-            for pattern in patterns['activities']:
-                found = re.search(pattern, text_lower)
-                if found:
-                    activity = found.group().strip()
-                    start_pos = found.start()
-                    matches.append((activity, start_pos))
-            
-            # Sort by position (earlier mentions usually more important)
-            matches.sort(key=lambda x: x[1])
-            
-            if matches:
-                return matches[0][0]
+            # Capitalized words are likely proper nouns
+            if word[0].isupper() and len(word) > 1:
+                return True
                 
-            # Fallback: take first significant word
-            words = text_lower.split()
+            # Common proper noun indicators
+            if word_lower in proper_indicators:
+                return True
+                
+            # Acronyms (all caps, 2+ letters)
+            if word.isupper() and len(word) >= 2:
+                return True
+                
+            # Numbers that might be part of names
+            if word.isdigit() and next_word and next_word.lower() in proper_indicators:
+                return True
+                
+            return False
+        
+        def is_content_word(word):
+            """Check if word carries semantic meaning for event name"""
+            word_lower = word.lower()
+            
+            # Skip very common words unless they're proper noun indicators
+            common_words = {'the', 'a', 'an', 'and', 'or', 'but', 'of', 'to', 'for'}
+            if word_lower in common_words and word_lower not in proper_indicators:
+                return False
+                
+            # Keep words that are likely meaningful
+            return len(word) >= 2 and word.isalpha()
+        
+        # Find the start of the event name
+        start_idx = 0
+        for i, word in enumerate(words):
+            if word.lower() not in skip_start_words:
+                start_idx = i
+                break
+        
+        # Extract event name until we hit a stop word
+        event_words = []
+        consecutive_stop_words = 0
+        
+        for i in range(start_idx, len(words)):
+            word = words[i]
+            word_lower = word.lower()
+            next_word = words[i + 1] if i + 1 < len(words) else None
+            
+            # Check if this is a stop word
+            if word_lower in stop_words:
+                consecutive_stop_words += 1
+                # Allow one stop word if it might be part of a proper noun
+                if consecutive_stop_words == 1 and is_likely_proper_noun(word, next_word):
+                    event_words.append(word)
+                    continue
+                else:
+                    break
+            else:
+                consecutive_stop_words = 0
+            
+            # Check for time patterns (numbers followed by time indicators)
+            if word.isdigit():
+                if next_word and next_word.lower() in {'am', 'pm', 'oclock', "o'clock"}:
+                    break
+                if next_word and re.match(r'^\d{1,2}:\d{2}', next_word):
+                    break
+            
+            # Check for date patterns
+            if re.match(r'^\d{1,2}[/-]\d{1,2}', word):
+                break
+                
+            # Add word if it's meaningful
+            if is_content_word(word) or is_likely_proper_noun(word, next_word):
+                event_words.append(word)
+            
+            # Stop if we've collected enough and hit a natural boundary
+            if len(event_words) >= 4 and word_lower in {'and', 'or', '&'}:
+                break
+        
+        # Post-process the extracted words
+        if not event_words:
+            # Fallback: take first meaningful word
+            for word in words[start_idx:]:
+                if is_content_word(word):
+                    event_words = [word]
+                    break
+            else:
+                return "Event"
+        
+        # Clean up the event name
+        def clean_event_name(words):
+            """Final cleanup of event name"""
+            if not words:
+                return "Event"
+            
+            # Remove trailing articles and prepositions
+            while words and words[-1].lower() in {'the', 'a', 'an', 'of', 'for', 'with'}:
+                words.pop()
+                
+            # Capitalize properly
+            result_words = []
             for word in words:
-                if word not in ignore_words:
-                    return word
-                    
-            return "Event"  # Ultimate fallback
+                # Keep acronyms as-is, capitalize others properly
+                if word.isupper() and len(word) <= 4:
+                    result_words.append(word)
+                elif word.lower() in {'and', 'or', 'of', 'the', 'a', 'an'} and len(result_words) > 0:
+                    # Keep articles/conjunctions lowercase unless they start the name
+                    result_words.append(word.lower())
+                else:
+                    result_words.append(word.capitalize())
+            
+            return ' '.join(result_words)
         
-        def find_relevant_modifier(text, activity):
-            """Find relevant modifier for the activity"""
-            for pattern in patterns['modifiers']:
-                found = re.search(pattern, text_lower)
-                if found:
-                    modifier = found.group().strip()
-                    if modifier not in ignore_words and modifier not in activity:
-                        return modifier
-            return None
-        
-        def format_name(parts):
-            """Format the event name properly"""
-            # Capitalize each word
-            parts = [p.capitalize() for p in parts if p]
-            # Remove duplicates while preserving order
-            seen = set()
-            unique_parts = []
-            for part in parts:
-                if part.lower() not in seen:
-                    seen.add(part.lower())
-                    unique_parts.append(part)
-            return ' '.join(unique_parts)
-        
-        # Extract main components
-        activity = find_main_activity(text_lower)
-        modifier = find_relevant_modifier(text_lower, activity)
-        
-        # Build name
-        name_parts = []
-        if modifier:
-            name_parts.append(modifier)
-        name_parts.append(activity)
-        
-        return format_name(name_parts)
-   
+        return clean_event_name(event_words)
    
     def extract_event_type(self, text):
         """
@@ -2378,10 +2440,8 @@ extractor = AdvancedScheduleExtractor()
 
 def extract_schedule_info(user_input: str) -> dict:
     """Wrapper function that includes spell checking before extraction"""
-    print("Debug: Received user input:", user_input)  # Debug point 1
     
     corrected_input = extractor.spell_checker.correct_text(user_input)
-    print("Debug: Corrected input:", corrected_input)  # Debug point 2
     
     try:
         # Process the corrected input through the extractor
