@@ -110,7 +110,7 @@ class AuthService {
       });
       
       const data = await response.json();
-      console.log('Auth check response:', data); // For debugging
+      //console.log('Auth check response:', data); // For debugging
       
       return data.isAuthenticated;
     } catch (error) {

@@ -124,7 +124,7 @@ const Sidebar: React.FC<SidebarProps> = ({
       }
       
       const eventStartDateTime = new Date(`${dateStr}T${startTimeStr}`);
-      console.log('Event start datetime:', eventStartDateTime, 'from', dateStr, startTimeStr);
+      //console.log('Event start datetime:', eventStartDateTime, 'from', dateStr, startTimeStr);
       
       if (isNaN(eventStartDateTime.getTime())) {
         console.error('Invalid date/time:', dateStr, startTimeStr);
@@ -146,7 +146,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         if (!isNaN(eventEndDateTime.getTime())) {
           const endDiffMs = eventEndDateTime.getTime() - now.getTime();
           
-          console.log('Event end datetime:', eventEndDateTime, 'Start diff hours:', startDiffHours, 'End diff hours:', endDiffMs / (1000 * 60 * 60));
+          //console.log('Event end datetime:', eventEndDateTime, 'Start diff hours:', startDiffHours, 'End diff hours:', endDiffMs / (1000 * 60 * 60));
           
           // Event is ongoing if we're past start time but before end time
           if (startDiffHours <= 0 && endDiffMs > 0) {
@@ -155,7 +155,6 @@ const Sidebar: React.FC<SidebarProps> = ({
         }
       }
       
-      console.log('Hours until event:', startDiffHours, 'for event at', eventStartDateTime);
       
       if (startDiffHours > 0) {
         return { hoursUntil: startDiffHours, status: 'upcoming' };
@@ -262,19 +261,19 @@ const Sidebar: React.FC<SidebarProps> = ({
   // Reset daily tasks with proper guards
   const resetDailyTasks = useCallback(async (): Promise<void> => {
     if (isResettingTasks || !isMountedRef.current || !authAPI.isAuthenticated()) {
-      console.log('Reset blocked - already in progress or not authenticated');
+      //console.log('Reset blocked - already in progress or not authenticated');
       return;
     }
 
     setIsResettingTasks(true);
-    console.log('Starting daily task reset...');
+    //console.log('Starting daily task reset...');
 
     try {
       const regularTasks = tasks.filter((task: TaskData) => 
         !task.date || task.date !== "longterm"
       );
       
-      console.log(`Found ${regularTasks.length} regular tasks to reset`);
+      //console.log(`Found ${regularTasks.length} regular tasks to reset`);
 
       // Create a snapshot of tasks to recreate
       const tasksToRecreate = regularTasks.map((task: TaskData) => ({
@@ -288,7 +287,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         .map(async (task: TaskData) => {
           if (!isMountedRef.current) return false;
           try {
-            console.log('Deleting task:', task.event);
+            //console.log('Deleting task:', task.event);
             return await deleteTask(task.id!);
           } catch (error) {
             console.error('Error deleting task:', task.id, error);
@@ -307,7 +306,7 @@ const Sidebar: React.FC<SidebarProps> = ({
       const createPromises = tasksToRecreate.map(async (taskData) => {
         if (!isMountedRef.current) return null;
         try {
-          console.log('Recreating task:', taskData.event);
+          //console.log('Recreating task:', taskData.event);
           return await createTask(taskData);
         } catch (error) {
           console.error('Error recreating task:', taskData.event, error);
@@ -317,7 +316,7 @@ const Sidebar: React.FC<SidebarProps> = ({
 
       await Promise.all(createPromises);
       
-      console.log('Daily tasks reset completed successfully');
+      //console.log('Daily tasks reset completed successfully');
     } catch (error) {
       console.error('Error during task reset:', error);
       if (isMountedRef.current) {
@@ -340,10 +339,10 @@ const Sidebar: React.FC<SidebarProps> = ({
     const todayFormatted = today.toISOString().split('T')[0];
     const lastResetDate = localStorage.getItem(LAST_RESET_KEY);
 
-    console.log('Checking reset - Today:', todayFormatted, 'Last reset:', lastResetDate);
+    //console.log('Checking reset - Today:', todayFormatted, 'Last reset:', lastResetDate);
 
     if (lastResetDate !== todayFormatted) {
-      console.log('New day detected, resetting tasks...');
+      //console.log('New day detected, resetting tasks...');
       await resetDailyTasks();
       
       if (isMountedRef.current) {
@@ -386,7 +385,7 @@ const Sidebar: React.FC<SidebarProps> = ({
       const newTask = await createTask(taskData);
 
       if (newTask && isMountedRef.current) {
-        console.log('Task created successfully:', newTask);
+        //console.log('Task created successfully:', newTask);
         setNewTaskText('');
         
         // Keep form open for continuous adding
@@ -437,11 +436,11 @@ const Sidebar: React.FC<SidebarProps> = ({
       if (!isMountedRef.current) return;
 
       try {
-        console.log('Completing task:', taskId);
+        //console.log('Completing task:', taskId);
         const success = await deleteTask(taskId);
         
         if (success) {
-          console.log('Task completed successfully');
+          //console.log('Task completed successfully');
           setLocalError(null);
         } else {
           console.error('Task deletion failed');

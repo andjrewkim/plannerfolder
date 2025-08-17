@@ -1,4 +1,4 @@
-// hooks/useAppState.ts - FIXED VERSION WITH LIMITED RECURRENCE
+// hooks/useAppState.ts - FIXED VERSION - NO MORE MULTIPLE INITIALIZATIONS
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { RRule } from 'rrule';
 import { authAPI } from '../../lib/auth';
@@ -53,15 +53,269 @@ let globalState: AppState = {
 
 let stateSubscribers = new Set<(state: AppState) => void>();
 
+// GLOBAL FLAGS TO PREVENT MULTIPLE CALLS
+let globalInitPromise: Promise<void> | null = null;
+let hasTriedGlobalInit = false;
+let authCheckInterval: NodeJS.Timeout | null = null;
+
 const updateState = (updates: Partial<AppState>) => {
   globalState = { ...globalState, ...updates };
   stateSubscribers.forEach(callback => callback(globalState));
 };
 
+// GLOBAL INITIALIZATION - Only happens once across all hook instances
+const globalInitializeData = async (forceRefresh = false): Promise<void> => {
+  console.log('=== GLOBAL INITIALIZE DATA START ===');
+  
+  if (!authAPI.isAuthenticated()) {
+    console.log('Not authenticated, clearing state');
+    updateState({ 
+      events: [], 
+      tasks: [], 
+      error: null, 
+      isInitializing: false,
+      isRefreshing: false,
+      initialized: false 
+    });
+    return;
+  }
+
+  // Don't re-initialize unless forced
+  if (globalState.initialized && !forceRefresh) {
+    console.log('Already initialized, skipping');
+    return;
+  }
+
+  // PREVENT MULTIPLE SIMULTANEOUS CALLS - this is critical
+  if (globalState.isInitializing || globalState.isRefreshing) {
+    //console.log('Already loading, skipping to prevent loop');
+    return;
+  }
+
+  try {
+    // Set appropriate loading state
+    if (!globalState.initialized) {
+      updateState({ isInitializing: true });
+    } else if (forceRefresh) {
+      updateState({ isRefreshing: true });
+    }
+    
+    console.log('Starting data fetch...');
+    
+    const [eventsResult, tasksResult] = await Promise.allSettled([
+      fetchEventsGlobal(),
+      fetchTasksGlobal()
+    ]);
+
+    const eventsData = eventsResult.status === 'fulfilled' ? eventsResult.value : [];
+    const tasksData = tasksResult.status === 'fulfilled' ? tasksResult.value : [];
+
+    if (eventsResult.status === 'rejected') {
+      console.error('Events fetch failed:', eventsResult.reason);
+    }
+    if (tasksResult.status === 'rejected') {
+      console.error('Tasks fetch failed:', tasksResult.reason);
+    }
+
+    console.log('Data loaded:', { events: eventsData.length, tasks: tasksData.length });
+
+    updateState({
+      events: eventsData,
+      tasks: tasksData,
+      error: null,
+      isInitializing: false,
+      isRefreshing: false,
+      initialized: true
+    });
+
+    console.log('=== GLOBAL INITIALIZE DATA SUCCESS ===');
+    
+  } catch (error) {
+    console.error('=== GLOBAL INITIALIZE DATA FAILED ===', error);
+    updateState({
+      error: error instanceof Error ? error.message : 'Failed to load data',
+      isInitializing: false,
+      isRefreshing: false,
+      initialized: true
+    });
+  }
+};
+
+// GLOBAL EVENT FETCHING
+const fetchEventsGlobal = async (): Promise<EventDetails[]> => {
+  if (!authAPI.isAuthenticated()) {
+    console.log('Not authenticated - skipping event fetch');
+    return [];
+  }
+
+  try {
+    console.log('Fetching events...');
+    const response = await authAPI.authenticatedFetch(
+      `${process.env.NEXT_PUBLIC_API_URL}/api/events/`
+    );
+    
+    if (!response.ok) {
+      throw new Error(`Failed to fetch events: ${response.status}`);
+    }
+
+    const events: EventDetails[] = await response.json();
+    //console.log(`Fetched ${events.length} raw events from backend`);
+    
+    const expandedEvents = expandRecurringEventsGlobal(events);
+    //console.log(`Expanded to ${expandedEvents.length} event instances`);
+    
+    return expandedEvents;
+  } catch (error) {
+    console.error('Event fetch error:', error);
+    throw error;
+  }
+};
+
+// GLOBAL TASK FETCHING
+const fetchTasksGlobal = async (): Promise<TaskData[]> => {
+  if (!authAPI.isAuthenticated()) {
+    console.log('Not authenticated - skipping task fetch');
+    return [];
+  }
+
+  try {
+    console.log('Fetching tasks...');
+    const response = await authAPI.authenticatedFetch(
+      `${process.env.NEXT_PUBLIC_API_URL}/api/tasks/`
+    );
+    
+    if (!response.ok) {
+      throw new Error(`Failed to fetch tasks: ${response.status}`);
+    }
+
+    const tasks: TaskData[] = await response.json();
+    console.log(`Fetched ${tasks.length} tasks`);
+    
+    return tasks;
+  } catch (error) {
+    console.error('Task fetch error:', error);
+    throw error;
+  }
+};
+
+// GLOBAL RECURRING EVENTS EXPANSION
+const expandRecurringEventsGlobal = (events: EventDetails[]): EventDetails[] => {
+  const expandedEvents: EventDetails[] = [];
+  const today = new Date();
+  
+  // MUCH MORE LIMITED DATE RANGE - only 3 months out
+  const futureLimit = new Date(today.getFullYear(), today.getMonth() + 3, today.getDate());
+  const pastLimit = new Date(today.getFullYear(), today.getMonth() - 1, today.getDate());
+  
+  // MAX OCCURRENCES PER EVENT - prevents runaway expansion
+  const MAX_OCCURRENCES_PER_EVENT = 50;
+
+  events.forEach(event => {
+    if (event.recurrence_pattern && event.recurrence_pattern.trim() !== '') {
+      try {
+        //console.log(`Processing recurring event: ${event.event_name}`);
+        
+        const baseDate = new Date(event.date);
+        const ruleString = event.recurrence_pattern.includes('DTSTART') 
+          ? event.recurrence_pattern 
+          : `DTSTART=${baseDate.toISOString().split('T')[0].replace(/-/g, '')}\n${event.recurrence_pattern}`;
+        
+        const rule = RRule.fromString(ruleString);
+        
+        // Get occurrences with STRICT LIMITS
+        let occurrences = rule.between(pastLimit, futureLimit, true);
+        
+        // HARD LIMIT - never allow more than MAX_OCCURRENCES_PER_EVENT
+        if (occurrences.length > MAX_OCCURRENCES_PER_EVENT) {
+          //console.warn(`Event ${event.event_name} has ${occurrences.length} occurrences, limiting to ${MAX_OCCURRENCES_PER_EVENT}`);
+          occurrences = occurrences.slice(0, MAX_OCCURRENCES_PER_EVENT);
+        }
+        
+        //console.log(`Creating ${occurrences.length} occurrences for ${event.event_name}`);
+
+        occurrences.forEach((occurrence) => {
+          const dateString = occurrence.toISOString().split('T')[0];
+          expandedEvents.push({
+            ...event,
+            id: event.id,
+            originalEventId: event.id,
+            frontendId: `${event.id}_${dateString}`,
+            eventId: `${event.id}_${dateString}`,
+            date: dateString,
+            occurrenceDate: dateString
+          });
+        });
+        
+      } catch (error) {
+        console.error('Error parsing recurrence for event:', event.event_name, error);
+        // Fallback to single event
+        expandedEvents.push({
+          ...event,
+          originalEventId: event.id,
+          frontendId: `${event.id}_${event.date}`,
+          eventId: `${event.id}_${event.date}`
+        });
+      }
+    } else {
+      // Non-recurring event
+      expandedEvents.push({
+        ...event,
+        originalEventId: event.id,
+        frontendId: event.id,
+        eventId: event.id
+      });
+    }
+  });
+
+  console.log(`Total expanded events: ${expandedEvents.length}`);
+  
+  // EMERGENCY BRAKE - if we somehow still have too many events, truncate
+  if (expandedEvents.length > 500) {
+    console.error(`TOO MANY EVENTS: ${expandedEvents.length}, truncating to 500`);
+    return expandedEvents.slice(0, 500);
+  }
+
+  return expandedEvents;
+};
+
+// START GLOBAL INITIALIZATION - Only call this once when the module loads
+const startGlobalInitialization = () => {
+  if (hasTriedGlobalInit) return;
+  hasTriedGlobalInit = true;
+  
+  // Single timeout to start initialization
+  setTimeout(() => {
+    console.log('GLOBAL: Initial auth check and data load...');
+    globalInitPromise = globalInitializeData();
+  }, 100);
+  
+  // Single auth check interval
+  if (!authCheckInterval) {
+    authCheckInterval = setInterval(() => {
+      const isAuth = authAPI.isAuthenticated();
+      
+      if (!isAuth && globalState.initialized) {
+        console.log('GLOBAL: Auth lost, resetting state');
+        updateState({ 
+          events: [], 
+          tasks: [], 
+          error: null, 
+          isInitializing: false,
+          isRefreshing: false,
+          initialized: false 
+        });
+        hasTriedGlobalInit = false;
+      } else if (isAuth && !globalState.initialized && !globalState.isInitializing && !globalState.isRefreshing) {
+        console.log('GLOBAL: Auth gained, initializing...');
+        globalInitPromise = globalInitializeData();
+      }
+    }, 2000);
+  }
+};
+
 export const useAppState = () => {
   const [state, setState] = useState(globalState);
   const isMountedRef = useRef(true);
-  const hasTriedInitRef = useRef(false);
 
   // Subscribe to state changes
   useEffect(() => {
@@ -79,146 +333,14 @@ export const useAppState = () => {
     };
   }, []);
 
+  // Start global initialization ONLY ONCE when first hook instance mounts
+  useEffect(() => {
+    startGlobalInitialization();
+  }, []); // Empty dependency array - only run once per hook instance
+
   const setError = useCallback((error: string | null) => {
     console.error('App Error:', error);
     updateState({ error });
-  }, []);
-
-  // FIXED recurring events expansion with strict limits
-  const expandRecurringEvents = useCallback((events: EventDetails[]): EventDetails[] => {
-    const expandedEvents: EventDetails[] = [];
-    const today = new Date();
-    
-    // MUCH MORE LIMITED DATE RANGE - only 3 months out
-    const futureLimit = new Date(today.getFullYear(), today.getMonth() + 3, today.getDate());
-    const pastLimit = new Date(today.getFullYear(), today.getMonth() - 1, today.getDate());
-    
-    // MAX OCCURRENCES PER EVENT - prevents runaway expansion
-    const MAX_OCCURRENCES_PER_EVENT = 50;
-
-    events.forEach(event => {
-      if (event.recurrence_pattern && event.recurrence_pattern.trim() !== '') {
-        try {
-          console.log(`Processing recurring event: ${event.event_name}`);
-          
-          const baseDate = new Date(event.date);
-          const ruleString = event.recurrence_pattern.includes('DTSTART') 
-            ? event.recurrence_pattern 
-            : `DTSTART=${baseDate.toISOString().split('T')[0].replace(/-/g, '')}\n${event.recurrence_pattern}`;
-          
-          const rule = RRule.fromString(ruleString);
-          
-          // Get occurrences with STRICT LIMITS
-          let occurrences = rule.between(pastLimit, futureLimit, true);
-          
-          // HARD LIMIT - never allow more than MAX_OCCURRENCES_PER_EVENT
-          if (occurrences.length > MAX_OCCURRENCES_PER_EVENT) {
-            console.warn(`Event ${event.event_name} has ${occurrences.length} occurrences, limiting to ${MAX_OCCURRENCES_PER_EVENT}`);
-            occurrences = occurrences.slice(0, MAX_OCCURRENCES_PER_EVENT);
-          }
-          
-          console.log(`Creating ${occurrences.length} occurrences for ${event.event_name}`);
-
-          occurrences.forEach((occurrence) => {
-            const dateString = occurrence.toISOString().split('T')[0];
-            expandedEvents.push({
-              ...event,
-              id: event.id,
-              originalEventId: event.id,
-              frontendId: `${event.id}_${dateString}`,
-              eventId: `${event.id}_${dateString}`,
-              date: dateString,
-              occurrenceDate: dateString
-            });
-          });
-          
-        } catch (error) {
-          console.error('Error parsing recurrence for event:', event.event_name, error);
-          // Fallback to single event
-          expandedEvents.push({
-            ...event,
-            originalEventId: event.id,
-            frontendId: `${event.id}_${event.date}`,
-            eventId: `${event.id}_${event.date}`
-          });
-        }
-      } else {
-        // Non-recurring event
-        expandedEvents.push({
-          ...event,
-          originalEventId: event.id,
-          frontendId: event.id,
-          eventId: event.id
-        });
-      }
-    });
-
-    console.log(`Total expanded events: ${expandedEvents.length}`);
-    
-    // EMERGENCY BRAKE - if we somehow still have too many events, truncate
-    if (expandedEvents.length > 500) {
-      console.error(`TOO MANY EVENTS: ${expandedEvents.length}, truncating to 500`);
-      return expandedEvents.slice(0, 500);
-    }
-
-    return expandedEvents;
-  }, []);
-
-  // Fetch events - NO LOADING STATE CHANGES
-  const fetchEvents = useCallback(async (): Promise<EventDetails[]> => {
-    if (!authAPI.isAuthenticated()) {
-      console.log('Not authenticated - skipping event fetch');
-      return [];
-    }
-
-    try {
-      console.log('Fetching events...');
-      const response = await authAPI.authenticatedFetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/events/`
-      );
-      
-      if (!response.ok) {
-        throw new Error(`Failed to fetch events: ${response.status}`);
-      }
-
-      const events: EventDetails[] = await response.json();
-      console.log(`Fetched ${events.length} raw events from backend`);
-      
-      const expandedEvents = expandRecurringEvents(events);
-      console.log(`Expanded to ${expandedEvents.length} event instances`);
-      
-      return expandedEvents;
-    } catch (error) {
-      console.error('Event fetch error:', error);
-      throw error;
-    }
-  }, [expandRecurringEvents]);
-
-  // Fetch tasks - NO LOADING STATE CHANGES
-  const fetchTasks = useCallback(async (): Promise<TaskData[]> => {
-    if (!authAPI.isAuthenticated()) {
-      console.log('Not authenticated - skipping task fetch');
-      return [];
-    }
-
-    try {
-      console.log('Fetching tasks...');
-      const response = await authAPI.authenticatedFetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/tasks/`
-      );
-      
-      if (!response.ok) {
-        throw new Error(`Failed to fetch tasks: ${response.status}`);
-      }
-
-      const tasks: TaskData[] = await response.json();
-      console.log(`Fetched ${tasks.length} tasks`);
-      
-      return tasks;
-    } catch (error) {
-      console.error('Task fetch error:', error);
-      throw error;
-    }
   }, []);
 
   // Helper function to extract clean backend ID
@@ -274,7 +396,7 @@ export const useAppState = () => {
       // Background refresh - NO LOADING STATE, SINGLE CALL
       setTimeout(async () => {
         try {
-          const updatedEvents = await fetchEvents();
+          const updatedEvents = await fetchEventsGlobal();
           updateState({ events: updatedEvents, error: null });
         } catch (error) {
           console.error('Background refresh failed:', error);
@@ -287,7 +409,7 @@ export const useAppState = () => {
       setError(error instanceof Error ? error.message : 'Failed to create event');
       return null;
     }
-  }, [fetchEvents, setError]);
+  }, [setError]);
 
   // OPTIMISTIC UPDATE EVENT - No loading state
   const updateEvent = useCallback(async (eventId: string | number | undefined | null, eventData: Partial<EventDetails>): Promise<EventDetails | null> => {
@@ -321,7 +443,7 @@ export const useAppState = () => {
       // Background refresh - DELAYED TO PREVENT LOOPS
       setTimeout(async () => {
         try {
-          const updatedEvents = await fetchEvents();
+          const updatedEvents = await fetchEventsGlobal();
           updateState({ events: updatedEvents, error: null });
         } catch (error) {
           console.error('Background refresh failed:', error);
@@ -334,7 +456,7 @@ export const useAppState = () => {
       setError(error instanceof Error ? error.message : 'Failed to update event');
       return null;
     }
-  }, [fetchEvents, setError, getBackendId]);
+  }, [setError, getBackendId]);
 
   // OPTIMISTIC DELETE EVENT - No loading state
   const deleteEvent = useCallback(async (eventId: string | number | undefined | null): Promise<boolean> => {
@@ -362,7 +484,7 @@ export const useAppState = () => {
       // Background refresh - DELAYED TO PREVENT LOOPS
       setTimeout(async () => {
         try {
-          const updatedEvents = await fetchEvents();
+          const updatedEvents = await fetchEventsGlobal();
           updateState({ events: updatedEvents, error: null });
         } catch (error) {
           console.error('Background refresh failed:', error);
@@ -375,7 +497,7 @@ export const useAppState = () => {
       setError(error instanceof Error ? error.message : 'Failed to delete event');
       return false;
     }
-  }, [fetchEvents, setError, getBackendId]);
+  }, [setError, getBackendId]);
 
   // OPTIMISTIC CREATE TASK - Immediate UI update, no loading state
   const createTask = useCallback(async (taskData: Omit<TaskData, 'id'>): Promise<TaskData | null> => {
@@ -473,123 +595,10 @@ export const useAppState = () => {
     }
   }, [setError]);
 
-  // INITIALIZATION - Only shows loading on first load or manual refresh
-  const initializeData = useCallback(async (forceRefresh = false) => {
-    console.log('=== INITIALIZE DATA START ===');
-    
-    if (!authAPI.isAuthenticated()) {
-      console.log('Not authenticated, clearing state');
-      updateState({ 
-        events: [], 
-        tasks: [], 
-        error: null, 
-        isInitializing: false,
-        isRefreshing: false,
-        initialized: false 
-      });
-      return;
-    }
-
-    // Don't re-initialize unless forced
-    if (globalState.initialized && !forceRefresh) {
-      console.log('Already initialized, skipping');
-      return;
-    }
-
-    // PREVENT MULTIPLE SIMULTANEOUS CALLS - this is critical
-    if (globalState.isInitializing || globalState.isRefreshing) {
-      console.log('Already loading, skipping to prevent loop');
-      return;
-    }
-
-    try {
-      // Set appropriate loading state
-      if (!globalState.initialized) {
-        updateState({ isInitializing: true });
-      } else if (forceRefresh) {
-        updateState({ isRefreshing: true });
-      }
-      
-      console.log('Starting data fetch...');
-      
-      const [events, tasks] = await Promise.allSettled([
-        fetchEvents(),
-        fetchTasks()
-      ]);
-
-      const eventsData = events.status === 'fulfilled' ? events.value : [];
-      const tasksData = tasks.status === 'fulfilled' ? tasks.value : [];
-
-      if (events.status === 'rejected') {
-        console.error('Events fetch failed:', events.reason);
-      }
-      if (tasks.status === 'rejected') {
-        console.error('Tasks fetch failed:', tasks.reason);
-      }
-
-      console.log('Data loaded:', { events: eventsData.length, tasks: tasksData.length });
-
-      updateState({
-        events: eventsData,
-        tasks: tasksData,
-        error: null,
-        isInitializing: false,
-        isRefreshing: false,
-        initialized: true
-      });
-
-      console.log('=== INITIALIZE DATA SUCCESS ===');
-      
-    } catch (error) {
-      console.error('=== INITIALIZE DATA FAILED ===', error);
-      updateState({
-        error: error instanceof Error ? error.message : 'Failed to load data',
-        isInitializing: false,
-        isRefreshing: false,
-        initialized: true
-      });
-    }
-  }, [fetchEvents, fetchTasks]);
-
-  // Simple initialization effect - only run once when auth is ready
-  useEffect(() => {
-    const timeoutId = setTimeout(() => {
-      if (!hasTriedInitRef.current) {
-        hasTriedInitRef.current = true;
-        console.log('Initial auth check and data load...');
-        initializeData();
-      }
-    }, 100);
-
-    return () => {
-      clearTimeout(timeoutId);
-    };
+  // Manual refresh function - for user-triggered refreshes
+  const refreshData = useCallback(async () => {
+    await globalInitializeData(true);
   }, []);
-
-  // Reset on auth changes - LESS FREQUENT CHECKING
-  useEffect(() => {
-    const checkAuthInterval = setInterval(() => {
-      const isAuth = authAPI.isAuthenticated();
-      
-      if (!isAuth && globalState.initialized) {
-        console.log('Auth lost, resetting state');
-        updateState({ 
-          events: [], 
-          tasks: [], 
-          error: null, 
-          isInitializing: false,
-          isRefreshing: false,
-          initialized: false 
-        });
-        hasTriedInitRef.current = false;0
-      } else if (isAuth && !globalState.initialized && !globalState.isInitializing && !globalState.isRefreshing) {
-        console.log('Auth gained, initializing...');
-        initializeData();
-      }
-    }, 2000); // INCREASED FROM 1000ms to 2000ms
-
-    return () => clearInterval(checkAuthInterval);
-  }, [initializeData]);
 
   return {
     // State
@@ -601,14 +610,14 @@ export const useAppState = () => {
     initialized: state.initialized,
 
     // Operations
-    fetchEvents,
+    fetchEvents: fetchEventsGlobal, // Use global version
     createEvent,
     updateEvent,
     deleteEvent,
-    fetchTasks,
+    fetchTasks: fetchTasksGlobal, // Use global version
     createTask,
     deleteTask,
-    initializeData,
+    initializeData: refreshData, // Rename to refreshData to be clearer
     setError
   };
 };

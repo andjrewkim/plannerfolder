@@ -217,13 +217,13 @@ export function useCalendarLogic(refreshTrigger: number, onEventChange?: () => v
       const viewFromUrl = urlParams.get('view');
       
       const today = new Date();
-      console.log('Today is:', today);
+      //console.log('Today is:', today);
       
       let initialView = 'dayGridMonth';
       
       if (viewFromUrl && viewFromUrl in urlToViewMap) {
         initialView = urlToViewMap[viewFromUrl as keyof typeof urlToViewMap];
-        console.log('Using view from URL:', initialView);
+        //console.log('Using view from URL:', initialView);
       } else {
         const savedView = sessionStorage.getItem('calendar-view');
         if (savedView && ['dayGridMonth', 'timeGridWeek', 'timeGridDay'].includes(savedView)) {
@@ -243,7 +243,7 @@ export function useCalendarLogic(refreshTrigger: number, onEventChange?: () => v
       lastNotifiedDate.current = today;
       setHasInitialized(true);
       
-      console.log('Initialization - view:', initialView, 'date:', today, 'range:', initialRange);
+      //console.log('Initialization - view:', initialView, 'date:', today, 'range:', initialRange);
     }
   }, []);
 
@@ -252,7 +252,7 @@ export function useCalendarLogic(refreshTrigger: number, onEventChange?: () => v
     if (currentView && currentDate && hasInitialized) {
       const newRange = getVisibleDateRange(currentView, currentDate);
       setVisibleDateRange(newRange);
-      console.log('Updated visible date range:', newRange);
+      //console.log('Updated visible date range:', newRange);
     }
   }, [currentView, currentDate, hasInitialized]);
 
@@ -283,7 +283,7 @@ export function useCalendarLogic(refreshTrigger: number, onEventChange?: () => v
       const dateString = date.toISOString().split('T')[0];
       url.searchParams.set('date', dateString);
       
-      console.log('Updating URL with view:', urlView, 'and date:', dateString);
+      //console.log('Updating URL with view:', urlView, 'and date:', dateString);
       
       window.history.replaceState({}, '', url.toString());
       sessionStorage.setItem('calendar-view', view);
@@ -308,7 +308,7 @@ export function useCalendarLogic(refreshTrigger: number, onEventChange?: () => v
       // Use Map for better performance
       const addedInstances = new Map<string, boolean>();
 
-      console.log('Expanding events for date range:', rangeStart, 'to', rangeEnd);
+      //console.log('Expanding events for date range:', rangeStart, 'to', rangeEnd);
 
       events.forEach(event => {
         if (event.recurrence_pattern && event.recurrence_pattern.trim() !== '') {
@@ -379,7 +379,7 @@ export function useCalendarLogic(refreshTrigger: number, onEventChange?: () => v
         }
       });
 
-      console.log('Expanded', events.length, 'base events to', expandedEvents.length, 'instances for visible range');
+      //console.log('Expanded', events.length, 'base events to', expandedEvents.length, 'instances for visible range');
       return expandedEvents;
     };
   }, []);

@@ -118,7 +118,6 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange, onViewChange, refres
     handleModalClose();
   }, [handleModalClose, hoverTimerRef, setHoveredDay]);
 
-  // Optimized event drop handler
   const handleEventDropFixed = useCallback(async (dropInfo: { event: any; revert: () => void }) => {
     const event = dropInfo.event;
     const newStart = event.start;
@@ -131,10 +130,18 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange, onViewChange, refres
     });
     
     try {
+      // Use more precise date/time formatting to avoid timezone issues
       const eventData = {
-        date: newStart.toISOString().split('T')[0],
-        start_time: newStart.toTimeString().slice(0, 8),
-        end_time: newEnd ? newEnd.toTimeString().slice(0, 8) : null
+        date: newStart.getFullYear() + '-' + 
+              String(newStart.getMonth() + 1).padStart(2, '0') + '-' + 
+              String(newStart.getDate()).padStart(2, '0'),
+        start_time: String(newStart.getHours()).padStart(2, '0') + ':' + 
+                    String(newStart.getMinutes()).padStart(2, '0') + ':' + 
+                    String(newStart.getSeconds()).padStart(2, '0'),
+        end_time: newEnd ? 
+                  String(newEnd.getHours()).padStart(2, '0') + ':' + 
+                  String(newEnd.getMinutes()).padStart(2, '0') + ':' + 
+                  String(newEnd.getSeconds()).padStart(2, '0') : null
       };
 
       const backendId = getBackendIdFromEvent(event);
