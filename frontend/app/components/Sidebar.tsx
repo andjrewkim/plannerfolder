@@ -617,7 +617,11 @@ return (
         }}
       >
         <h3 className="section-title">Create Event</h3>
-        <div className="section-content" style={{ overflow: 'hidden' }}>
+        <div className="section-content" style={{ 
+          overflow: 'auto',  // Changed from 'hidden' to 'auto'
+          height: 'calc(100% - 40px)',  // Adjust based on your title height
+          maxHeight: 'calc(100% - 40px)'
+        }}>
           <EventForm 
             setResult={setEventResults} 
             setError={setEventError}
@@ -625,7 +629,7 @@ return (
           />
         </div>
         <div 
-          className={`resize-handle ${activeSection === 'eventForm' ? 'active' : ''}`}
+          className={`resize-handle ${activeSection === 'eventForm' ? 'resizing' : ''}`}
           onMouseDown={startResize('eventForm')}
         />
       </section>
