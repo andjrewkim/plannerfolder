@@ -1,4 +1,4 @@
-// pages/userlogin.tsx
+// pages/userlogin.tsx - WITH PROPER DELAY
 "use client"
 
 import React, { useState, useEffect } from 'react';
@@ -78,6 +78,28 @@ const LoginPage: React.FC = () => {
     return Object.keys(newErrors).length === 0;
   };
 
+  // ✅ IMPROVED LOGIN WITH PROPER DELAY
+  const handleLoginSuccess = () => {
+    console.log('🎉 Login successful! Preparing to redirect...');
+    
+    // Show loading state for user feedback
+    setIsLoading(true);
+    
+    // Give a moment for token to be stored and any cleanup
+    setTimeout(() => {
+      console.log('🔄 Redirecting to calendar...');
+      
+      // Force a full page reload to ensure clean state
+      window.location.href = '/calendar';
+      
+      // Backup: If window.location.href doesn't work, try router
+      setTimeout(() => {
+        router.replace('/calendar');
+      }, 500);
+      
+    }, 1000); // 1 second delay - enough for token storage and cleanup
+  };
+
   const handleSubmit = async (e: React.FormEvent): Promise<void> => {
     e.preventDefault();
     
@@ -88,14 +110,19 @@ const LoginPage: React.FC = () => {
     
     try {
       if (isLogin) {
-        // Login
+        console.log('📝 Attempting login...');
+        
         const response = await authAPI.login({
           email: formData.email,
           password: formData.password
         });
         
-        router.push('/calendar');
+        console.log('✅ Login API call successful');
+        handleLoginSuccess();
+        
       } else {
+        console.log('📝 Attempting registration...');
+        
         // Registration - use email as username
         const response = await authAPI.register({
           email: formData.email,
@@ -106,17 +133,22 @@ const LoginPage: React.FC = () => {
           username: formData.email, // Use email as username
         });
         
-        authAPI.setAuthData(response.token, response.user);
-        router.push('/calendar');
+        // For registration, we need to set the auth data manually
+        if (response.token && response.user) {
+          console.log('💾 Setting auth data after registration...');
+          authAPI.setAuthData(response.token, response.user);
+        }
+        
+        console.log('✅ Registration successful');
+        handleLoginSuccess();
       }
       
     } catch (error) {
-      console.error('Authentication error:', error);
+      console.error('❌ Authentication error:', error);
       setErrors({ 
         submit: error instanceof Error ? error.message : `${isLogin ? 'Login' : 'Registration'} failed. Please try again.`
       });
-    } finally {
-      setIsLoading(false);
+      setIsLoading(false); // Only set loading false on error
     }
   };
 
@@ -281,7 +313,7 @@ const LoginPage: React.FC = () => {
               </div>
             )}
 
-            {/* Submit button */}
+            {/* Submit button with improved loading state */}
             <button
               type="submit"
               disabled={isLoading}
@@ -306,6 +338,7 @@ const LoginPage: React.FC = () => {
             <button
               onClick={toggleMode}
               className="text-blue-600 hover:text-blue-800 font-medium"
+              disabled={isLoading}
             >
               {isLogin ? 'Sign up' : 'Sign in'}
             </button>

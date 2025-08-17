@@ -1,12 +1,16 @@
-// lib/auth.ts
+// lib/auth.ts - PRODUCTION READY VERSION
 import { User, LoginCredentials, RegisterData, AuthResponse } from '../types/auth';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL
 
 class AuthService {
+  private authCheckPromise: Promise<boolean> | null = null;
+  private lastAuthCheck: number = 0;
+  private authCheckCacheTime: number = 30000; // 30 seconds cache - much longer
+  private cachedAuthStatus: boolean | null = null;
+
   private getAuthHeaders(): Record<string, string> {
     const token = this.getToken();
-
     return {
       'Content-Type': 'application/json',
       ...(token && { 'Authorization': `Token ${token}` }),
@@ -24,31 +28,25 @@ class AuthService {
       });
 
       const data = await response.json();
-      console.log('Login response data:', data); // ← ADD THIS
 
       if (!response.ok) {
         throw new Error(data.error || data.message || 'Login failed');
       }
 
-      // ✅ THIS IS THE CRITICAL PART
       if (data.token && data.user) {
-        console.log('Storing token:', data.token); // ← ADD THIS
         this.setAuthData(data.token, data.user);
-      } else {
-        console.error('No token in response:', data); // ← ADD THIS
+        this.invalidateAuthCache();
+        this.cachedAuthStatus = true;
       }
 
       return data;
     } catch (error) {
-      console.error('Login error:', error);
       throw error;
     }
   }
 
   async register(userData: RegisterData): Promise<AuthResponse> {
     try {
-      //console.log('Registering user:', userData);
-      
       const response = await fetch(`${API_BASE_URL}/api/register/`, {
         method: 'POST',
         headers: {
@@ -57,10 +55,7 @@ class AuthService {
         body: JSON.stringify(userData),
       });
 
-      console.log('Registration response status:', response.status);
-      
       const data = await response.json();
-      console.log('Registration response data:', data);
 
       if (!response.ok) {
         throw new Error(data.error || data.message || 'Registration failed');
@@ -68,55 +63,94 @@ class AuthService {
 
       return data;
     } catch (error) {
-      console.error('Registration error:', error);
       throw error;
     }
   }
 
   async logout(): Promise<boolean> {
-    console.log('=== LOGOUT METHOD CALLED ===');
     try {
-      const token = this.getToken();
-      const headers = this.getAuthHeaders();
-      
-      console.log('Sending logout request...');
-      
       const response = await fetch(`${API_BASE_URL}/api/logout/`, {
         method: 'POST',
-        headers: headers,
-        credentials: 'include', // ← THIS IS CRITICAL - sends cookies
+        headers: this.getAuthHeaders(),
+        credentials: 'include',
       });
       
-      console.log('Response status:', response.status);
-      
-      // Clear auth data regardless of server response
       this.clearAuthData();
+      this.invalidateAuthCache();
+      this.cachedAuthStatus = false;
+      
+      // Dynamic import to avoid circular dependency
+      import('../app/hooks/useAppState').then(({ resetGlobalAppState }) => {
+        resetGlobalAppState();
+      }).catch(() => {
+        // Silent fail if module doesn't exist
+      });
       
       return response.ok;
     } catch (error) {
-      console.error('Logout error:', error);
       this.clearAuthData();
+      this.invalidateAuthCache();
+      this.cachedAuthStatus = false;
       return false;
     }
   }
 
-  // ADD THIS METHOD - This is what you're missing!
   async checkAuthStatus(): Promise<boolean> {
+    const now = Date.now();
+    
+    // Return cached result if still valid
+    if (now - this.lastAuthCheck < this.authCheckCacheTime && this.cachedAuthStatus !== null) {
+      return this.cachedAuthStatus;
+    }
+
+    // If check in progress, wait for it
+    if (this.authCheckPromise) {
+      return this.authCheckPromise;
+    }
+
+    // Start new check
+    this.authCheckPromise = this.performAuthCheck();
+    this.lastAuthCheck = now;
+
     try {
+      const result = await this.authCheckPromise;
+      this.cachedAuthStatus = result;
+      return result;
+    } finally {
+      this.authCheckPromise = null;
+    }
+  }
+
+  private async performAuthCheck(): Promise<boolean> {
+    try {
+      const token = this.getToken();
+      if (!token) {
+        return false;
+      }
+
       const response = await fetch(`${API_BASE_URL}/api/check-login/`, {
         method: 'GET',
-        headers: this.getAuthHeaders(), // ← This includes the Authorization header with token
+        headers: this.getAuthHeaders(),
         credentials: 'include',
       });
       
       const data = await response.json();
-      //console.log('Auth check response:', data); // For debugging
+      const isAuthenticated = data.isAuthenticated;
       
-      return data.isAuthenticated;
+      if (!isAuthenticated) {
+        this.clearAuthData();
+      }
+      
+      return isAuthenticated;
     } catch (error) {
-      console.error('Auth check failed:', error);
       return false;
     }
+  }
+
+  private invalidateAuthCache(): void {
+    this.lastAuthCheck = 0;
+    this.authCheckPromise = null;
+    this.cachedAuthStatus = null;
   }
 
   getToken(): string | null {
@@ -143,39 +177,32 @@ class AuthService {
   }
 
   isAuthenticated(): boolean {
-    return !!this.getToken();  
+    // Simple token check - no logging, no server calls
+    return !!this.getToken();
   }
-
 
   isTokenExpired(): boolean {
     const token = this.getToken();
     if (!token) return true;
     
     try {
-      // If your token is JWT, decode it to check expiration
       const payload = JSON.parse(atob(token.split('.')[1]));
       const currentTime = Date.now() / 1000;
       return payload.exp < currentTime;
     } catch {
-      // If not JWT or can't decode, assume it might be expired
       return false;
     }
   }
 
-
-  // Helper method for making authenticated API calls
   async authenticatedFetch(url: string, options: RequestInit = {}): Promise<Response> {
-    // Check if we have a token first
     const token = this.getToken();
     if (!token) {
-      console.log('No token found, redirecting to login');
       this.clearAuthData();
       if (typeof window !== 'undefined') {
         window.location.href = '/userlogin';
       }
       throw new Error('No authentication token');
     }
-
 
     const response = await fetch(url, {
       ...options,
@@ -185,14 +212,12 @@ class AuthService {
         ...options.headers,
       },
     });
-
     
-    // Enhanced 401 handling with more context
     if (response.status === 401) {
-      console.log(`401 error on ${url}`);
-      console.log('Current token:', this.getToken());
-      
       this.clearAuthData();
+      this.invalidateAuthCache();
+      this.cachedAuthStatus = false;
+      
       if (typeof window !== 'undefined') {
         window.location.href = '/userlogin';
       }
