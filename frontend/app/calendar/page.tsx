@@ -44,17 +44,7 @@ const AppContent = () => {
     initializeData();
   }, [initializeData]);
 
-  // Manual pageview tracking for Next.js
-  useEffect(() => {
-    if (posthog) {
-      console.log('Sending manual $pageview event...');
-      posthog.capture('$pageview', {
-        $current_url: window.location.href,
-        $pathname: window.location.pathname,
-        $title: document.title
-      });
-    }
-  }, [posthog]);
+  // REMOVED: Manual pageview tracking since capture_pageview: true handles this automatically
 
   // Track calendar view changes
   useEffect(() => {
