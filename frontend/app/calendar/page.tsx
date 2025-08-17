@@ -1,5 +1,6 @@
 'use client';
 import React, { useState, useEffect } from 'react';
+import { usePostHog } from 'posthog-js/react';
 import Calendar from '../components/Calendar/Calendar';
 import Sidebar from '../components/Sidebar';
 import RightSidebar from '../components/RightSidebar';
@@ -9,7 +10,6 @@ import Navigation from '../components/Navigation';
 import '../globals.css';
 import { ThemeProvider } from '../services/themeContext';
 import { useAppState } from '../hooks/useAppState';
-import { PostHogProvider, usePostHog } from 'posthog-js/react';
 
 import { EventData } from '../components/EventForm';
 
@@ -44,11 +44,24 @@ const AppContent = () => {
     initializeData();
   }, [initializeData]);
 
-  // Track only major view changes for analytics
+  // Manual pageview tracking for Next.js
   useEffect(() => {
     if (posthog) {
-      posthog.capture('calendar_view_used', {
-        view: view
+      console.log('Sending manual $pageview event...');
+      posthog.capture('$pageview', {
+        $current_url: window.location.href,
+        $pathname: window.location.pathname,
+        $title: document.title
+      });
+    }
+  }, [posthog]);
+
+  // Track calendar view changes
+  useEffect(() => {
+    if (posthog) {
+      posthog.capture('calendar_view_changed', {
+        view: view,
+        timestamp: new Date().toISOString()
       });
     }
   }, [posthog, view]);
@@ -58,11 +71,20 @@ const AppContent = () => {
     document.body.style.overflow = 'hidden';
     document.documentElement.style.overflow = 'hidden';
 
+    // Send pageleave event on component unmount
     return () => {
       document.body.style.overflow = 'auto';
       document.documentElement.style.overflow = 'auto';
+      
+      if (posthog) {
+        console.log('Sending manual $pageleave event...');
+        posthog.capture('$pageleave', {
+          $current_url: window.location.href,
+          $pathname: window.location.pathname
+        });
+      }
     };
-  }, []);
+  }, [posthog]);
 
   // Listen for navbar visibility changes
   useEffect(() => {
@@ -97,13 +119,30 @@ const AppContent = () => {
 
   const handleRightSidebarToggle = () => {
     setRightSidebarOpen(!rightSidebarOpen);
+    
+    // Track sidebar toggle
+    if (posthog) {
+      posthog.capture('sidebar_toggled', {
+        isOpen: !rightSidebarOpen,
+        timestamp: new Date().toISOString()
+      });
+    }
   };
 
-  // Regular task handlers - no tracking of individual actions
+  // Task handlers with PostHog tracking
   const handleSidebarTaskCreate = async (taskData: any): Promise<void> => {
     const newTask = await createTask(taskData);
     if (newTask) {
       console.log('Task created:', newTask);
+      
+      // Track task creation
+      if (posthog) {
+        posthog.capture('task_created', {
+          task_id: newTask.id,
+          task_type: taskData.type || 'general',
+          timestamp: new Date().toISOString()
+        });
+      }
     }
   };
 
@@ -112,6 +151,15 @@ const AppContent = () => {
       const updatedTask = await updateTask(taskId, updates);
       if (updatedTask) {
         console.log('Task updated:', updatedTask);
+        
+        // Track task update
+        if (posthog) {
+          posthog.capture('task_updated', {
+            task_id: taskId,
+            updates: Object.keys(updates),
+            timestamp: new Date().toISOString()
+          });
+        }
       }
     } else {
       console.warn('updateTask function is not available in useAppState hook');
@@ -121,6 +169,14 @@ const AppContent = () => {
         const updatedTaskData = { ...updates, id: taskId };
         await createTask(updatedTaskData);
         console.log('Task updated via delete/create workaround');
+        
+        // Track workaround update
+        if (posthog) {
+          posthog.capture('task_updated_workaround', {
+            task_id: taskId,
+            timestamp: new Date().toISOString()
+          });
+        }
       } catch (error) {
         console.error('Failed to update task:', error);
         setError('Failed to update task');
@@ -133,6 +189,14 @@ const AppContent = () => {
       const success = await deleteTask(taskId);
       if (success) {
         console.log('Task deleted successfully');
+        
+        // Track task deletion
+        if (posthog) {
+          posthog.capture('task_deleted', {
+            task_id: taskId,
+            timestamp: new Date().toISOString()
+          });
+        }
         return true;
       }
       return false;
@@ -142,12 +206,23 @@ const AppContent = () => {
     }
   };
 
-  // Regular event handlers - no tracking of individual actions
+  // Event handlers with PostHog tracking
   const handleEventCreate = async (eventData: any): Promise<void> => {
     const newEvent = await createEvent(eventData);
     if (newEvent) {
       console.log('Event created:', newEvent);
       handleEventChange();
+      
+      // Track calendar event creation
+      if (posthog) {
+        posthog.capture('calendar_event_created', {
+          event_id: newEvent.id,
+          event_title: eventData.title || 'Untitled',
+          event_duration: eventData.duration,
+          has_attendees: !!(eventData.attendees && eventData.attendees.length > 0),
+          timestamp: new Date().toISOString()
+        });
+      }
     }
   };
 
@@ -156,6 +231,15 @@ const AppContent = () => {
     if (updatedEvent) {
       console.log('Event updated:', updatedEvent);
       handleEventChange();
+      
+      // Track calendar event update
+      if (posthog) {
+        posthog.capture('calendar_event_updated', {
+          event_id: eventId,
+          updated_fields: Object.keys(updates),
+          timestamp: new Date().toISOString()
+        });
+      }
     }
   };
 
@@ -165,6 +249,14 @@ const AppContent = () => {
       if (success) {
         console.log('Event deleted successfully');
         handleEventChange();
+        
+        // Track calendar event deletion
+        if (posthog) {
+          posthog.capture('calendar_event_deleted', {
+            event_id: eventId,
+            timestamp: new Date().toISOString()
+          });
+        }
         return true;
       }
       return false;
@@ -240,40 +332,12 @@ const AppContent = () => {
 };
 
 const Page = () => {
-  const posthogKey = process.env.NEXT_PUBLIC_POSTHOG_KEY;
-  const posthogHost = process.env.NEXT_PUBLIC_POSTHOG_HOST;
-  
-  // PostHog configuration
-  const posthogOptions = {
-    api_host: posthogHost || 'https://us.i.posthog.com',
-    person_profiles: "identified_only" as const,
-    capture_pageview: true,
-    capture_pageleave: true,
-  };
-
-  // If no PostHog key, render without analytics
-  if (!posthogKey) {
-    return (
-      <ThemeProvider>
-        <Navigation rightSidebarOpen={true}>
-          <AppContent />
-        </Navigation>
-      </ThemeProvider>
-    );
-  }
-
-  // Render with PostHog analytics
   return (
-    <PostHogProvider 
-      apiKey={posthogKey}
-      options={posthogOptions}
-    >
-      <ThemeProvider>
-        <Navigation rightSidebarOpen={true}>
-          <AppContent />
-        </Navigation>
-      </ThemeProvider>
-    </PostHogProvider>
+    <ThemeProvider>
+      <Navigation rightSidebarOpen={true}>
+        <AppContent />
+      </Navigation>
+    </ThemeProvider>
   );
 };
 
