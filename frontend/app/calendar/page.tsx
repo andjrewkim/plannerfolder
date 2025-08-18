@@ -13,7 +13,12 @@ import { useAppState } from '../hooks/useAppState';
 
 import { EventData } from '../components/EventForm';
 
-const AppContent = () => {
+interface AppContentProps {
+  rightSidebarOpen: boolean;
+  setRightSidebarOpen: React.Dispatch<React.SetStateAction<boolean>>;
+}
+
+const AppContent: React.FC<AppContentProps> = ({ rightSidebarOpen, setRightSidebarOpen }) => {
   const posthog = usePostHog();
   
   // Use the centralized state hook
@@ -36,7 +41,6 @@ const AppContent = () => {
   
   const [view, setView] = useState<string>('dayGridMonth');
   const [refreshEvents, setRefreshEvents] = useState(0);
-  const [rightSidebarOpen, setRightSidebarOpen] = useState(true);
   const [navbarVisible, setNavbarVisible] = useState(false);
 
   // Initialize data when component mounts
@@ -322,10 +326,15 @@ const AppContent = () => {
 };
 
 const Page = () => {
+  const [rightSidebarOpen, setRightSidebarOpen] = useState(true);
+
   return (
     <ThemeProvider>
-      <Navigation rightSidebarOpen={true}>
-        <AppContent />
+      <Navigation rightSidebarOpen={rightSidebarOpen}>
+        <AppContent 
+          rightSidebarOpen={rightSidebarOpen}
+          setRightSidebarOpen={setRightSidebarOpen}
+        />
       </Navigation>
     </ThemeProvider>
   );

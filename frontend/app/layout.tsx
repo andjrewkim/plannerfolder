@@ -43,7 +43,7 @@ const RootLayout: React.FC<RootLayoutProps> = ({ children }) => {
           </main>
 
           <footer>
-            <p>© 2024 My Calendar</p>
+            <p>© 2025 My Calendar</p>
           </footer>
         </PostHogProvider>
       </body>

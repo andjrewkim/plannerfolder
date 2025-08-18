@@ -297,7 +297,7 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
     }
   };
 
-  return (
+return (
     <>
       {/* Backdrop for mobile */}
       {isOpen && (
@@ -344,7 +344,7 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
           className="w-80 h-full border-l flex flex-col"
           style={{
             backgroundColor: 'hsl(var(--sidebar))',
-            borderLeftColor: 'hsl(var(--border))'
+            borderLeftColor: 'hsl(var(--darker-border))'
           }}
         >
           
@@ -353,7 +353,7 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
             className="p-3 border-b flex-shrink-0"
             style={{
               backgroundColor: 'hsl(var(--primary) / 0.05)',
-              borderBottomColor: 'hsl(var(--border))'
+              borderBottomColor: 'hsl(var(--darker-border))'
             }}
           >
             <div className="flex items-center gap-3">
@@ -437,7 +437,7 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
                       color: 'hsl(var(--foreground))',
                       border: `1px solid ${message.sender === 'user' 
                         ? 'hsl(var(--primary) / 0.2)' 
-                        : 'hsl(var(--border) / 0.5)'}`,
+                        : 'hsl(var(--darker-border) / 0.5)'}`,
                       lineHeight: '1.5'
                     }}
                   >
@@ -489,7 +489,7 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
                     style={{
                       backgroundColor: 'hsl(var(--muted) / 0.8)',
                       color: 'hsl(var(--foreground))',
-                      border: '1px solid hsl(var(--border) / 0.5)'
+                      border: '1px solid hsl(var(--darker-border) / 0.5)'
                     }}
                   >
                     <div className="flex items-center gap-2">
@@ -531,7 +531,7 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
             className="p-3 border-t flex-shrink-0"
             style={{
               backgroundColor: 'hsl(var(--background) / 0.5)',
-              borderTopColor: 'hsl(var(--border))',
+              borderTopColor: 'hsl(var(--darker-border))',
               backdropFilter: 'blur(8px)'
             }}
           >
@@ -543,16 +543,18 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
                   onKeyPress={handleKeyPress}
                   placeholder="Ask me about your calendar..."
                   disabled={isTyping || !!error}
-                  className="w-full p-3 pr-12 border rounded-lg resize-none focus:outline-none focus:ring-2 disabled:cursor-not-allowed transition-all duration-200"
+                  className="w-full p-3 pr-12 border rounded-lg resize-none disabled:cursor-not-allowed"
                   style={{
-                    borderColor: 'hsl(var(--border))',
+                    borderColor: 'hsl(var(--darker-border))',
                     backgroundColor: 'hsl(var(--background))',
                     color: 'hsl(var(--foreground))',
-                    focusRingColor: 'hsl(var(--primary))',
                     boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
                     lineHeight: '1.4',
                     minHeight: '44px',
-                    maxHeight: '120px'
+                    maxHeight: '120px',
+                    outline: 'none',
+                    border: '1px solid hsl(var(--darker-border))',
+                    transition: 'none'
                   } as React.CSSProperties}
                   rows={1}
                   onInput={(e) => {

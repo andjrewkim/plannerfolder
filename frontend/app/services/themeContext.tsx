@@ -103,11 +103,11 @@ export const themes: Theme[] = [
       foreground: '220 10% 85%',        // Matches primary text
       muted: '220 8% 18%',              // Soft background elements
       mutedForeground: '220 10% 55%',   // Muted text (descriptions, placeholders)
-      darkerBorder: '220 8% 20%',             // Subtle borders
+      darkerBorder: '220 8% 16%',             // Subtle borders
       border: '220 10% 40%',             // Slightly lighter than background
       
       input: '220 10% 15%',             // Input field bg
-      ring: '217 100% 68%',             // Accent color for focus rings
+      ring: '217 100% 8%',             // Accent color for focus rings
 
       chart1: '12 70% 55%',             // Warm orange-red
       chart2: '160 50% 45%',            // Teal-green
@@ -115,11 +115,11 @@ export const themes: Theme[] = [
       chart4: '45 90% 60%',             // Golden yellow
       chart5: '30 80% 60%',             // Soft orange
 
-      mainBackground: '222 12% 9%',
+      mainBackground: '222 12% 8%',
       sidebarItemColor: '222 10% 18%',
 
-      sidebar: '220 10% 10%',           // Slightly lighter than bg
-      header: '222 50% 5%',             // Very dark header
+      sidebar: '220 10% 9%',           // Slightly lighter than bg
+      header: '222 50% 50%',             // Very dark header
       card: '220 12% 14%',              // Lighter than background
       button: '217 100% 68%',           // Matches accent
       link: '217 100% 75%',             // Brighter link color
