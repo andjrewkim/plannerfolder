@@ -118,7 +118,7 @@ export const themes: Theme[] = [
       mainBackground: '222 12% 8%',
       sidebarItemColor: '222 10% 18%',
 
-      sidebar: '220 10% 9%',           // Slightly lighter than bg
+      sidebar: '220 10% 8%',           // Slightly lighter than bg
       header: '222 50% 50%',             // Very dark header
       card: '220 12% 14%',              // Lighter than background
       button: '217 100% 68%',           // Matches accent

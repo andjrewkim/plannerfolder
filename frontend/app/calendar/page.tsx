@@ -4,14 +4,11 @@ import { usePostHog } from 'posthog-js/react';
 import Calendar from '../components/Calendar/Calendar';
 import Sidebar from '../components/Sidebar';
 import RightSidebar from '../components/RightSidebar';
-import EventForm from '../components/EventForm';
-import LLMChat from '../components/LLMChat';
 import Navigation from '../components/Navigation';
 import '../globals.css';
 import { ThemeProvider } from '../services/themeContext';
 import { useAppState } from '../hooks/useAppState';
 
-import { EventData } from '../components/EventForm';
 
 interface AppContentProps {
   rightSidebarOpen: boolean;
@@ -106,10 +103,6 @@ const AppContent: React.FC<AppContentProps> = ({ rightSidebarOpen, setRightSideb
     setView(newView);
   };
 
-  const handleEventSuccess = (newEventData: EventData[]) => {
-    setError(null);
-    handleEventChange();
-  };
 
   const handleRightSidebarToggle = () => {
     setRightSidebarOpen(!rightSidebarOpen);
@@ -326,7 +319,7 @@ const AppContent: React.FC<AppContentProps> = ({ rightSidebarOpen, setRightSideb
 };
 
 const Page = () => {
-  const [rightSidebarOpen, setRightSidebarOpen] = useState(true);
+  const [rightSidebarOpen, setRightSidebarOpen] = useState(false);
 
   return (
     <ThemeProvider>

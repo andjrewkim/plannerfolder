@@ -34,7 +34,7 @@
 /* Calendar Grid - Enable subtle borders */
 .fc-theme-standard td,
 .fc-theme-standard th {
-  border: 1px solid hsl(var(--border) / 0.2) !important;
+  border: 1px solid hsl(var(--border) / 0.4) !important;
 }
 
 
