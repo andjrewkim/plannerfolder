@@ -91,14 +91,6 @@ class UserSettings(models.Model):
         return f"Settings for {self.user.email}"
 
     
-    
-
-
-
-
-
-
-
 
 
 
@@ -173,3 +165,44 @@ class LLMUsage(models.Model):
         return usage
 
 
+
+
+
+class PlannerClass(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True)
+    name = models.CharField(max_length=200)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    order = models.IntegerField(default=0)  # For maintaining class order
+
+    class Meta:
+        ordering = ['order', 'created_at']
+        unique_together = ['user', 'name']
+
+    def __str__(self):
+        return f"{self.user.username} - {self.name}"
+
+class Assignment(models.Model):
+    DAY_CHOICES = [
+        ('monday', 'Monday'),
+        ('tuesday', 'Tuesday'),
+        ('wednesday', 'Wednesday'),
+        ('thursday', 'Thursday'),
+        ('friday', 'Friday'),
+        ('saturday', 'Saturday'),
+        ('sunday', 'Sunday'),
+    ]
+
+    planner_class = models.ForeignKey(PlannerClass, on_delete=models.CASCADE, related_name='assignments')
+    title = models.CharField(max_length=500)
+    day_of_week = models.CharField(max_length=10, choices=DAY_CHOICES)
+    completed = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    order = models.IntegerField(default=0)  # For maintaining assignment order within a day
+
+    class Meta:
+        ordering = ['day_of_week', 'order', 'created_at']
+
+    def __str__(self):
+        return f"{self.planner_class.name} - {self.title} ({self.day_of_week})"

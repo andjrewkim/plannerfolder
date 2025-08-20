@@ -47,13 +47,30 @@ import { useAppState, EventDetails as AppStateEventDetails } from '../../hooks/u
 import '../../styles/calendar.css';
 import '../../globals.css';
 
-interface CalendarProps {
+// Define or import ViewType - matching the main app view types
+type ViewType = 'calendar' | 'your-new-view';
+
+export interface CalendarProps {
   refreshTrigger: number;
-  onEventChange?: () => void;
-  onViewChange?: (newView: string) => void;
+  onEventChange: () => Promise<void>;
+  onViewChange: (newView: string) => void;
+  rightSidebarOpen: boolean;
+  activeAppView: ViewType;
+  onAppViewChange: (newView: ViewType) => void;
+  currentView: string;
+  isAuthenticated?: boolean;
 }
 
-const Calendar: React.FC<CalendarProps> = ({ onEventChange, onViewChange, refreshTrigger }) => {
+const Calendar: React.FC<CalendarProps> = ({ 
+  onEventChange, 
+  onViewChange, 
+  refreshTrigger,
+  rightSidebarOpen,
+  activeAppView,
+  onAppViewChange,
+  currentView: parentCurrentView,
+  isAuthenticated = false
+}) => {
   
   // Use useAppState hook
   const { updateEvent } = useAppState();
@@ -362,19 +379,23 @@ const Calendar: React.FC<CalendarProps> = ({ onEventChange, onViewChange, refres
   }, [setCurrentTitle, handleViewChange]);
 
   return (
-    <div className='big-container'>
+    <div className='calendar-container'>
       <div className="flex h-screen">
-        <div className="w-[306px]">
+        <div className="w-[px]">
           {/* Your existing sidebar content */}
         </div>
 
         <div className="flex-1 flex flex-col">
-          {/* Custom Header */}
+          {/* Custom Header - Now passing all required props */}
           <CustomCalendarHeader 
             calendarRef={calendarRef}
             currentTitle={currentTitle}
             currentView={currentView}
             onViewChange={onViewChange}
+            isAuthenticated={isAuthenticated}
+            rightSidebarOpen={rightSidebarOpen}
+            activeAppView={activeAppView}
+            onAppViewChange={onAppViewChange}
           />
 
           {/* Calendar Container */}

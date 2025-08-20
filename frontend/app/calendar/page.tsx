@@ -4,19 +4,29 @@ import { usePostHog } from 'posthog-js/react';
 import Calendar from '../components/Calendar/Calendar';
 import Sidebar from '../components/Sidebar';
 import RightSidebar from '../components/RightSidebar';
-import Navigation from '../components/Navigation';
+import Planner from '../components/Planner/Planner';
 import '../globals.css';
 import { ThemeProvider } from '../services/themeContext';
 import { useAppState } from '../hooks/useAppState';
+import { authAPI } from '../../lib/auth'; // Adjust path as needed
 
+// Define available views (matching your header component)
+type ViewType = 'calendar' | 'your-new-view';
 
 interface AppContentProps {
   rightSidebarOpen: boolean;
   setRightSidebarOpen: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
-const AppContent: React.FC<AppContentProps> = ({ rightSidebarOpen, setRightSidebarOpen }) => {
+const AppContent: React.FC<AppContentProps> = ({ 
+  rightSidebarOpen, 
+  setRightSidebarOpen
+}) => {
   const posthog = usePostHog();
+  
+  // Authentication state
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isLoadingAuth, setIsLoadingAuth] = useState(true);
   
   // Use the centralized state hook
   const {
@@ -36,33 +46,59 @@ const AppContent: React.FC<AppContentProps> = ({ rightSidebarOpen, setRightSideb
   // Check if updateTask is available
   const updateTask = (useAppState() as any).updateTask;
   
+  // View management state
+  const [activeView, setActiveView] = useState<ViewType>('calendar');
   const [view, setView] = useState<string>('dayGridMonth');
   const [refreshEvents, setRefreshEvents] = useState(0);
   const [navbarVisible, setNavbarVisible] = useState(false);
+
+  // Check authentication status
+  useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        const isAuth = await authAPI.checkAuthStatus();
+        setIsAuthenticated(isAuth);
+      } catch (error) {
+        console.error('Error checking auth status:', error);
+        setIsAuthenticated(false);
+      } finally {
+        setIsLoadingAuth(false);
+      }
+    };
+
+    checkAuth();
+  }, []);
 
   // Initialize data when component mounts
   useEffect(() => {
     initializeData();
   }, [initializeData]);
 
-  // REMOVED: Manual pageview tracking since capture_pageview: true handles this automatically
-
-  // Track calendar view changes
+  // Track view changes
   useEffect(() => {
     if (posthog) {
+      posthog.capture('app_view_changed', {
+        view: activeView,
+        timestamp: new Date().toISOString()
+      });
+    }
+  }, [posthog, activeView]);
+
+  // Track calendar view changes (only when in calendar view)
+  useEffect(() => {
+    if (posthog && activeView === 'calendar') {
       posthog.capture('calendar_view_changed', {
         view: view,
         timestamp: new Date().toISOString()
       });
     }
-  }, [posthog, view]);
+  }, [posthog, view, activeView]);
 
   // Disable scrolling on mount and re-enable on unmount
   useEffect(() => {
     document.body.style.overflow = 'hidden';
     document.documentElement.style.overflow = 'hidden';
 
-    // Send pageleave event on component unmount
     return () => {
       document.body.style.overflow = 'auto';
       document.documentElement.style.overflow = 'auto';
@@ -103,11 +139,20 @@ const AppContent: React.FC<AppContentProps> = ({ rightSidebarOpen, setRightSideb
     setView(newView);
   };
 
+  const handleAppViewChange = (newView: ViewType) => {
+    console.log('handleAppViewChange called with:', newView);
+    console.log('Current activeView:', activeView);
+    setActiveView(newView);
+  };
+
+  // Add this useEffect to monitor activeView changes
+  useEffect(() => {
+    console.log('activeView changed to:', activeView);
+  }, [activeView]);
 
   const handleRightSidebarToggle = () => {
     setRightSidebarOpen(!rightSidebarOpen);
     
-    // Track sidebar toggle
     if (posthog) {
       posthog.capture('sidebar_toggled', {
         isOpen: !rightSidebarOpen,
@@ -122,7 +167,6 @@ const AppContent: React.FC<AppContentProps> = ({ rightSidebarOpen, setRightSideb
     if (newTask) {
       console.log('Task created:', newTask);
       
-      // Track task creation
       if (posthog) {
         posthog.capture('task_created', {
           task_id: newTask.id,
@@ -139,7 +183,6 @@ const AppContent: React.FC<AppContentProps> = ({ rightSidebarOpen, setRightSideb
       if (updatedTask) {
         console.log('Task updated:', updatedTask);
         
-        // Track task update
         if (posthog) {
           posthog.capture('task_updated', {
             task_id: taskId,
@@ -157,7 +200,6 @@ const AppContent: React.FC<AppContentProps> = ({ rightSidebarOpen, setRightSideb
         await createTask(updatedTaskData);
         console.log('Task updated via delete/create workaround');
         
-        // Track workaround update
         if (posthog) {
           posthog.capture('task_updated_workaround', {
             task_id: taskId,
@@ -177,7 +219,6 @@ const AppContent: React.FC<AppContentProps> = ({ rightSidebarOpen, setRightSideb
       if (success) {
         console.log('Task deleted successfully');
         
-        // Track task deletion
         if (posthog) {
           posthog.capture('task_deleted', {
             task_id: taskId,
@@ -200,7 +241,6 @@ const AppContent: React.FC<AppContentProps> = ({ rightSidebarOpen, setRightSideb
       console.log('Event created:', newEvent);
       handleEventChange();
       
-      // Track calendar event creation
       if (posthog) {
         posthog.capture('calendar_event_created', {
           event_id: newEvent.id,
@@ -219,7 +259,6 @@ const AppContent: React.FC<AppContentProps> = ({ rightSidebarOpen, setRightSideb
       console.log('Event updated:', updatedEvent);
       handleEventChange();
       
-      // Track calendar event update
       if (posthog) {
         posthog.capture('calendar_event_updated', {
           event_id: eventId,
@@ -237,7 +276,6 @@ const AppContent: React.FC<AppContentProps> = ({ rightSidebarOpen, setRightSideb
         console.log('Event deleted successfully');
         handleEventChange();
         
-        // Track calendar event deletion
         if (posthog) {
           posthog.capture('calendar_event_deleted', {
             event_id: eventId,
@@ -253,6 +291,46 @@ const AppContent: React.FC<AppContentProps> = ({ rightSidebarOpen, setRightSideb
     }
   };
 
+  // Render the active view content
+  const renderActiveView = () => {
+    return (
+      <div className="scaled-view-container">
+        {/* Calendar View */}
+        <div className={`view-component ${activeView === 'calendar' ? 'active' : 'hidden'}`}>
+          <Calendar 
+            refreshTrigger={refreshEvents}
+            onEventChange={handleEventChange} 
+            onViewChange={handleViewChange}
+            rightSidebarOpen={rightSidebarOpen}
+            activeAppView={activeView}
+            onAppViewChange={handleAppViewChange}
+            currentView={view}
+            isAuthenticated={isAuthenticated}
+          />
+        </div>
+        
+        {/* Planner View */}
+        <div className={`view-component ${activeView === 'your-new-view' ? 'active' : 'hidden'}`}>
+          <Planner 
+            rightSidebarOpen={rightSidebarOpen}
+            activeAppView={activeView}
+            onAppViewChange={handleAppViewChange}
+            isAuthenticated={isAuthenticated}
+          />
+        </div>
+      </div>
+    );
+  };
+
+    // Show loading state while checking auth
+    if (isLoadingAuth) {
+      return (
+        <div className="h-screen flex items-center justify-center">
+          <div>Loading...</div>
+        </div>
+      );
+    }
+
   return (
     <div className="h-screen overflow-hidden">
       {/* Sidebar */}
@@ -261,26 +339,30 @@ const AppContent: React.FC<AppContentProps> = ({ rightSidebarOpen, setRightSideb
         refreshTrigger={refreshEvents}
       />
       
-      {/* Main content area */}
-      <div className="ewfsf">
-        <div className="form-content">
-          {error && <p style={{ color: 'red' }}>{error}</p>}
+      {/* Main content area - Full height */}
+      <div className="main-content-area">
+        {/* Error message overlay */}
+        {error && (
+          <div style={{ 
+            position: 'absolute', 
+            top: '60px', 
+            left: '20px', 
+            right: '20px',
+            zIndex: 1001,
+            background: '#fee2e2',
+            color: '#dc2626',
+            padding: '8px 12px',
+            borderRadius: '4px',
+            fontSize: '14px'
+          }}>
+            {error}
+          </div>
+        )}
+        
+        {/* Dynamic View Content - The header is now integrated into both components */}
+        <div className="view-content">
+          {renderActiveView()}
         </div>
-      </div>
-
-      {/* Calendar component */}
-      <div 
-        className="calendar-container"
-        style={{
-          marginRight: rightSidebarOpen ? '349px' : '30px',
-          marginLeft: '10px',
-        }}
-      >
-        <Calendar 
-          refreshTrigger={refreshEvents}
-          onEventChange={handleEventChange} 
-          onViewChange={handleViewChange}
-        />
       </div>
 
       {/* AI Assistant Sidebar */}
@@ -301,9 +383,70 @@ const AppContent: React.FC<AppContentProps> = ({ rightSidebarOpen, setRightSideb
       />
 
       <style jsx>{`
+        .main-content-area {
+          position: fixed;
+          top: 0;
+          left: 280px; /* Sidebar width */
+          right: ${rightSidebarOpen ? '349px' : '0'};
+          bottom: 0;
+          transition: right 0.3s ease;
+          overflow: hidden;
+          padding: 0;
+        }
+
+        .view-content {
+          height: 100%;
+          width: 100%;
+          overflow: hidden;
+          padding: 25px;
+        }
+
+        .scaled-view-container {
+          width: 100%;
+          height: 100%;
+          margin: 0;
+          position: relative;
+          border-radius: 12px;
+          box-shadow: 0 8px 16px -4px rgba(0, 0, 0, 0.1), 0 4px 8px -2px rgba(0, 0, 0, 0.06);
+          overflow: hidden;
+          background: white;
+        }
+
+        .view-component {
+          position: absolute;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          width: 100%;
+          height: 100%;
+        }
+
+        .view-component.active {
+          display: block;
+          opacity: 1;
+          transition: opacity 0.2s ease-in-out;
+        }
+
+        .view-component.hidden {
+          display: none;
+          opacity: 0;
+        }
+
         @media (max-width: 768px) {
-          .calendar-container {
-            margin-right: 0 !important;
+          .main-content-area {
+            left: 0;
+            right: 0;
+          }
+
+          .view-content {
+            padding: 15px;
+          }
+        }
+
+        @media (max-width: 480px) {
+          .view-content {
+            padding: 10px;
           }
         }
       `}</style>
@@ -312,6 +455,27 @@ const AppContent: React.FC<AppContentProps> = ({ rightSidebarOpen, setRightSideb
         html, body {
           overflow: hidden !important;
           height: 100%;
+        }
+
+        /* Apply border radius to the container and clip content */
+        .scaled-view-container {
+          border-radius: 12px !important;
+          overflow: hidden !important;
+        }
+
+        /* Ensure first-level children fill the container and respect border radius */
+        .scaled-view-container > .view-component > *:first-child {
+          width: 100%;
+          height: 100%;
+          border-radius: 12px;
+          overflow: hidden;
+        }
+
+        /* Optional: If you need to target specific calendar/planner classes */
+        .fc-theme-standard,
+        .fc,
+        .planner-container {
+          border-radius: 12px !important;
         }
       `}</style>
     </div>
@@ -323,12 +487,10 @@ const Page = () => {
 
   return (
     <ThemeProvider>
-      <Navigation rightSidebarOpen={rightSidebarOpen}>
-        <AppContent 
-          rightSidebarOpen={rightSidebarOpen}
-          setRightSidebarOpen={setRightSidebarOpen}
-        />
-      </Navigation>
+      <AppContent 
+        rightSidebarOpen={rightSidebarOpen}
+        setRightSidebarOpen={setRightSidebarOpen}
+      />
     </ThemeProvider>
   );
 };
