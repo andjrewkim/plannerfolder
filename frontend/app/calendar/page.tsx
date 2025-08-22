@@ -301,7 +301,7 @@ const AppContent: React.FC<AppContentProps> = ({
             refreshTrigger={refreshEvents}
             onEventChange={handleEventChange} 
             onViewChange={handleViewChange}
-            rightSidebarOpen={rightSidebarOpen}
+            rightSidebarOpen={false} // Force to false since we're hiding sidebar
             activeAppView={activeView}
             onAppViewChange={handleAppViewChange}
             currentView={view}
@@ -312,7 +312,7 @@ const AppContent: React.FC<AppContentProps> = ({
         {/* Planner View */}
         <div className={`view-component ${activeView === 'your-new-view' ? 'active' : 'hidden'}`}>
           <Planner 
-            rightSidebarOpen={rightSidebarOpen}
+            rightSidebarOpen={false} // Force to false since we're hiding sidebar
             activeAppView={activeView}
             onAppViewChange={handleAppViewChange}
             isAuthenticated={isAuthenticated}
@@ -365,7 +365,8 @@ const AppContent: React.FC<AppContentProps> = ({
         </div>
       </div>
 
-      {/* AI Assistant Sidebar */}
+      {/* AI Assistant Sidebar - HIDDEN */}
+      {/* 
       <RightSidebar 
         isOpen={rightSidebarOpen}
         onToggle={handleRightSidebarToggle}
@@ -381,13 +382,14 @@ const AppContent: React.FC<AppContentProps> = ({
         onTaskDelete={handleSidebarTaskDelete}
         onEventChange={handleEventChange}
       />
+      */}
 
       <style jsx>{`
         .main-content-area {
           position: fixed;
           top: 0;
-          left: 280px; /* Sidebar width */
-          right: ${rightSidebarOpen ? '349px' : '0'};
+          left: 279px; /* Sidebar width */
+          right: 0; /* Always extend to right edge since sidebar is hidden */
           bottom: 0;
           transition: right 0.3s ease;
           overflow: hidden;
@@ -398,13 +400,13 @@ const AppContent: React.FC<AppContentProps> = ({
           height: 100%;
           width: 100%;
           overflow: hidden;
-          padding: 25px;
+          margin-top: 0px;
         }
 
         .scaled-view-container {
-          width: 100%;
-          height: 100%;
-          margin: 0;
+          width: 85%;
+          height: 80%;
+          margin: 3% auto;
           position: relative;
           border-radius: 12px;
           box-shadow: 0 8px 16px -4px rgba(0, 0, 0, 0.1), 0 4px 8px -2px rgba(0, 0, 0, 0.06);
@@ -439,12 +441,24 @@ const AppContent: React.FC<AppContentProps> = ({
             right: 0;
           }
 
+          .scaled-view-container {
+            width: 90%;
+            height: 85%;
+            margin: 2% auto;
+          }
+
           .view-content {
             padding: 15px;
           }
         }
 
         @media (max-width: 480px) {
+          .scaled-view-container {
+            width: 95%;
+            height: 90%;
+            margin: 1% auto;
+          }
+
           .view-content {
             padding: 10px;
           }

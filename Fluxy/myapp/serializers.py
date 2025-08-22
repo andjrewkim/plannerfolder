@@ -4,6 +4,7 @@ from .models import CalendarEvent, TodoTask, CustomUser
 from django.core.exceptions import ValidationError
 import json
 from .models import UserSettings
+from .models import PlannerClass, Assignment
 
 
 
@@ -237,12 +238,8 @@ class TodoTaskSerializer(serializers.ModelSerializer):
         return super().update(instance, validated_data)
     
     
-    
-    
-    
-    
-    
 class UserSettingsSerializer(serializers.ModelSerializer):
+    
     class Meta:
         model = UserSettings
         fields = ['default_calendar_view', 'week_starts_on', 'dark_mode', 'theme']
@@ -264,3 +261,35 @@ class UserSettingsSerializer(serializers.ModelSerializer):
         if value not in valid_choices:
             raise serializers.ValidationError(f"Invalid choice. Must be one of: {valid_choices}")
         return value
+    
+    
+    from .models import PlannerClass, Assignment
+
+
+class PlannerClassSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PlannerClass
+        fields = ['id', 'name', 'order', 'created_at', 'updated_at']
+        read_only_fields = ['created_at', 'updated_at']
+
+    def create(self, validated_data):
+        validated_data['user'] = self.context['request'].user
+        return super().create(validated_data)
+
+class AssignmentSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Assignment
+        fields = ['id', 'title', 'day_of_week', 'planner_class', 'completed', 'order', 'created_at', 'updated_at']
+        read_only_fields = ['created_at', 'updated_at']
+
+    def validate_planner_class(self, value):
+        """Ensure the planner_class belongs to the current user"""
+        if value.user != self.context['request'].user:
+            raise serializers.ValidationError("You can only create assignments for your own classes.")
+        return value
+
+    def validate_title(self, value):
+        """Ensure title is not empty"""
+        if not value or not value.strip():
+            raise serializers.ValidationError("Assignment title cannot be empty.")
+        return value.strip()

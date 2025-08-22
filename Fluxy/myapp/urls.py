@@ -4,7 +4,6 @@ from . import views
 from . import views_settings
 from .views_api import CalendarEventCreate  # Import your view for handling events
 from .views_todo import TodoTaskCreate
-from .view_dispatcher import ScheduleInputDispatcher
 from myapp.views_user import register_user
 from myapp.views_user import login_user
 from myapp.views_logout import logout_view
@@ -12,6 +11,13 @@ from myapp.views_check_login import check_login
 from .view_dispatcher import ScheduleInputDispatcher, ScheduleInputParser  # Import the missing views
 from myapp.views_llm_text import llm_text
 from .user_settings import UserSettingsView
+from rest_framework.routers import DefaultRouter
+from . import views_planner
+
+router = DefaultRouter()
+router.register(r'planner/classes', views_planner.PlannerClassViewSet, basename='planner-classes')
+router.register(r'planner/assignments', views_planner.AssignmentViewSet, basename='planner-assignments')
+
 
 
 urlpatterns = [
@@ -35,6 +41,8 @@ urlpatterns = [
     path('api/llm-text/', llm_text, name='llm_text'),  # Endpoint for LLM chat text
     
     path('api/user-settings/', UserSettingsView.as_view(), name='user-settings'),
+    
+    path('api/', include(router.urls)),
 
 ]
  

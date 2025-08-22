@@ -9,14 +9,14 @@
 /* Calendar Container */
 .fc {
 
-  height: 95% !important;
+  height: 100% !important;
 
 }
 
 /* Calendar Grid - Enable subtle borders */
 .fc-theme-standard td,
 .fc-theme-standard th {
-  border: 1px solid hsl(var(--border) / 0.4) !important;
+  border: 1px solid hsl(var(--border) / 0.2) !important;
 }
 
 .big-container {
@@ -123,10 +123,10 @@
   font-size: 12px;
   color: hsl(var(--muted-foreground));
   text-transform: uppercase;
-  font-weight: 600;
+  font-weight: 200;
   letter-spacing: 0.1em;
   padding: 18px 0;
-  border: 1px solid hsl(var(--darker-border) / 0.) !important;
+  border: 0px solid hsl(var(--darker-border) / 0.) !important;
   position: relative;
   overflow: hidden;
 }
@@ -148,7 +148,7 @@
   border: 1px solid hsl(var(--border) / 0.3) !important;
   position: relative;
   overflow: visible;
-  background: hsl(var(--sidebar) / 0.95);
+  background: hsl(var(--sidebar));
   min-height: 120px;
   height: 120px !important;
   transition: all 0.3s ease;
@@ -163,8 +163,8 @@
 .fc-daygrid-day::after {
   content: '+';
   position: absolute;
-  font-size: 35px;
-  font-weight: 100;
+  font-size: 40px;
+  font-weight: 200;
   font-family: 'Inter', sans-serif;
   color: hsl(var(--border));
 
@@ -179,12 +179,12 @@
 }
 
 .fc-daygrid-day::before {
-  top: -13px;
+  top: -13.5px;
   left: -10.1px;
 }
 
 .fc-daygrid-day::after {
-  top: -13px;
+  top: -13.5px;
   right: -10.1px;
 }
 

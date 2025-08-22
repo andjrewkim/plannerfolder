@@ -1,4 +1,4 @@
-// lib/auth.ts - PRODUCTION READY VERSION
+// lib/auth.ts - RESTORED WITH CACHING
 import { User, LoginCredentials, RegisterData, AuthResponse } from '../types/auth';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL
@@ -6,7 +6,7 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL
 class AuthService {
   private authCheckPromise: Promise<boolean> | null = null;
   private lastAuthCheck: number = 0;
-  private authCheckCacheTime: number = 30000; // 30 seconds cache - much longer
+  private authCheckCacheTime: number = 30000; // 30 seconds cache
   private cachedAuthStatus: boolean | null = null;
 
   private getAuthHeaders(): Record<string, string> {
@@ -122,27 +122,51 @@ class AuthService {
   }
 
   private async performAuthCheck(): Promise<boolean> {
+    const startTime = Date.now();
+    console.log(`🔍 [${new Date().toLocaleTimeString()}] Starting auth check...`);
+    
     try {
       const token = this.getToken();
       if (!token) {
+        console.log(`❌ [${new Date().toLocaleTimeString()}] No token found`);
         return false;
       }
 
+      console.log(`📡 [${new Date().toLocaleTimeString()}] Making request to check-login...`);
       const response = await fetch(`${API_BASE_URL}/api/check-login/`, {
         method: 'GET',
         headers: this.getAuthHeaders(),
         credentials: 'include',
       });
       
+      const elapsed = Date.now() - startTime;
+      console.log(`📥 [${new Date().toLocaleTimeString()}] Response received in ${elapsed}ms, status: ${response.status}`);
+      
+      if (!response.ok) {
+        console.log(`❌ [${new Date().toLocaleTimeString()}] Response not OK: ${response.status}`);
+        return false;
+      }
+      
       const data = await response.json();
+      const parseTime = Date.now() - startTime;
+      console.log(`📋 [${new Date().toLocaleTimeString()}] JSON parsed in ${parseTime}ms:`, data);
+      
       const isAuthenticated = data.isAuthenticated;
       
       if (!isAuthenticated) {
+        console.log(`❌ [${new Date().toLocaleTimeString()}] Server says not authenticated - clearing data`);
         this.clearAuthData();
+      } else {
+        console.log(`✅ [${new Date().toLocaleTimeString()}] Authentication confirmed`);
       }
+      
+      const totalTime = Date.now() - startTime;
+      console.log(`⏱️ [${new Date().toLocaleTimeString()}] Total auth check time: ${totalTime}ms`);
       
       return isAuthenticated;
     } catch (error) {
+      const errorTime = Date.now() - startTime;
+      console.error(`💥 [${new Date().toLocaleTimeString()}] Auth check error after ${errorTime}ms:`, error);
       return false;
     }
   }
@@ -177,7 +201,6 @@ class AuthService {
   }
 
   isAuthenticated(): boolean {
-    // Simple token check - no logging, no server calls
     return !!this.getToken();
   }
 

@@ -586,7 +586,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   const displayError = localError || error;
 
   // Loading state
-  if (!initialized && isLoading) {
+  if (isLoading) {
     return (
       <div className="app-layout">
         <aside className="app-sidebar bg-[hsl(var(--background))] text-[hsl(var(--foreground))]">
@@ -597,7 +597,6 @@ const Sidebar: React.FC<SidebarProps> = ({
       </div>
     );
   }
-
 return (
   <div className="app-layout">
     <aside

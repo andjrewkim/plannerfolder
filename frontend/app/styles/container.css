@@ -1,7 +1,7 @@
-/* Clean Google-style sidebar as single bubble */
+/* Minimal sidebar with left border only and transparent background */
 .app-sidebar {
   --sidebar-width: 280px;
-  --border-radius: 16px;
+  --border-radius: 0;
   --spacing-xs: 4px;
   --spacing-sm: 6px;
   --spacing-md: 12px;
@@ -10,44 +10,39 @@
   --text-secondary: hsl(var(--muted-foreground));
   --sidebarItem: hsl(var(--sidebar-item-color) / 1);
   --sidebarBackground: hsl(var(--sidebar));
-  background: hsl(var(--sidebar));        /* Changed from hardcoded #f8f9fa */
+  background: hsl(var(--main-background));
   
   width: var(--sidebar-width);
-  height: calc(100vh - 32px);
-  border-radius: var(--border-radius);
-  border: 1px solid hsl(var(--darker-border) / 10);
+  height: 100vh;
+  border: none;
+  border-right: 2px solid hsl(var(--darker-border));
   position: fixed;
-  top: var(--spacing-lg);
-  left: var(--spacing-lg);
+  top: 0;
+  left: 0;
   z-index: 10;
   display: flex;
   flex-direction: column;
   font-family: 'Google Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   overflow: hidden;
   box-sizing: border-box;
-  box-shadow: 0 2px 4px hsl(var(--darker-border) / 0.2);  /* Changed from hardcoded rgba */
-  
+  box-shadow: none;
 }
 
 /* Content container */
 .app-content {
-  margin-left: calc(var(--sidebar-width) + 32px);
+  margin-left: var(--sidebar-width);
   transition: margin-left 0.2s ease;
 }
 
 /* Section containers - no separation */
 .sidebar-section {
-  /*background: var(--sidebarBackground);*/
+  background: transparent;
   overflow: hidden;
-  border-bottom: 1px solid hsl(var(--darker-border) / 0.1);
+  border: none;
   display: flex;
   flex-direction: column;
   min-height: 120px;
   flex: 1;
-}
-
-.sidebar-section:last-child {
-  border-bottom: none;
 }
 
 /* Clean section titles */
@@ -56,8 +51,8 @@
   font-weight: 500;
   color: var(--text-primary);
   padding: var(--spacing-md) var(--spacing-lg);
-  background: var(--sidebarBackground);
-  border-bottom: 1px solid hsl(var(--darker-border) / 0.1);
+  background: transparent;
+  border: none;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -96,17 +91,15 @@
   padding: var(--spacing-sm) var(--spacing-md);
   background: var(--sidebarItem);
   border-radius: 8px;
-  border: 1px solid color-mix(in srgb, hsl(var(--darker-border)) 70%, rgb(0, 0, 0) 15%);
+  border: none;
   transition: all 0.15s ease;
   cursor: pointer;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
-
+  box-shadow: none;
 }
 
 .event-item:hover {
   background: hsl(var(--muted) / 0.5);
   transform: translateY(-1px);
-  
 }
 
 .event-name {
@@ -133,17 +126,15 @@
   display: flex;
   flex-direction: column;
   gap: var(--spacing-xs);
-  
 }
 
 .task-item {
   background: var(--sidebarItem);
   border-radius: 8px;
-  border: 1px solid color-mix(in srgb, hsl(var(--darker-border)) 70%, rgb(0, 0, 0) 15%);
+  border: none;
   transition: all 0.15s ease;
-  box-shadow: 0 2px 4px hsl(var(--darker-border) / 0.2);  /* Changed from hardcoded rgba */
+  box-shadow: none;
   margin-top: 2px;
-  
 }
 
 .task-item:hover {
@@ -183,18 +174,17 @@
 }
 
 .task-checkbox:checked::after {
-  content: ''; /* Necessary for the pseudo-element */
+  content: '';
   position: absolute;
-  left: 50%; /* Center horizontally */
-  top: 50%; /* Center vertically */
-  width: 6px; /* Increased width for a thicker line */
-  height: 12px; /* Increased height for a more prominent checkmark */
-  border: solid hsl(var(--primary-foreground)); /* Checkmark color */
-  border-width: 0 3px 3px 0; /* Thicker and more visible line */
-  transform: translate(-50%, -50%) rotate(45deg); /* Centers and rotates the line to form the checkmark */
-  transition: transform 0.2s ease, opacity 0.2s ease; /* Smooth transition effect */
+  left: 50%;
+  top: 50%;
+  width: 6px;
+  height: 12px;
+  border: solid hsl(var(--primary-foreground));
+  border-width: 0 3px 3px 0;
+  transform: translate(-50%, -50%) rotate(45deg);
+  transition: transform 0.2s ease, opacity 0.2s ease;
 }
-
 
 .task-text {
   flex: 1;
@@ -236,7 +226,7 @@
   border-radius: 8px;
   font-size: 0.875rem;
   margin: var(--spacing-sm) 0;
-  border: 1px solid hsl(var(--destructive) / 0.2);
+  border: none;
 }
 
 /* Add button - Google Material style */
@@ -248,7 +238,7 @@
   height: 32px;
   border-radius: 50%;
   background: hsl(var(--primary));
-  color: hsl(var(--primary-foreground));  /* Changed from hardcoded white */
+  color: hsl(var(--primary-foreground));
   font-size: 18px;
   border: none;
   display: flex;
@@ -312,7 +302,7 @@
 
 .btn-save {
   background: hsl(var(--primary));
-  color: hsl(var(--calendar-background));  /* Changed from hardcoded white */
+  color: hsl(var(--calendar-background));
 }
 
 .btn-save:hover {
@@ -367,7 +357,7 @@
   }
   
   .app-content {
-    margin-left: calc(var(--sidebar-width) + 24px);
+    margin-left: var(--sidebar-width);
   }
 }
 
@@ -389,11 +379,8 @@
 .task-item.category-4 { border-left: 3px solid hsl(var(--chart-4)); }
 .task-item.category-5 { border-left: 3px solid hsl(var(--chart-5)); }
 
-/*EVENTFORM SETTINGS*/
+/* Event form settings */
 .sidebar-section .event-form-container {
   width: 100% !important;
   margin: 0 !important;
 }
-
-
-

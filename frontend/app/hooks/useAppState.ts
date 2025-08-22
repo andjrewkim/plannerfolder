@@ -1,4 +1,4 @@
-// hooks/useAppState.ts - CLEAN VERSION
+// hooks/useAppState.ts - Fixed version with remount protection
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { RRule } from 'rrule';
 import { authAPI } from '../../lib/auth';
@@ -65,15 +65,36 @@ const updateState = (updates: Partial<AppState>) => {
   stateSubscribers.forEach(callback => callback(globalState));
 };
 
-// Core data fetching
+// Utility function to create a promise with timeout
+const withTimeout = <T>(promise: Promise<T>, timeoutMs: number, operation: string): Promise<T> => {
+  return new Promise((resolve, reject) => {
+    const timeoutId = setTimeout(() => {
+      reject(new Error(`Operation "${operation}" timed out after ${timeoutMs}ms`));
+    }, timeoutMs);
+
+    promise
+      .then((result) => {
+        clearTimeout(timeoutId);
+        resolve(result);
+      })
+      .catch((error) => {
+        clearTimeout(timeoutId);
+        reject(error);
+      });
+  });
+};
+
+// Core data fetching with timeout protection
 const fetchEventsSimple = async (): Promise<EventDetails[]> => {
   if (!authAPI.isAuthenticated()) {
     throw new Error('Not authenticated');
   }
 
-  const response = await authAPI.authenticatedFetch(
+  const fetchPromise = authAPI.authenticatedFetch(
     `${process.env.NEXT_PUBLIC_API_URL}/api/events/`
   );
+
+  const response = await withTimeout(fetchPromise, 30000, 'fetch events');
   
   if (!response.ok) {
     const errorText = await response.text();
@@ -81,7 +102,9 @@ const fetchEventsSimple = async (): Promise<EventDetails[]> => {
   }
 
   const events: EventDetails[] = await response.json();
-  return expandRecurringEvents(events);
+  const expandedEvents = expandRecurringEvents(events);
+  
+  return expandedEvents;
 };
 
 const fetchTasksSimple = async (): Promise<TaskData[]> => {
@@ -89,35 +112,49 @@ const fetchTasksSimple = async (): Promise<TaskData[]> => {
     throw new Error('Not authenticated');
   }
 
-  const response = await authAPI.authenticatedFetch(
+  const fetchPromise = authAPI.authenticatedFetch(
     `${process.env.NEXT_PUBLIC_API_URL}/api/tasks/`
   );
+
+  const response = await withTimeout(fetchPromise, 30000, 'fetch tasks');
   
   if (!response.ok) {
     const errorText = await response.text();
     throw new Error(`Tasks API error: ${response.status} - ${errorText}`);
   }
 
-  return await response.json();
+  const tasks = await response.json();
+  return tasks;
 };
 
-// Recurring events expansion
+// Safe recurring events expansion with timeout protection
 const expandRecurringEvents = (events: EventDetails[]): EventDetails[] => {
   const expandedEvents: EventDetails[] = [];
   const today = new Date();
   const futureLimit = new Date(today.getTime() + (90 * 24 * 60 * 60 * 1000));
   const pastLimit = new Date(today.getTime() - (30 * 24 * 60 * 60 * 1000));
 
-  events.forEach(event => {
+  events.forEach((event) => {
     if (event.recurrence_pattern?.trim()) {
       try {
         const baseDate = new Date(event.date);
+        
         const ruleString = event.recurrence_pattern.includes('DTSTART') 
           ? event.recurrence_pattern 
           : `DTSTART=${baseDate.toISOString().split('T')[0].replace(/-/g, '')}\n${event.recurrence_pattern}`;
         
+        const startTime = Date.now();
         const rule = RRule.fromString(ruleString);
+        
+        // Generate occurrences with a reasonable limit
         const occurrences = rule.between(pastLimit, futureLimit, true).slice(0, 50);
+        
+        const processingTime = Date.now() - startTime;
+        
+        // If processing took too long, log a warning
+        if (processingTime > 5000) {
+          console.warn(`Slow recurring event processing for ${event.event_name}: ${processingTime}ms`);
+        }
 
         occurrences.forEach((occurrence) => {
           const dateString = occurrence.toISOString().split('T')[0];
@@ -134,6 +171,8 @@ const expandRecurringEvents = (events: EventDetails[]): EventDetails[] => {
         
       } catch (error) {
         console.error(`Error expanding recurring event ${event.event_name}:`, error);
+        
+        // Fallback: add the original event without expansion
         expandedEvents.push({
           ...event,
           originalEventId: event.id,
@@ -154,7 +193,7 @@ const expandRecurringEvents = (events: EventDetails[]): EventDetails[] => {
   return expandedEvents;
 };
 
-// Single global initialization
+// Single global initialization with comprehensive error handling
 const performGlobalInitialization = async (forceRefresh = false): Promise<void> => {
   // Check authentication first
   if (!authAPI.isAuthenticated()) {
@@ -193,14 +232,27 @@ const performGlobalInitialization = async (forceRefresh = false): Promise<void> 
         error: null 
       });
 
-      const [eventsResult, tasksResult] = await Promise.allSettled([
-        fetchEventsSimple(),
-        fetchTasksSimple()
+      // Wrap the entire fetch operation in a timeout
+      const fetchPromise = Promise.allSettled([
+        withTimeout(fetchEventsSimple(), 45000, 'fetch and expand events'),
+        withTimeout(fetchTasksSimple(), 30000, 'fetch tasks')
       ]);
+
+      const results = await withTimeout(fetchPromise, 60000, 'complete data fetch');
+
+      const [eventsResult, tasksResult] = results;
 
       const events = eventsResult.status === 'fulfilled' ? eventsResult.value : [];
       const tasks = tasksResult.status === 'fulfilled' ? tasksResult.value : [];
 
+      // Log any failures
+      if (eventsResult.status === 'rejected') {
+        console.error('Events fetch failed:', eventsResult.reason);
+      }
+      if (tasksResult.status === 'rejected') {
+        console.error('Tasks fetch failed:', tasksResult.reason);
+      }
+      
       updateState({
         events,
         tasks,
@@ -213,7 +265,9 @@ const performGlobalInitialization = async (forceRefresh = false): Promise<void> 
       hasGloballyInitialized = true;
 
     } catch (error) {
-      console.error('Failed to initialize app state:', error);
+      console.error('Initialization failed:', error);
+      
+      // CRITICAL: Always ensure loading states are cleared
       updateState({
         error: error instanceof Error ? error.message : 'Failed to load data',
         isInitializing: false,
@@ -222,6 +276,7 @@ const performGlobalInitialization = async (forceRefresh = false): Promise<void> 
       });
       hasGloballyInitialized = true;
     } finally {
+      // CRITICAL: Always clear initialization flags
       isCurrentlyInitializing = false;
       initializationPromise = null;
     }
@@ -254,11 +309,12 @@ export const reloadAfterLogin = async () => {
   await performGlobalInitialization(true);
 };
 
-let hasTriggeredGlobalInit = false;
-
 export const useAppState = () => {
   const [state, setState] = useState(globalState);
+  // Use unique instance ID instead of global flag
+  const [instanceId] = useState(() => Math.random().toString(36));
   const isMountedRef = useRef(true);
+  const hasTriggeredInitRef = useRef(false);
 
   // Subscribe to state changes
   useEffect(() => {
@@ -276,20 +332,25 @@ export const useAppState = () => {
     };
   }, []);
 
-  // Single initialization trigger - only runs once across ALL components
+  // Instance-based initialization trigger that handles remounts
   useEffect(() => {
-    if (authAPI.isAuthenticated() && !hasGloballyInitialized && !isCurrentlyInitializing && !hasTriggeredGlobalInit) {
-      hasTriggeredGlobalInit = true;
+    // Reset mount status
+    isMountedRef.current = true;
+    
+    const shouldTriggerInit = authAPI.isAuthenticated() && 
+                             !hasGloballyInitialized && 
+                             !isCurrentlyInitializing && 
+                             !hasTriggeredInitRef.current;
+
+    if (shouldTriggerInit) {
+      hasTriggeredInitRef.current = true;
       
-      const timer = setTimeout(() => {
-        if (isMountedRef.current && authAPI.isAuthenticated()) {
-          performGlobalInitialization();
-        }
-      }, 100);
-      
-      return () => clearTimeout(timer);
+      // Use immediate execution instead of timeout to avoid race conditions
+      if (isMountedRef.current && authAPI.isAuthenticated()) {
+        performGlobalInitialization().catch(console.error);
+      }
     }
-  }, []);
+  }, [instanceId]); // Depend on instanceId so it re-runs on remount
 
   const setError = useCallback((error: string | null) => {
     updateState({ error });
