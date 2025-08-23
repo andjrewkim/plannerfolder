@@ -9,8 +9,8 @@
   --text-primary: hsl(var(--foreground));
   --text-secondary: hsl(var(--muted-foreground));
   --sidebarItem: hsl(var(--sidebar-item-color) / 1);
-  --sidebarBackground: hsl(var(--sidebar));
-  background: hsl(var(--main-background));
+  --sidebarBackground: hsl(var(--real-sidebar) / 1);
+  background: var(--sidebarBackground);
   
   width: var(--sidebar-width);
   height: 100vh;

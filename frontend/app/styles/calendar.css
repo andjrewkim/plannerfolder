@@ -117,28 +117,32 @@
   text-shadow: 0 1px 2px hsl(var(--foreground) / 0.1);
 }
 
-/* Weekday Headers */
+/* Weekday Headers - More minimal like planner */
 .fc-col-header-cell {
-  background: linear-gradient(180deg, hsl(var(--muted) / 0.4) 0%, hsl(var(--muted) / 0.2) 100%);
-  font-size: 12px;
+  background: hsl(var(--calendar-background));
+  font-size: 11px;
   color: hsl(var(--muted-foreground));
   text-transform: uppercase;
-  font-weight: 200;
-  letter-spacing: 0.1em;
-  padding: 18px 0;
-  border: 0px solid hsl(var(--darker-border) / 0.) !important;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  padding: 8px 4px;
+  border: 1px solid hsl(var(--border) / 0.3) !important;
   position: relative;
   overflow: hidden;
+  transition: all 0.2s ease;
+  text-align: center;
 }
 
+/* Remove decorative elements for cleaner look */
 .fc-col-header-cell::before {
-  content: '';
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  height: 2px;
-  background: linear-gradient(90deg, transparent 0%, hsl(var(--primary) / 0.3) 50%, transparent 100%);
+  display: none;
+}
+
+/* Subtle today highlighting for weekday headers */
+.fc-col-header-cell.fc-day-today {
+  color: hsl(var(--accent));
+  background: hsl(var(--accent) / 0.04);
+  font-weight: 700;
 }
 
 /* Day Cells - Enhanced with plus sign corners */
@@ -161,12 +165,12 @@
 /* Plus sign corners for day separation */
 .fc-daygrid-day::before,
 .fc-daygrid-day::after {
-  content: '+';
+  content: '';
   position: absolute;
   font-size: 40px;
-  font-weight: 200;
+  font-weight: 100;
   font-family: 'Inter', sans-serif;
-  color: hsl(var(--border));
+  color: hsl(var(--border)/0.5);
 
   background: transparent;
   width: 20px;
@@ -197,29 +201,34 @@
   content: '';
 }
 
-
-
-
+/* Today styling - Simple circle around day number only */
 .fc-day-today {
-  position: relative;
-  background-color: hsl(var(--sidebar)/0.8) !important;
-  border: 1px solid hsl(var(--primary)) !important;
-  box-shadow: inset 0 0 0 1px hsl(var(--primary) / 0.4);
-  transition: background-color 0.2s ease, box-shadow 0.2s ease;
-  cursor: pointer;
+  /* Remove all background colors and hover effects */
+  background-color: hsl(var(--sidebar)) !important;
+  box-shadow: none !important;
+  transition: none !important;
+  cursor: default !important;
 }
 
-/* Hover state */
+/* Remove hover state completely */
 .fc-day-today:hover {
-  background-color: hsl(var(--primary) / 0.15) !important;
-  box-shadow: 0 0 0 2px hsl(var(--primary) / 0.5), inset 0 0 0 1px hsl(var(--primary) / 0.5);
+  background-color: hsl(var(--sidebar)) !important;
+  box-shadow: none !important;
 }
 
-
-
-
-
-
+/* Add circle around today's day number - using same color as week view today header */
+.fc-day-today .fc-daygrid-day-number {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 2px solid hsl(var(--accent));
+  color: hsl(var(--accent));
+  font-weight: 600;
+  margin: 4px;
+}
 
 .fc-daygrid-day-number {
   position: relative;
@@ -375,6 +384,19 @@
     font-size: 14px;
     width: 18px;
     height: 18px;
+  }
+  
+  /* Responsive weekday headers */
+  .fc-col-header-cell {
+    padding: 6px 2px;
+    font-size: 10px;
+  }
+  
+  /* Responsive today circle */
+  .fc-day-today .fc-daygrid-day-number {
+    width: 24px;
+    height: 24px;
+    margin: 2px;
   }
 }
 

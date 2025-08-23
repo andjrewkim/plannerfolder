@@ -141,8 +141,8 @@ const CustomCalendarHeader: React.FC<CustomCalendarHeaderProps> = ({
           </button>
         </div>
 
-        {/* Left-Center: Calendar Navigation (calendar view only) */}
-        {activeAppView === 'calendar' && (
+        {/* Left-Center: Navigation (both calendar and planner views) */}
+        {(activeAppView === 'calendar' || activeAppView === 'your-new-view') && (
           <div className="nav-section">
             <div className="nav-group">
               <button onClick={handlePrevious} className="nav-btn nav-prev">
@@ -166,35 +166,33 @@ const CustomCalendarHeader: React.FC<CustomCalendarHeaderProps> = ({
           <div className="title-container">
             <h1 className="calendar-title">
               <span className="title-text">
-                {activeAppView === 'calendar' ? currentTitle : 'Planner'}
+                {currentTitle}
               </span>
             </h1>
           </div>
         </div>
 
         {/* Right-Center: View Selector (calendar view only) */}
-        {activeAppView === 'calendar' && (
-          <div className="view-section">
-            <div className="view-slider">
-              <div 
-                className="slider-indicator"
-                style={{
-                  transform: `translateX(${viewOptions.findIndex(v => v.key === currentView) * 100}%)`
-                }}
-              />
-              {viewOptions.map((view: ViewOption) => (
-                <button
-                  key={view.key}
-                  onClick={() => handleViewChange(view.key)}
-                  className={`view-btn ${currentView === view.key ? 'active' : ''}`}
-                >
-                  <span className="view-icon">{view.icon}</span>
-                  <span className="view-label">{view.label}</span>
-                </button>
-              ))}
-            </div>
+        <div className="view-section">
+          <div className="view-slider" style={{ visibility: activeAppView === 'calendar' ? 'visible' : 'hidden' }}>
+            <div 
+              className="slider-indicator"
+              style={{
+                transform: `translateX(${viewOptions.findIndex(v => v.key === currentView) * 100}%)`
+              }}
+            />
+            {viewOptions.map((view: ViewOption) => (
+              <button
+                key={view.key}
+                onClick={() => handleViewChange(view.key)}
+                className={`view-btn ${currentView === view.key ? 'active' : ''}`}
+              >
+                <span className="view-icon">{view.icon}</span>
+                <span className="view-label">{view.label}</span>
+              </button>
+            ))}
           </div>
-        )}
+        </div>
 
         {/* Right: Navigation Icons */}
         <div className="nav-icons">

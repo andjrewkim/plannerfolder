@@ -54,6 +54,7 @@ type Theme = {
     chart5: string;
     mainBackground: string;
     sidebarItemColor: string;
+    realsidebar: string;
     sidebar: string;
     header: string;
     card: string;
@@ -97,7 +98,7 @@ export const themes: Theme[] = [
     dark: {
       primary: '220 15% 85%',           // Light grayish text for contrast
       secondary: '220 10% 30%',         // Darker but subtle section bg
-      accent: '217 100% 68%',           // Calmer blue for accents
+      accent: '217 50% 68%',           // Calmer blue for accents
       background: '222 10% %',         // Near-black with a hint of blue
       calendarBackground: '0 0% 0%',  
       foreground: '220 10% 85%',        // Matches primary text
@@ -115,10 +116,12 @@ export const themes: Theme[] = [
       chart4: '45 90% 60%',             // Golden yellow
       chart5: '30 80% 60%',             // Soft orange
 
-      mainBackground: '222 12% 8%',
+      mainBackground: '222 8% 10%',
       sidebarItemColor: '222 10% 18%',
 
-      sidebar: '220 10% 9%',           // Slightly lighter than bg
+      realsidebar: '220 10% 8%',
+
+      sidebar: '220 10% 7%',           // Slightly lighter than bg
       header: '222 50% 50%',             // Very dark header
       card: '220 12% 14%',              // Lighter than background
       button: '217 100% 68%',           // Matches accent
@@ -510,6 +513,7 @@ export const ThemeProvider: React.FC<{children: React.ReactNode}> = ({ children 
       '--button-custom': variables.button,
       '--link-custom': variables.link,
       '--sidebar-item-color': variables.sidebarItemColor,
+      '--real-sidebar': variables.realsidebar
     };
     
     Object.entries(cssVariables).forEach(([property, value]) => {

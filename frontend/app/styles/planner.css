@@ -2,30 +2,29 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100;400;500;600;700&display=swap');
 
 :root {
-  --primary: 220 15% 95%;
-  --secondary: 220 10% 70%;
+  /* CSS custom properties for HSL colors - matching calendar exactly */
+  --primary: 217 90% 55%;
+  --primary-foreground: 210 40% 98%;
+  --secondary: 220 10% 25%;
+  --secondary-foreground: 220 15% 95%;
   --accent: 217 90% 55%;
-  --background: 222 12% 12%;
-  --calendar-background: 220 12% 16%;
+  --accent-foreground: 220 15% 95%;
+  --background: 220 12% 18%;
+  --calendar-background: 222 12% 12%;
   --foreground: 220 15% 95%;
-  --muted: 220 10% 25%;
+  --muted: 220 12% 16%;
   --muted-foreground: 220 10% 55%;
-  --darker-border: 220 10% 20%;
   --border: 220 10% 30%;
+  --darker-border: 220 10% 20%;
   --input: 220 10% 18%;
-  --ring: 217 90% 60%;
-  --chart-1: 12 70% 65%;
-  --chart-2: 160 60% 55%;
-  --chart-3: 200 50% 60%;
-  --chart-4: 45 90% 65%;
-  --chart-5: 30 85% 65%;
-  --main-background: 222 12% 12%;
-  --sidebar-item-color: 220 12% 18%;
-  --sidebar: 220 12% 16%;
-  --header: 220 10% 25%;
+  --ring: 217 90% 55%;
   --card: 220 12% 18%;
-  --button: 217 90% 55%;
-  --link: 217 90% 70%;
+  --card-foreground: 220 15% 95%;
+  --destructive: 0 62.8% 50.6%;
+  --destructive-foreground: 0 85.7% 97.3%;
+  --sidebar: 220 12% 16%;
+  --header: 220 12% 18%;
+  --real-sidebar: 220 12% 16%;
 }
 
 * {
@@ -41,14 +40,28 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  border-radius: 0;
+  border-radius: 8px;
+  height: calc(100vh - 8px);
 }
 
 .planner-header {
   padding: 8px 12px;
   background: linear-gradient(135deg, hsl(var(--card)) 0%, hsl(var(--muted) / 0.1) 100%);
-  border-bottom: 1px solid hsl(var(--darker-border) / 0.4);
+  border-bottom: 2px solid hsl(var(--darker-border) / 0.4);
   flex-shrink: 0;
+  position: relative;
+  overflow: hidden;
+}
+
+.planner-header::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(90deg, transparent 0%, hsl(var(--primary) / 0.02) 50%, transparent 100%);
+  pointer-events: none;
 }
 
 .planner-header h1 {
@@ -57,6 +70,7 @@
   margin: 0;
   color: hsl(var(--primary));
   letter-spacing: -0.025em;
+  text-shadow: 0 1px 2px hsl(var(--foreground) / 0.1);
 }
 
 .planner-content {
@@ -70,7 +84,7 @@
 .sidebar {
   width: clamp(120px, 15vw, 160px);
   background: hsl(var(--sidebar));
-  border-right: 1px solid hsl(var(--darker-border) / 0.4);
+  border-right: 1px solid hsl(var(--darker-border) / 0.2);
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
@@ -79,11 +93,13 @@
 
 .sidebar-header {
   padding: 8px 10px;
-  border-bottom: 1px solid hsl(var(--border) / 0.4);
+  border-bottom: 1px solid hsl(var(--darker-border) / 0.2);
   flex-shrink: 0;
-  height: 46px;
+  height: 38px;
   display: flex;
   align-items: center;
+  background: hsl(var(--calendar-background));
+
 }
 
 .classes-header {
@@ -97,29 +113,27 @@
   font-size: clamp(11px, 1.2vw, 14px);
   font-weight: 600;
   margin: 0;
-  color: hsl(var(--primary));
+  color: hsl(var(--foreground));
 }
 
 .add-class-btn {
   width: 18px;
   height: 18px;
-  border: 1px solid hsl(var(--border));
-  background: hsl(var(--card));
+  border: 1px solid hsl(var(--primary) / 0.3);
+  background: hsl(var(--real-background));
   border-radius: 4px;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
   font-size: 12px;
-  color: hsl(var(--muted-foreground));
-  font-weight: 400;
-  transition: all 0.15s ease;
+  color: hsl(var(--primary-foreground));
+  font-weight: 500;
+  transition: transform 0.15s ease;
 }
 
 .add-class-btn:hover {
-  background: hsl(var(--muted) / 0.3);
-  border-color: hsl(var(--accent));
-  color: hsl(var(--accent));
+  transform: scale(1.05);
 }
 
 .add-class-input {
@@ -130,7 +144,7 @@
 .class-input {
   width: 100%;
   padding: 4px 6px;
-  border: 1px solid hsl(var(--accent));
+  border: 1px solid hsl(var(--primary));
   border-radius: 4px;
   font-size: clamp(10px, 1.1vw, 12px);
   background: hsl(var(--input));
@@ -158,20 +172,20 @@
   align-items: center;
   justify-content: space-between;
   padding: 8px 10px;
-  border-bottom: 1px solid hsl(var(--border) / 0.3);
+  border-bottom: 1px solid hsl(var(--border) / 0.2);
   transition: background-color 0.15s ease;
   background: hsl(var(--sidebar));
   border-right: none;
 }
 
 .class-item:hover {
-  background: hsl(var(--muted) / 0.15);
+  background: hsl(var(--secondary) / 0.15);
 }
 
 .class-name {
   font-size: clamp(11px, 1.2vw, 14px);
   font-weight: 500;
-  color: hsl(var(--primary));
+  color: hsl(var(--foreground));
   flex: 1;
   cursor: pointer;
   padding: 2px 0;
@@ -186,7 +200,7 @@
   background: none;
   font-size: clamp(11px, 1.2vw, 14px);
   font-weight: 500;
-  color: hsl(var(--primary));
+  color: hsl(var(--foreground));
   padding: 2px 0;
   outline: none;
   width: 100%;
@@ -214,8 +228,8 @@
 }
 
 .delete-class-btn:hover {
-  background: hsl(0, 70%, 50%);
-  color: hsl(var(--foreground));
+  background: hsl(var(--destructive));
+  color: hsl(var(--destructive-foreground));
 }
 
 /* Main Grid */
@@ -229,11 +243,11 @@
 
 .grid-header {
   display: grid;
-  grid-template-columns: repeat(7, 1fr);
+  grid-template-columns: repeat(5, 1fr);
   background: hsl(var(--calendar-background));
-  border-bottom: 1px solid hsl(var(--darker-border) / 0.4);
+  border-bottom: 1px solid hsl(var(--darker-border) / 0.2);
   flex-shrink: 0;
-  height: 46px;
+  height: 38px;
 }
 
 .day-header {
@@ -250,62 +264,97 @@
   align-items: center;
   justify-content: center;
   transition: all 0.2s ease;
+  position: relative;
 }
 
 .day-header:last-child {
   border-right: none;
 }
 
-/* Very subtle today highlighting */
+/* Today highlighting */
 .day-header.today {
   color: hsl(var(--accent));
   background: hsl(var(--accent) / 0.04);
   font-weight: 700;
 }
 
+/* Today indicator circle */
+.day-header.today::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  right: 8px;
+  width: 6px;
+  height: 6px;
+  background: hsl(var(--accent));
+  border-radius: 50%;
+  transform: translateY(-50%);
+  box-shadow: 0 0 4px hsl(var(--accent) / 0.5);
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0% {
+    box-shadow: 0 0 4px hsl(var(--accent) / 0.5);
+    opacity: 1;
+  }
+  50% {
+    box-shadow: 0 0 8px hsl(var(--accent) / 0.7);
+    opacity: 0.8;
+  }
+  100% {
+    box-shadow: 0 0 4px hsl(var(--accent) / 0.5);
+    opacity: 1;
+  }
+}
+
 .grid-body {
   flex: 1;
   overflow: auto;
-  background: hsl(var(--main-background));
+  background: hsl(var(--calendar-background));
   scrollbar-width: thin;
-  scrollbar-color: hsl(var(--muted)) hsl(var(--background));
+  scrollbar-color: hsl(var(--muted-foreground) / 0.4) hsl(var(--muted) / 0.1);
 }
 
 .grid-body::-webkit-scrollbar {
-  width: 6px;
+  width: 8px;
 }
 
 .grid-body::-webkit-scrollbar-track {
-  background: hsl(var(--background));
+  background: hsl(var(--muted) / 0.1);
+  border-radius: 4px;
 }
 
 .grid-body::-webkit-scrollbar-thumb {
-  background: hsl(var(--muted));
-  border-radius: 3px;
+  background: linear-gradient(180deg, hsl(var(--muted-foreground) / 0.4) 0%, hsl(var(--muted-foreground) / 0.2) 100%);
+  border-radius: 4px;
+  border: 1px solid hsl(var(--darker-border) / 0.2);
+  transition: all 0.3s ease;
 }
 
 .grid-body::-webkit-scrollbar-thumb:hover {
-  background: hsl(var(--muted-foreground));
+  background: linear-gradient(180deg, hsl(var(--muted-foreground) / 0.6) 0%, hsl(var(--muted-foreground) / 0.4) 100%);
 }
 
 .class-row {
   display: grid;
-  grid-template-columns: repeat(7, 1fr);
-  border-bottom: 1px solid hsl(var(--border) / 0.3);
+  grid-template-columns: repeat(5, 1fr);
+  border-bottom: 1px solid hsl(var(--darker-border));
+  
 }
 
 .class-row:last-child {
-  border-bottom: 1px solid hsl(var(--darker-border) / 0.4);
+  border-bottom: 1px solid hsl(var(--darker-border) / 0.2);
 }
 
 .assignment-cell {
-  background: hsl(var(--sidebar) / 0.95);
+  background: hsl(var(--sidebar));
   padding: 2px;
   display: flex;
   flex-direction: column;
   position: relative;
   overflow: hidden;
-  border-right: 1px solid hsl(var(--border) / 0.3);
+  border-right: 1px solid hsl(var(--border) / 0.2);
   width: 100%;
   max-width: 100%;
 }
@@ -314,42 +363,44 @@
   border-right: none;
 }
 
-/* Very subtle today cell highlighting */
+/* Today cell highlighting */
 .assignment-cell.today-cell {
-  background: hsl(var(--accent) / 0.03);
+  background: hsl(var(--sidebar));
 }
 
 .assignments-list {
+    
   display: flex;
   flex-direction: column;
-  gap: 1px;
+  gap: 2px;
   flex: 1;
   overflow: hidden;
   width: 100%;
   z-index: 1;
   position: relative;
-  height: 100%;
+  align-items: center;
+  margin-top: 1px;
 }
 
 .assignment-item {
   display: flex;
   align-items: center;
-  gap: 4px;
-  padding: 2px 4px;
-  border-radius: 4px;
-  background: hsl(var(--card));
-  border: 1px solid hsl(var(--border) / 0.2);
-  transition: all 0.15s ease;
+  gap: 5px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, hsl(var(--muted) / 0.6) 0%, hsl(var(--muted) / 0.4) 100%);
+  border: 1px solid hsl(var(--border) / 0.3);
+  transition: transform 0.15s ease;
   min-height: 24px;
-  width: 100%;
+  width: 99%;
   max-width: 100%;
   box-sizing: border-box;
   position: relative;
+  overflow: hidden;
+  margin-bottom: 1px;
 }
 
 .assignment-item:hover {
-  background: hsl(var(--muted) / 0.3);
-  border-color: hsl(var(--border) / 0.4);
+  transform: scale(1.01);
 }
 
 .assignment-checkbox {
@@ -362,17 +413,17 @@
 }
 
 .assignment-title {
-  font-size: clamp(12px, 1.3vw, 15px);
-  color: hsl(var(--primary));
+  font-size: clamp(14px, 1.4vw, 14px);
+  color: hsl(var(--foreground));
   flex: 1;
-  line-height: 1.3;
+  line-height: 1.25;
   transition: all 0.15s ease;
   word-wrap: break-word;
   overflow-wrap: break-word;
   min-width: 0;
   max-width: 100%;
   cursor: pointer;
-  padding-right: 12px; /* Reduced space for smaller delete button */
+  padding-right: 12px;
 }
 
 .assignment-title.completed {
@@ -384,8 +435,8 @@
   flex: 1;
   border: none;
   background: none;
-  font-size: clamp(12px, 1.3vw, 15px);
-  color: hsl(var(--primary));
+  font-size: clamp(13px, 1.4vw, 14px);
+  color: hsl(var(--foreground));
   padding: 0;
   outline: none;
   width: 100%;
@@ -393,7 +444,7 @@
   line-height: 1.3;
   word-wrap: break-word;
   resize: none;
-  padding-right: 12px; /* Reduced space for smaller delete button */
+  padding-right: 12px;
 }
 
 .assignment-edit-input::placeholder {
@@ -404,10 +455,10 @@
   position: absolute;
   top: 1px;
   right: 1px;
-  width: 10px;
-  height: 10px;
+  width: 15px;
+  height: 15px;
   border: none;
-  background: hsl(var(--card) / 0.95);
+  background: hsl(var(--background) / 0.95);
   color: hsl(var(--muted-foreground));
   cursor: pointer;
   display: flex;
@@ -428,35 +479,33 @@
 }
 
 .delete-assignment-btn:hover {
-  background: hsl(0, 70%, 50%);
-  color: hsl(var(--foreground));
+  background: hsl(var(--destructive));
+  color: hsl(var(--destructive-foreground));
 }
 
 .add-assignment-btn {
   position: absolute;
   bottom: 2px;
   right: 2px;
-  width: 16px;
-  height: 16px;
+  width: 20px;
+  height: 20px;
   border: 1px solid hsl(var(--border));
   background: hsl(var(--card));
-  border-radius: 3px;
+  border-radius: 4px;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  font-size: 11px;
+  font-size: 20px;
   color: hsl(var(--accent));
   font-weight: 400;
-  transition: all 0.15s ease;
+  transition: transform 0.15s ease;
   opacity: 0.4;
   z-index: 2;
 }
 
 .add-assignment-btn:hover {
-  background: hsl(var(--accent));
-  border-color: hsl(var(--accent));
-  color: hsl(var(--foreground));
+  transform: scale(1.1);
   opacity: 1;
 }
 
@@ -477,7 +526,7 @@
   .assignment-item {
     padding: 2px 3px;
     min-height: 22px;
-    gap: 3px;
+    gap:3px;
   }
 }
 
@@ -535,6 +584,13 @@
     height: 14px;
     font-size: 10px;
   }
+
+  /* Adjust today indicator for smaller screens */
+  .day-header.today::after {
+    width: 5px;
+    height: 5px;
+    right: 6px;
+  }
 }
 
 @media (max-width: 640px) {
@@ -576,6 +632,13 @@
   .grid-header {
     height: 40px;
   }
+
+  /* Further adjust today indicator for mobile */
+  .day-header.today::after {
+    width: 4px;
+    height: 4px;
+    right: 4px;
+  }
 }
 
 /* High DPI / Zoom adjustments */
@@ -604,6 +667,13 @@
   .class-item {
     padding: 10px 12px;
   }
+
+  /* Larger today indicator for big screens */
+  .day-header.today::after {
+    width: 7px;
+    height: 7px;
+    right: 10px;
+  }
 }
 
 /* Very large screens */
@@ -615,5 +685,12 @@
   .assignment-item {
     min-height: 32px;
     padding: 4px 6px;
+  }
+
+  /* Even larger today indicator for very large screens */
+  .day-header.today::after {
+    width: 8px;
+    height: 8px;
+    right: 12px;
   }
 }

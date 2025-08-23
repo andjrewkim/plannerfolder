@@ -41,16 +41,67 @@ const Planner: React.FC<PlannerProps> = ({
   const [editingAssignment, setEditingAssignment] = useState<string | null>(null);
   const [editingAssignmentValue, setEditingAssignmentValue] = useState('');
   const [newAssignmentInputs, setNewAssignmentInputs] = useState<Record<string, string>>({});
+  
+  // New state for day navigation
+  const [currentDayOffset, setCurrentDayOffset] = useState(0); // 0 = today, -1 = yesterday, 1 = tomorrow
 
   // Create a dummy ref for the header (not used in planner but required by header component)
   const dummyCalendarRef = useRef(null);
 
   const daysOfWeek = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
   const daysOfWeekDisplay = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-  const today = new Date().toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
 
   // Get organized assignments
   const organizedAssignments = getAssignmentsByClassAndDay();
+
+  // Get the 5 days to display based on current offset
+  const getFiveDaysToShow = () => {
+    const today = new Date();
+    const startDate = new Date(today);
+    startDate.setDate(today.getDate() + currentDayOffset - 1); // Start from yesterday relative to current offset
+
+    const days = [];
+    for (let i = 0; i < 5; i++) {
+      const date = new Date(startDate);
+      date.setDate(startDate.getDate() + i);
+      const dayName = date.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
+      const dayIndex = daysOfWeek.indexOf(dayName);
+      
+      days.push({
+        date: date,
+        dayName: dayName,
+        displayName: daysOfWeekDisplay[dayIndex],
+        isToday: date.toDateString() === today.toDateString(),
+        dayNumber: date.getDate()
+      });
+    }
+    return days;
+  };
+
+  // Get current title based on the view window
+  const getCurrentTitle = () => {
+    const centerDate = new Date();
+    centerDate.setDate(centerDate.getDate() + currentDayOffset);
+    return centerDate.toLocaleDateString('en-US', { 
+      month: 'long', 
+      year: 'numeric' 
+    });
+  };
+
+  const fiveDays = getFiveDaysToShow();
+
+  // Navigation functions for the header
+  const handlePrevious = () => {
+    setCurrentDayOffset(prev => prev - 1);
+  };
+
+  const handleNext = () => {
+    setCurrentDayOffset(prev => prev + 1);
+  };
+
+  const handleToday = () => {
+    setCurrentDayOffset(0);
+  };
 
   const handleAddClass = async () => {
     if (!newClassName.trim()) return;
@@ -171,42 +222,40 @@ const Planner: React.FC<PlannerProps> = ({
 
   const getRowHeight = (classId: string) => {
     let maxAssignments = 0;
-    daysOfWeek.forEach(day => {
-      const dayAssignments = organizedAssignments[classId]?.[day]?.length || 0;
-      const hasNewInput = newAssignmentInputs[`${classId}-${day}`] !== undefined ? 1 : 0;
+    fiveDays.forEach(day => {
+      const dayAssignments = organizedAssignments[classId]?.[day.dayName]?.length || 0;
+      const hasNewInput = newAssignmentInputs[`${classId}-${day.dayName}`] !== undefined ? 1 : 0;
       const totalItems = dayAssignments + hasNewInput;
       if (totalItems > maxAssignments) {
         maxAssignments = totalItems;
       }
     });
     // Minimum height for at least 2 assignments, then expand as needed
-    return Math.max(70, 40 + (Math.max(2, maxAssignments) * 32));
+    return Math.max(70, 40 + (Math.max(2, maxAssignments) * 28));
   };
 
-  const getDayWithDate = (day: string, index: number) => {
-    const currentDate = new Date();
-    const currentDay = currentDate.getDay(); // 0 = Sunday, 1 = Monday, etc.
-    const mondayOffset = currentDay === 0 ? -6 : 1 - currentDay; // Calculate Monday of current week
-    const dayDate = new Date(currentDate);
-    dayDate.setDate(currentDate.getDate() + mondayOffset + index);
-    return `${daysOfWeekDisplay[index]} ${dayDate.getDate()}`;
+  // Create a mock calendar API for the header navigation
+  const mockCalendarApi = {
+    prev: handlePrevious,
+    next: handleNext,
+    today: handleToday,
+    changeView: () => {} // Not used in planner
   };
 
-  // Dummy functions for calendar header (not used in planner)
-  const handleDummyViewChange = (view: string) => {
-    // Not used in planner, but required by header
-    console.log('View change not applicable to planner:', view);
+  const mockCalendarRef = {
+    current: {
+      getApi: () => mockCalendarApi
+    }
   };
 
   if (classes.length === 0) {
-
     return (
       <div className="planner-container">
         <CustomCalendarHeader 
-          calendarRef={dummyCalendarRef}
-          currentTitle="Weekly Planner" 
+          calendarRef={mockCalendarRef}
+          currentTitle={getCurrentTitle()} 
           currentView="planner" 
-          onViewChange={handleDummyViewChange} 
+          onViewChange={() => {}} 
           isAuthenticated={isAuthenticated}
           rightSidebarOpen={rightSidebarOpen}
           activeAppView={activeAppView}
@@ -225,7 +274,9 @@ const Planner: React.FC<PlannerProps> = ({
     error,
     isLoading,
     initialized,
-    classes: classes.map(c => ({ id: c.id, name: c.name }))
+    classes: classes.map(c => ({ id: c.id, name: c.name })),
+    currentDayOffset,
+    fiveDays: fiveDays.map(d => ({ name: d.displayName, isToday: d.isToday }))
   });
 
   // Show fallback classes if not authenticated, or if authenticated but no classes loaded yet
@@ -241,12 +292,12 @@ const Planner: React.FC<PlannerProps> = ({
 
   return (
     <div className="planner-container">
-      {/* Use the same header as Calendar */}
+      {/* Use the same header as Calendar with navigation functionality */}
       <CustomCalendarHeader 
-        calendarRef={dummyCalendarRef}
-        currentTitle="Weekly Planner" // Static title for planner
-        currentView="planner" // Static view identifier
-        onViewChange={handleDummyViewChange} // Dummy function
+        calendarRef={mockCalendarRef}
+        currentTitle={getCurrentTitle()} 
+        currentView="planner" 
+        onViewChange={() => {}} 
         isAuthenticated={isAuthenticated}
         rightSidebarOpen={rightSidebarOpen}
         activeAppView={activeAppView}
@@ -330,9 +381,9 @@ const Planner: React.FC<PlannerProps> = ({
 
         <div className="main-grid">
           <div className="grid-header">
-            {daysOfWeek.map((day, index) => (
-              <div key={day} className={`day-header ${day === today ? 'today' : ''}`}>
-                {getDayWithDate(day, index)}
+            {fiveDays.map((day) => (
+              <div key={day.date.toISOString()} className={`day-header ${day.isToday ? 'today' : ''}`}>
+                {day.displayName} {day.dayNumber}
               </div>
             ))}
           </div>
@@ -344,14 +395,14 @@ const Planner: React.FC<PlannerProps> = ({
                 className="class-row"
                 style={{ height: `${getRowHeight(cls.id)}px` }}
               >
-                {daysOfWeek.map((day) => (
+                {fiveDays.map((day) => (
                   <div 
-                    key={`${cls.id}-${day}`} 
-                    className={`assignment-cell ${day === today ? 'today-cell' : ''}`}
+                    key={`${cls.id}-${day.dayName}`} 
+                    className={`assignment-cell ${day.isToday ? 'today-cell' : ''}`}
                   >
                     <div className="assignments-list">
                       {/* Existing assignments */}
-                      {organizedAssignments[cls.id]?.[day]?.map((assignment) => (
+                      {organizedAssignments[cls.id]?.[day.dayName]?.map((assignment) => (
                         <div key={assignment.id} className="assignment-item">
                           <input
                             type="checkbox"
@@ -390,7 +441,7 @@ const Planner: React.FC<PlannerProps> = ({
                       ))}
                       
                       {/* New assignment input */}
-                      {newAssignmentInputs[`${cls.id}-${day}`] !== undefined && (
+                      {newAssignmentInputs[`${cls.id}-${day.dayName}`] !== undefined && (
                         <div className="assignment-item">
                           <input
                             type="checkbox"
@@ -399,22 +450,22 @@ const Planner: React.FC<PlannerProps> = ({
                           />
                           <input
                             type="text"
-                            value={newAssignmentInputs[`${cls.id}-${day}`] || ''}
-                            onChange={(e) => handleAssignmentInputChange(cls.id, day, e.target.value)}
+                            value={newAssignmentInputs[`${cls.id}-${day.dayName}`] || ''}
+                            onChange={(e) => handleAssignmentInputChange(cls.id, day.dayName, e.target.value)}
                             onKeyDown={(e) => {
                               if (e.key === 'Enter') {
-                                handleCreateAssignment(cls.id, day);
+                                handleCreateAssignment(cls.id, day.dayName);
                               } else if (e.key === 'Escape') {
-                                cancelNewAssignment(cls.id, day);
+                                cancelNewAssignment(cls.id, day.dayName);
                               }
                             }}
-                            onBlur={() => handleCreateAssignment(cls.id, day)}
+                            onBlur={() => handleCreateAssignment(cls.id, day.dayName)}
                             className="assignment-edit-input"
                             autoFocus
                             placeholder="Assignment name"
                           />
                           <button
-                            onClick={() => cancelNewAssignment(cls.id, day)}
+                            onClick={() => cancelNewAssignment(cls.id, day.dayName)}
                             className="delete-assignment-btn"
                             title="Cancel"
                           >
@@ -427,10 +478,10 @@ const Planner: React.FC<PlannerProps> = ({
                     {/* Only show add button for authenticated users and non-temp classes */}
                     {isAuthenticated && !String(cls.id).startsWith('temp-') && (
                       <button 
-                        onClick={() => handleAddAssignment(cls.id, day)}
+                        onClick={() => handleAddAssignment(cls.id, day.dayName)}
                         className="add-assignment-btn"
                         title="Add assignment"
-                        disabled={newAssignmentInputs[`${cls.id}-${day}`] !== undefined}
+                        disabled={newAssignmentInputs[`${cls.id}-${day.dayName}`] !== undefined}
                       >
                         +
                       </button>

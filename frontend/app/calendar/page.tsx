@@ -388,7 +388,7 @@ const AppContent: React.FC<AppContentProps> = ({
         .main-content-area {
           position: fixed;
           top: 0;
-          left: 279px; /* Sidebar width */
+          left: 278px; /* Sidebar width */
           right: 0; /* Always extend to right edge since sidebar is hidden */
           bottom: 0;
           transition: right 0.3s ease;
