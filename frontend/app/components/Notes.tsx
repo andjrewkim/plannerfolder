@@ -4,7 +4,7 @@ import { Plus, X, Edit2, FileText, List } from 'lucide-react';
 // Mock useNotes hook for demonstration
 const useNotes = () => {
   const [notes, setNotes] = useState([
-    { id: 1, title: "My First Note", content: "Welcome to your notes!\n\nTry the bullet point feature by clicking the list button or pressing Tab at the start of a line.", createdAt: new Date(), updatedAt: new Date() }
+    { id: 1, title: "My First Note", content: "Welcome to your notes!", createdAt: new Date(), updatedAt: new Date() }
   ]);
   const [activeNoteId, setActiveNoteId] = useState(1);
   const [saveStatus, setSaveStatus] = useState('saved');
@@ -344,6 +344,8 @@ const NotesComponent = () => {
         padding: '8px 12px',
         background: 'hsl(var(--calendar-background))',
         borderBottom: '1px solid hsl(var(--border) / 0.5)',
+        borderTop: '1px solid hsl(var(--border) / 0.5)',
+
         flexShrink: 0,
         position: 'relative',
         overflow: 'hidden'
@@ -355,16 +357,15 @@ const NotesComponent = () => {
           left: 0,
           right: 0,
           bottom: 0,
-          background: 'linear-gradient(90deg, transparent 0%, hsl(var(--primary) / 0.02) 50%, transparent 100%)',
+          
           pointerEvents: 'none'
         }}></div>
         <h1 style={{
           fontSize: 'clamp(18px, 2.5vw, 28px)',
           fontWeight: 600,
           margin: 0,
-          color: 'hsl(var(--primary))',
+          color: 'hsl(var(--foreground))',
           letterSpacing: '-0.025em',
-          textShadow: '0 1px 2px hsl(var(--foreground) / 0.1)'
         }}>
           Notes
         </h1>
@@ -755,12 +756,7 @@ const NotesComponent = () => {
                   value={activeNote.content}
                   onChange={(e) => updateTabContent(e.target.value)}
                   onKeyDown={handleKeyDown}
-                  placeholder="Start writing your notes here...
-
-Tips:
-• Press Tab at the start of a line to create a bullet point
-• Press Shift+Tab to remove a bullet point  
-• Press Enter on an empty bullet to exit bullet mode"
+                  placeholder="Start writing your notes here..."
                   style={{
                     width: '100%',
                     height: '100%',
