@@ -293,3 +293,11 @@ class AssignmentSerializer(serializers.ModelSerializer):
         if not value or not value.strip():
             raise serializers.ValidationError("Assignment title cannot be empty.")
         return value.strip()
+    
+    
+from .models import NoteTab
+
+class NoteTabSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = NoteTab
+        fields = ['id', 'title', 'content', 'order']

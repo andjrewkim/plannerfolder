@@ -220,19 +220,80 @@ const Planner: React.FC<PlannerProps> = ({
     }
   };
 
-  const getRowHeight = (classId: string) => {
-    let maxAssignments = 0;
+    // Enhanced getRowHeight function that accounts for text wrapping
+    const getRowHeight = (classId: string) => {
+    let maxHeight = 0;
+    
     fiveDays.forEach(day => {
-      const dayAssignments = organizedAssignments[classId]?.[day.dayName]?.length || 0;
-      const hasNewInput = newAssignmentInputs[`${classId}-${day.dayName}`] !== undefined ? 1 : 0;
-      const totalItems = dayAssignments + hasNewInput;
-      if (totalItems > maxAssignments) {
-        maxAssignments = totalItems;
-      }
+        const dayAssignments = organizedAssignments[classId]?.[day.dayName] || [];
+        const hasNewInput = newAssignmentInputs[`${classId}-${day.dayName}`] !== undefined ? 1 : 0;
+        
+        // Calculate height for this day's column
+        let columnHeight = 0;
+        
+        // Height for existing assignments
+        dayAssignments.forEach(assignment => {
+        // Estimate height based on text length
+        const titleLength = assignment.title?.length || 0;
+        
+        if (titleLength <= 30) {
+            columnHeight += 28; // Single line
+        } else if (titleLength <= 60) {
+            columnHeight += 40; // Two lines
+        } else if (titleLength <= 90) {
+            columnHeight += 56; // Three lines
+        } else {
+            columnHeight += 70; // Four lines or more
+        }
+        });
+        
+        // Height for new input if present
+        if (hasNewInput) {
+        columnHeight += 28; // Default height for input
+        }
+        
+        if (columnHeight > maxHeight) {
+        maxHeight = columnHeight;
+        }
     });
-    // Minimum height for at least 2 assignments, then expand as needed
-    return Math.max(70, 40 + (Math.max(2, maxAssignments) * 28));
-  };
+    
+    // Minimum height + padding
+    return Math.max(70, maxHeight + 40);
+    };
+
+    // Alternative approach using CSS-based dynamic height
+    const getRowHeightCSS = (classId: string) => {
+    // Set a reasonable minimum and let CSS handle the rest
+    let maxAssignments = 0;
+    let hasLongTitles = false;
+    
+    fiveDays.forEach(day => {
+        const dayAssignments = organizedAssignments[classId]?.[day.dayName] || [];
+        const hasNewInput = newAssignmentInputs[`${classId}-${day.dayName}`] !== undefined ? 1 : 0;
+        const totalItems = dayAssignments.length + hasNewInput;
+        
+        if (totalItems > maxAssignments) {
+        maxAssignments = totalItems;
+        }
+        
+        // Check if any assignments have long titles
+        dayAssignments.forEach(assignment => {
+        if (assignment.title?.length > 30) {
+            hasLongTitles = true;
+        }
+        });
+    });
+    
+    // Base calculation with adjustment for long titles
+    let baseHeight = Math.max(70, 40 + (Math.max(2, maxAssignments) * 28));
+    
+    // Add extra height if there are long titles
+    if (hasLongTitles) {
+        baseHeight += 20; // Add some extra padding
+    }
+    
+    return baseHeight;
+    };
 
   // Create a mock calendar API for the header navigation
   const mockCalendarApi = {

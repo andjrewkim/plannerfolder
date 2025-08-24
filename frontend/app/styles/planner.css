@@ -183,7 +183,7 @@
 }
 
 .class-name {
-  font-size: clamp(11px, 1.2vw, 14px);
+  font-size: clamp(14px, 1.2vw, 14px);
   font-weight: 500;
   color: hsl(var(--foreground));
   flex: 1;
@@ -372,14 +372,14 @@
     
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 4px;
   flex: 1;
   overflow: hidden;
   width: 100%;
   z-index: 1;
   position: relative;
   align-items: center;
-  margin-top: 1px;
+  margin-top: 2px;
 }
 
 .assignment-item {
@@ -387,8 +387,8 @@
   align-items: center;
   gap: 5px;
   border-radius: 8px;
-  background: linear-gradient(135deg, hsl(var(--muted) / 0.6) 0%, hsl(var(--muted) / 0.4) 100%);
-  border: 1px solid hsl(var(--border) / 0.3);
+  background: hsl(var(--muted) / 0.4);
+  border: 1px solid hsl(var(--border) / 0.1);
   transition: transform 0.15s ease;
   min-height: 24px;
   width: 99%;
@@ -406,14 +406,14 @@
 .assignment-checkbox {
   width: 12px;
   height: 12px;
-  margin: 0;
+  margin-left: 5px;
   cursor: pointer;
   accent-color: hsl(var(--accent));
   flex-shrink: 0;
 }
 
 .assignment-title {
-  font-size: clamp(14px, 1.4vw, 14px);
+  font-size: clamp(13px, 1.4vw, 13px);
   color: hsl(var(--foreground));
   flex: 1;
   line-height: 1.25;
@@ -435,7 +435,7 @@
   flex: 1;
   border: none;
   background: none;
-  font-size: clamp(13px, 1.4vw, 14px);
+  font-size: clamp(13px, 1.4vw, 1px);
   color: hsl(var(--foreground));
   padding: 0;
   outline: none;

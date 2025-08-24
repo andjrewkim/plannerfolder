@@ -3,12 +3,13 @@ import React, { useState, useEffect } from 'react';
 import { usePostHog } from 'posthog-js/react';
 import Calendar from '../components/Calendar/Calendar';
 import Sidebar from '../components/Sidebar';
-import RightSidebar from '../components/RightSidebar';
 import Planner from '../components/Planner/Planner';
 import '../globals.css';
 import { ThemeProvider } from '../services/themeContext';
 import { useAppState } from '../hooks/useAppState';
 import { authAPI } from '../../lib/auth'; // Adjust path as needed
+import Notes from '../components/Notes';
+
 
 // Define available views (matching your header component)
 type ViewType = 'calendar' | 'your-new-view';
@@ -94,15 +95,13 @@ const AppContent: React.FC<AppContentProps> = ({
     }
   }, [posthog, view, activeView]);
 
-  // Disable scrolling on mount and re-enable on unmount
+  // Don't disable scrolling at all - let everything scroll
   useEffect(() => {
-    document.body.style.overflow = 'hidden';
-    document.documentElement.style.overflow = 'hidden';
+    // Remove any scroll blocking
+    document.body.style.overflow = 'auto';
+    document.documentElement.style.overflow = 'auto';
 
     return () => {
-      document.body.style.overflow = 'auto';
-      document.documentElement.style.overflow = 'auto';
-      
       if (posthog) {
         console.log('Sending manual $pageleave event...');
         posthog.capture('$pageleave', {
@@ -309,14 +308,17 @@ const AppContent: React.FC<AppContentProps> = ({
           />
         </div>
         
-        {/* Planner View */}
+        {/* Planner View with Notes */}
         <div className={`view-component ${activeView === 'your-new-view' ? 'active' : 'hidden'}`}>
           <Planner 
-            rightSidebarOpen={false} // Force to false since we're hiding sidebar
+            rightSidebarOpen={false}
             activeAppView={activeView}
             onAppViewChange={handleAppViewChange}
             isAuthenticated={isAuthenticated}
           />
+            <div style={{ height: '100%', background: '#f9fafb' }}>
+            <Notes />
+          </div>
         </div>
       </div>
     );
@@ -386,13 +388,12 @@ const AppContent: React.FC<AppContentProps> = ({
 
       <style jsx>{`
         .main-content-area {
-          position: fixed;
+          position: absolute;
           top: 0;
-          left: 278px; /* Sidebar width */
-          right: 0; /* Always extend to right edge since sidebar is hidden */
-          bottom: 0;
-          transition: right 0.3s ease;
-          overflow: hidden;
+          left: 278px;
+          right: 0;
+          min-height: 100vh;
+          overflow: visible;
           padding: 0;
         }
 
@@ -405,23 +406,17 @@ const AppContent: React.FC<AppContentProps> = ({
 
         .scaled-view-container {
           width: 85%;
-          height: 80%;
-          margin: 3% auto;
+          min-height: 200vh;
+          margin: 2% auto 50px auto;
           position: relative;
           border-radius: 12px;
           box-shadow: 0 8px 16px -4px rgba(0, 0, 0, 0.1), 0 4px 8px -2px rgba(0, 0, 0, 0.06);
-          overflow: hidden;
+          overflow: visible;
           background: white;
         }
 
         .view-component {
-          position: absolute;
-          top: 0;
-          left: 0;
-          right: 0;
-          bottom: 0;
           width: 100%;
-          height: 100%;
         }
 
         .view-component.active {
@@ -435,6 +430,8 @@ const AppContent: React.FC<AppContentProps> = ({
           opacity: 0;
         }
 
+
+
         @media (max-width: 768px) {
           .main-content-area {
             left: 0;
@@ -443,12 +440,20 @@ const AppContent: React.FC<AppContentProps> = ({
 
           .scaled-view-container {
             width: 90%;
-            height: 85%;
-            margin: 2% auto;
+            height: 88%;
+            margin: 1% auto;
           }
 
           .view-content {
             padding: 15px;
+          }
+
+          .planner-section {
+            width: 100%;
+          }
+
+          .notes-section {
+            width: 100%;
           }
         }
 
@@ -466,9 +471,10 @@ const AppContent: React.FC<AppContentProps> = ({
       `}</style>
 
       <style jsx global>{`
+        /* Allow scrolling */
         html, body {
-          overflow: hidden !important;
-          height: 100%;
+          overflow: auto !important;
+          height: auto;
         }
 
         /* Apply border radius to the container and clip content */
@@ -491,6 +497,16 @@ const AppContent: React.FC<AppContentProps> = ({
         .planner-container {
           border-radius: 12px !important;
         }
+
+        /* Notes component styling adjustments */
+        .notes-section .notes-container {
+          height: 100%;
+          border-radius: 0 0 12px 12px;
+          overflow-y: auto;
+          overflow-x: hidden;
+        }
+
+
       `}</style>
     </div>
   );

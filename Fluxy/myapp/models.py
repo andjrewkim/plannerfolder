@@ -206,3 +206,15 @@ class Assignment(models.Model):
 
     def __str__(self):
         return f"{self.planner_class.name} - {self.title} ({self.day_of_week})"
+    
+    
+    
+    
+class NoteTab(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True)
+    title = models.CharField(max_length=100, default="New Tab")  # tab label
+    content = models.TextField(blank=True)  # the actual notes
+    order = models.PositiveIntegerField(default=0)  # optional: for custom tab ordering
+
+    def __str__(self):
+        return f"{self.title} ({self.user.username})"

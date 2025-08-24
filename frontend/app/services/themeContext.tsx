@@ -100,7 +100,7 @@ export const themes: Theme[] = [
       secondary: '220 10% 30%',         // Darker but subtle section bg
       accent: '217 50% 68%',           // Calmer blue for accents
       background: '222 10% %',         // Near-black with a hint of blue
-      calendarBackground: '0 0% 0%',  
+      calendarBackground: '0 0% 5%',  
       foreground: '220 10% 85%',        // Matches primary text
       muted: '220 8% 18%',              // Soft background elements
       mutedForeground: '220 10% 55%',   // Muted text (descriptions, placeholders)

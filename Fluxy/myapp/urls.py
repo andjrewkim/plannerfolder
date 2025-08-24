@@ -10,6 +10,8 @@ from myapp.views_logout import logout_view
 from myapp.views_check_login import check_login
 from .view_dispatcher import ScheduleInputDispatcher, ScheduleInputParser  # Import the missing views
 from myapp.views_llm_text import llm_text
+from .views_notes import NoteTabListCreateView, NoteTabDetailView
+
 from .user_settings import UserSettingsView
 from rest_framework.routers import DefaultRouter
 from . import views_planner
@@ -32,17 +34,15 @@ urlpatterns = [
     path('api/logout/', logout_view),
     path('api/register/', register_user),
     path('api/login/', login_user),
-    
     path('api/check-login/', check_login),
-    
     path('api/schedule/parse/', ScheduleInputParser.as_view(), name='schedule-parser'),
     #path('parse/', views.parse_time, name='parse_time'),
-    
     path('api/llm-text/', llm_text, name='llm_text'),  # Endpoint for LLM chat text
-    
+    path('api/user-settings/', UserSettingsView.as_view(), name='user-settings'),
+    path('api/', include(router.urls)),
     path('api/user-settings/', UserSettingsView.as_view(), name='user-settings'),
     
-    path('api/', include(router.urls)),
-
+    path('api/notes/', NoteTabListCreateView.as_view(), name='note-list-create'),
+    path('api/notes/<int:pk>/', NoteTabDetailView.as_view(), name='note-detail'),
 ]
  

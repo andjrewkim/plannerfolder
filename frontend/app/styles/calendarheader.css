@@ -16,7 +16,7 @@
 .advanced-calendar-header {
   height: 70px;
   width: 100%;
-  background: var(--bg-primary);
+  background: hsl(var(--background));
   border-bottom: 0px solid var(--border-color);
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
   user-select: none;
