@@ -1,9 +1,9 @@
-// Sidebar.tsx - FIXED VERSION - Removes refresh trigger system
+// Sidebar.tsx - Modified to display classes from usePlanner instead of notes
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import EventForm from './EventForm';
 import '../styles/container.css';
-import { authAPI } from '../../lib/auth';
-import { useAppState, EventDetails, TaskData } from '../hooks/useAppState';
+import { useAppState, EventDetails } from '../hooks/useAppState';
+import { usePlanner, PlannerClass } from '../hooks/usePlanner';
 
 interface EventData {
   id?: string;
@@ -35,54 +35,47 @@ interface APIEvent {
 
 interface SidebarProps {
   onEventChange?: () => void;
-  refreshTrigger?: number; // Keep prop but don't use it
+  refreshTrigger?: number;
 }
 
 interface SectionHeights {
   eventForm: number;
   schedule: number;
-  tasks: number;
+  classes: number;
 }
-
-const LAST_RESET_KEY = 'tasks_last_reset_date';
 
 const Sidebar: React.FC<SidebarProps> = ({ 
   onEventChange, 
-  refreshTrigger // Keep prop but ignore it completely
+  refreshTrigger
 }) => {
   const {
     events,
-    tasks,
     isLoading,
     error,
-    initialized,
-    createTask,
-    deleteTask,
-    setError,
-    initializeData
+    initialized
   } = useAppState();
+
+  const {
+    classes,
+    isLoading: plannerLoading,
+    error: plannerError,
+    initialized: plannerInitialized
+  } = usePlanner();
 
   // Local state
   const [todayEvents, setTodayEvents] = useState<APIEvent[]>([]);
   const [localError, setLocalError] = useState<string | null>(null);
-  const [deletingTasks, setDeletingTasks] = useState<Set<string>>(new Set());
-  const [isAddingTask, setIsAddingTask] = useState<boolean>(false);
-  const [newTaskText, setNewTaskText] = useState<string>('');
   const [eventResults, setEventResults] = useState<EventData[]>([]);
   const [eventError, setEventError] = useState<string | null>(null);
-  const [isCreatingTask, setIsCreatingTask] = useState<boolean>(false);
-  const [isResettingTasks, setIsResettingTasks] = useState<boolean>(false);
   
   // Refs
-  const taskInputRef = useRef<HTMLInputElement>(null);
   const isMountedRef = useRef<boolean>(true);
-  const resetTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Section heights for resizing
   const [sectionHeights, setSectionHeights] = useState<SectionHeights>({
     eventForm: 250,
     schedule: 350,
-    tasks: 350
+    classes: 350
   });
   
   const [activeSection, setActiveSection] = useState<string | null>(null);
@@ -95,9 +88,6 @@ const Sidebar: React.FC<SidebarProps> = ({
   useEffect(() => {
     return () => {
       isMountedRef.current = false;
-      if (resetTimerRef.current) {
-        clearInterval(resetTimerRef.current);
-      }
     };
   }, []);
 
@@ -108,23 +98,19 @@ const Sidebar: React.FC<SidebarProps> = ({
     endTime?: string
   ): { hoursUntil: number | null, status: 'upcoming' | 'ongoing' | 'past' } => {
     try {
-      // Parse the date and time more carefully
-      const dateStr = date.split('T')[0]; // Get YYYY-MM-DD
+      const dateStr = date.split('T')[0];
       let startTimeStr = startTime;
       
-      // Handle different time formats
       if (startTime && !startTime.includes(':')) {
         console.warn('Invalid time format:', startTime);
         return { hoursUntil: null, status: 'past' };
       }
       
-      // Ensure time has seconds
       if (startTimeStr && startTimeStr.split(':').length === 2) {
         startTimeStr += ':00';
       }
       
       const eventStartDateTime = new Date(`${dateStr}T${startTimeStr}`);
-      //console.log('Event start datetime:', eventStartDateTime, 'from', dateStr, startTimeStr);
       
       if (isNaN(eventStartDateTime.getTime())) {
         console.error('Invalid date/time:', dateStr, startTimeStr);
@@ -135,7 +121,6 @@ const Sidebar: React.FC<SidebarProps> = ({
       const startDiffMs = eventStartDateTime.getTime() - now.getTime();
       const startDiffHours = startDiffMs / (1000 * 60 * 60);
       
-      // Check if we have end time for ongoing detection
       if (endTime && endTime.trim()) {
         let endTimeStr = endTime;
         if (endTimeStr.split(':').length === 2) {
@@ -146,15 +131,11 @@ const Sidebar: React.FC<SidebarProps> = ({
         if (!isNaN(eventEndDateTime.getTime())) {
           const endDiffMs = eventEndDateTime.getTime() - now.getTime();
           
-          //console.log('Event end datetime:', eventEndDateTime, 'Start diff hours:', startDiffHours, 'End diff hours:', endDiffMs / (1000 * 60 * 60));
-          
-          // Event is ongoing if we're past start time but before end time
           if (startDiffHours <= 0 && endDiffMs > 0) {
             return { hoursUntil: startDiffHours, status: 'ongoing' };
           }
         }
       }
-      
       
       if (startDiffHours > 0) {
         return { hoursUntil: startDiffHours, status: 'upcoming' };
@@ -203,7 +184,6 @@ const Sidebar: React.FC<SidebarProps> = ({
           return eventDateString === todayString;
         })
         .map((event: EventDetails) => {
-          // Calculate timing info ONCE here during mapping
           const timingInfo = calculateHoursUntil(event.date, event.start_time || '', event.end_time || '');
           
           return {
@@ -213,7 +193,6 @@ const Sidebar: React.FC<SidebarProps> = ({
             start_time: event.start_time || '',
             end_time: event.end_time || '',
             color: event.color,
-            // Store the calculated timing info
             timingInfo
           };
         })
@@ -227,246 +206,17 @@ const Sidebar: React.FC<SidebarProps> = ({
     }
   }, [events, calculateHoursUntil]);
 
-  // REMOVED: No more refreshTrigger handling - let useAppState handle everything
-
-  // Focus input when adding task
-  useEffect(() => {
-    if (isAddingTask && taskInputRef.current && isMountedRef.current) {
-      taskInputRef.current.focus();
-    }
-  }, [isAddingTask]);
-
-  // SIMPLIFIED: Event result handler - no more manual refresh calls
+  // Event result handler
   const handleEventResult = useCallback(async (results: EventData[]) => {
     if (!isMountedRef.current) return;
 
     console.log('Event created - notifying parent component');
     setEventResults(results);
     
-    // Notify parent component that events have changed
     if (onEventChange) {
       onEventChange();
     }
   }, [onEventChange]);
-  // Task area click handler
-  const handleTaskAreaClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
-    if (!isMountedRef.current || isCreatingTask) return;
-
-    const target = e.target as HTMLElement;
-    const clickableClasses = ['section-content', 'empty-state', 'clickable-area'];
-    
-    if (clickableClasses.includes(target.className)) {
-      setIsAddingTask(true);
-      setLocalError(null);
-    }
-  }, [isCreatingTask]);
-
-  // Reset daily tasks with proper guards
-  const resetDailyTasks = useCallback(async (): Promise<void> => {
-    if (isResettingTasks || !isMountedRef.current || !authAPI.isAuthenticated()) {
-      //console.log('Reset blocked - already in progress or not authenticated');
-      return;
-    }
-
-    setIsResettingTasks(true);
-    //console.log('Starting daily task reset...');
-
-    try {
-      const regularTasks = tasks.filter((task: TaskData) => 
-        !task.date || task.date !== "longterm"
-      );
-      
-      //console.log(`Found ${regularTasks.length} regular tasks to reset`);
-
-      // Create a snapshot of tasks to recreate
-      const tasksToRecreate = regularTasks.map((task: TaskData) => ({
-        event: task.event,
-        date: null as null
-      }));
-
-      // Delete existing regular tasks with better error handling
-      const deletePromises = regularTasks
-        .filter((task: TaskData) => task.id)
-        .map(async (task: TaskData) => {
-          if (!isMountedRef.current) return false;
-          try {
-            //console.log('Deleting task:', task.event);
-            return await deleteTask(task.id!);
-          } catch (error) {
-            console.error('Error deleting task:', task.id, error);
-            return false;
-          }
-        });
-
-      await Promise.all(deletePromises);
-
-      // Wait a bit to ensure deletions are processed
-      await new Promise(resolve => setTimeout(resolve, 500));
-
-      if (!isMountedRef.current) return;
-
-      // Recreate tasks with better error handling
-      const createPromises = tasksToRecreate.map(async (taskData) => {
-        if (!isMountedRef.current) return null;
-        try {
-          //console.log('Recreating task:', taskData.event);
-          return await createTask(taskData);
-        } catch (error) {
-          console.error('Error recreating task:', taskData.event, error);
-          return null;
-        }
-      });
-
-      await Promise.all(createPromises);
-      
-      //console.log('Daily tasks reset completed successfully');
-    } catch (error) {
-      console.error('Error during task reset:', error);
-      if (isMountedRef.current) {
-        setLocalError('Failed to reset daily tasks');
-      }
-    } finally {
-      if (isMountedRef.current) {
-        setIsResettingTasks(false);
-      }
-    }
-  }, [tasks, deleteTask, createTask, isResettingTasks]);
-
-  // Check and reset tasks with proper date handling
-  const checkAndResetTasks = useCallback(async (): Promise<void> => {
-    if (!isMountedRef.current || !authAPI.isAuthenticated() || !initialized || isResettingTasks) {
-      return;
-    }
-
-    const today = new Date();
-    const todayFormatted = today.toISOString().split('T')[0];
-    const lastResetDate = localStorage.getItem(LAST_RESET_KEY);
-
-    //console.log('Checking reset - Today:', todayFormatted, 'Last reset:', lastResetDate);
-
-    if (lastResetDate !== todayFormatted) {
-      //console.log('New day detected, resetting tasks...');
-      await resetDailyTasks();
-      
-      if (isMountedRef.current) {
-        localStorage.setItem(LAST_RESET_KEY, todayFormatted);
-      }
-    }
-  }, [resetDailyTasks, initialized, isResettingTasks]);
-
-  // Create task handler with better validation
-  const handleCreateTask = useCallback(async (e: React.FormEvent<HTMLFormElement>): Promise<void> => {
-    e.preventDefault();
-    
-    if (!isMountedRef.current || isCreatingTask) return;
-    
-    const trimmedText = newTaskText.trim();
-    if (!trimmedText) {
-      setLocalError('Task title cannot be empty');
-      return;
-    }
-
-    if (!authAPI.isAuthenticated()) {
-      setLocalError('Please log in to create tasks');
-      return;
-    }
-
-    setIsCreatingTask(true);
-    setLocalError(null);
-
-    try {
-      console.log('Creating task with data:', {
-        event: trimmedText,
-        date: null
-      });
-
-      const taskData = {
-        event: trimmedText,
-        date: null as null
-      };
-
-      const newTask = await createTask(taskData);
-
-      if (newTask && isMountedRef.current) {
-        //console.log('Task created successfully:', newTask);
-        setNewTaskText('');
-        
-        // Keep form open for continuous adding
-        if (taskInputRef.current) {
-          taskInputRef.current.focus();
-        }
-      } else {
-        console.error('Task creation returned null');
-        if (isMountedRef.current) {
-          setLocalError('Failed to create task - no response from server');
-        }
-      }
-    } catch (error) {
-      console.error('Error creating task:', error);
-      if (isMountedRef.current) {
-        const errorMessage = error instanceof Error ? error.message : 'unknown error';
-        setLocalError(`Failed to create task: ${errorMessage}`);
-      }
-    } finally {
-      if (isMountedRef.current) {
-        setIsCreatingTask(false);
-      }
-    }
-  }, [newTaskText, createTask, isCreatingTask]);
-
-  // Cancel task creation
-  const handleCancelTask = useCallback((): void => {
-    if (!isMountedRef.current) return;
-    
-    setIsAddingTask(false);
-    setNewTaskText('');
-    setLocalError(null);
-  }, []);
-
-  // Task completion handler
-  const handleTaskComplete = useCallback(async (taskId: string): Promise<void> => {
-    if (!isMountedRef.current || deletingTasks.has(taskId)) return;
-    
-    if (!authAPI.isAuthenticated()) {
-      setLocalError('Please log in to manage tasks');
-      return;
-    }
-
-    setDeletingTasks(prev => new Set([...Array.from(prev), taskId]));
-    
-    // Delay for animation
-    setTimeout(async () => {
-      if (!isMountedRef.current) return;
-
-      try {
-        //console.log('Completing task:', taskId);
-        const success = await deleteTask(taskId);
-        
-        if (success) {
-          //console.log('Task completed successfully');
-          setLocalError(null);
-        } else {
-          console.error('Task deletion failed');
-          if (isMountedRef.current) {
-            setLocalError('Failed to complete task');
-          }
-        }
-      } catch (error) {
-        console.error('Error completing task:', error);
-        if (isMountedRef.current) {
-          setLocalError('Failed to complete task');
-        }
-      } finally {
-        if (isMountedRef.current) {
-          setDeletingTasks(prev => {
-            const newSet = new Set(prev);
-            newSet.delete(taskId);
-            return newSet;
-          });
-        }
-      }
-    }, 400);
-  }, [deleteTask, deletingTasks]);
 
   // Format event time
   const formatEventTime = useCallback((date: string, time: string): string => {
@@ -491,7 +241,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     startYRef.current = e.clientY;
     startHeightRef.current = heightsRef.current[section as keyof SectionHeights];
     
-    const sections = ['eventForm', 'schedule', 'tasks'];
+    const sections = ['eventForm', 'schedule', 'classes'];
     const sectionIndex = sections.indexOf(section);
     const nextSectionIndex = sectionIndex + 1;
     const nextSection = nextSectionIndex < sections.length ? sections[nextSectionIndex] : null;
@@ -542,33 +292,39 @@ const Sidebar: React.FC<SidebarProps> = ({
     document.addEventListener('mouseup', handleMouseUp);
   }, []);
 
-  // Reset timer effect with proper cleanup
-  useEffect(() => {
-    if (!authAPI.isAuthenticated() || !initialized) return;
-
-    // Clear existing timer
-    if (resetTimerRef.current) {
-      clearInterval(resetTimerRef.current);
-    }
-
-    // Initial check
-    checkAndResetTasks();
-
-    // Set up new timer
-    resetTimerRef.current = setInterval(checkAndResetTasks, 60 * 60 * 1000);
-
-    return () => {
-      if (resetTimerRef.current) {
-        clearInterval(resetTimerRef.current);
-        resetTimerRef.current = null;
-      }
-    };
-  }, [checkAndResetTasks, initialized]);
-
   // Cleanup resize effect
   useEffect(() => {
     return () => {
       document.body.classList.remove('resizing');
+    };
+  }, []);
+
+  // Calculate dynamic sizing to fit all classes without scrolling
+  const calculateClassDimensions = useCallback((containerHeight: number, classCount: number) => {
+    if (classCount === 0) return { padding: '4px 6px', fontSize: '14px' };
+    
+    // Available height for all classes (subtract small buffer)
+    const availableHeight = containerHeight - 8;
+    
+    // Total height per class including 1px gap (except for last item)
+    const heightPerClass = availableHeight / classCount;
+    
+    // Calculate optimal padding - minimum content needs ~16px (text + spacing)
+    const minContentHeight = 16;
+    const availablePaddingHeight = Math.max(0, heightPerClass - minContentHeight);
+    
+    // Calculate vertical padding (split between top/bottom)
+    const verticalPadding = Math.max(1, Math.floor(availablePaddingHeight / 2));
+    
+    // Adjust font size based on available space
+    let fontSize = 14;
+    if (heightPerClass < 20) fontSize = 12;
+    else if (heightPerClass < 24) fontSize = 13;
+    else if (heightPerClass > 40) fontSize = 15;
+    
+    return {
+      padding: `${verticalPadding}px 6px`,
+      fontSize: `${fontSize}px`
     };
   }, []);
 
@@ -577,13 +333,8 @@ const Sidebar: React.FC<SidebarProps> = ({
     heightsRef.current = sectionHeights;
   }, [sectionHeights]);
 
-  // Filter regular tasks - tasks with null date or not "longterm"
-  const regularTasks = tasks.filter((task: TaskData) => 
-    !task.date || task.date !== "longterm"
-  );
-
   // Determine error to display
-  const displayError = localError || error;
+  const displayError = localError || error || plannerError;
 
   // Loading state
   if (isLoading) {
@@ -597,307 +348,262 @@ const Sidebar: React.FC<SidebarProps> = ({
       </div>
     );
   }
-return (
-  <div className="app-layout">
-    <aside
-      className="app-sidebar bg-[hsl(var(--background))] text-[hsl(var(--foreground))]"
-      style={{ overflowY: 'auto', maxHeight: '100vh' }}
-    >
 
-      {/* Event Form Section */}
-      <section 
-        className={`sidebar-section ${activeSection === 'eventForm' ? 'resizing' : ''}`}
-        data-section="eventForm"
-        style={{ 
-          marginTop: '10px', 
-          height: `${sectionHeights.eventForm}px`,
-          minHeight: '120px',
-          transition: isResizing ? 'none' : 'height 0.2s ease-out'
-        }}
+  return (
+    <div className="app-layout">
+      <aside
+        className="app-sidebar bg-[hsl(var(--background))] text-[hsl(var(--foreground))]"
+        style={{ overflowY: 'auto', maxHeight: '100vh' }}
       >
-        <h3 className="section-title">Create Event</h3>
-        <div className="section-content" style={{ 
-          overflow: 'auto',  // Changed from 'hidden' to 'auto'
-          height: 'calc(100% - 40px)',  // Adjust based on your title height
-          maxHeight: 'calc(100% - 40px)'
-        }}>
-          <EventForm 
-            setResult={setEventResults} 
-            setError={setEventError}
-            onEventResult={handleEventResult}
-          />
-        </div>
-        <div 
-          className={`resize-handle ${activeSection === 'eventForm' ? 'resizing' : ''}`}
-          onMouseDown={startResize('eventForm')}
-        />
-      </section>
 
-      {/* Today's Schedule Section */}
-      <section 
-        className={`sidebar-section ${activeSection === 'schedule' ? 'resizing' : ''}`}
-        data-section="schedule"
-        style={{ 
-          height: `${sectionHeights.schedule}px`,
-          minHeight: '120px',
-          transition: isResizing ? 'none' : 'height 0.2s ease-out'
-        }}
-      >
-        <h3 className="section-title">Today's Schedule</h3>
-        <div className="section-content" style={{ overflowY: 'auto', maxHeight: `${sectionHeights.schedule - 60}px` }}>
-          {displayError && !isLoading ? (
-            <div className="error-message" style={{ color: 'red', padding: '10px' }}>
-              {displayError}
-            </div>
-          ) : !initialized ? (
-            <div className="loading-message">Loading events...</div>
-          ) : todayEvents.length > 0 ? (
-            <ul className="event-list">
-              {todayEvents.map((event, index) => {
-                // Use pre-calculated timing info
-                const { hoursUntil, status } = event.timingInfo || { hoursUntil: null, status: 'past' as const };
-                
-                // Find the first upcoming event for timer display
-                const firstUpcomingIndex = todayEvents.findIndex(e => 
-                  e.timingInfo?.status === 'upcoming'
-                );
-                
-                const showTimer = status === 'upcoming' && index === firstUpcomingIndex && hoursUntil !== null;
-                
-                return (
-                  <li
-                    key={event.id}
-                    className="event-item"
-                    style={{
-                      '--event-color': event.color,
-                      ...(status === 'past' && {
-                        opacity: 0.5
-                      }),
-                      ...(status === 'ongoing' && {
-                        backgroundColor: 'rgba(0, 123, 255, 0.1)',
-                      })
-                    } as React.CSSProperties}
-                  >
-                    <span 
-                      className="event-name"
-                      style={{
-                        ...(status === 'past' && {
-                          textDecoration: 'line-through',
-                          color: '#888'
-                        })
-                      }}
-                    >
-                      {event.event_name}
-                      {status === 'ongoing' && (
-                        <span style={{
-                          marginLeft: '8px',
-                          fontSize: '11px',
-                          color: '#007bff',
-                          fontWeight: 'bold'
-                        }}>
-                          LIVE
-                        </span>
-                      )}
-                    </span>
-                    <span 
-                      className="event-time"
-                      style={{
-                        ...(status === 'past' && {
-                          textDecoration: 'line-through',
-                          color: '#888'
-                        })
-                      }}
-                    >
-                      {showTimer && hoursUntil !== null && (
-                        <span style={{ 
-                          fontSize: '11px', 
-                          fontWeight: 'bold', 
-                          color: '#007bff',
-                          marginRight: '8px'
-                        }}>
-                          (in {formatHoursUntil(hoursUntil)})
-                        </span>
-                      )}
-                      {status === 'ongoing' && event.end_time ? 
-                        `ends at: ${formatEventTime(event.date, event.end_time)}` :
-                        formatEventTime(event.date, event.start_time)
-                      }
-                    </span>
-                  </li>
-                );
-              })}
-            </ul>
-          ) : (
-            <div className="empty-state">No events for today</div>
-          )}
-        </div>
-        <div 
-          className={`resize-handle ${activeSection === 'schedule' ? 'active' : ''}`}
-          onMouseDown={startResize('schedule')}
-        />
-      </section>
-
-      {/* Tasks Section */}
-      <section 
-        className="sidebar-section"
-        data-section="tasks"
-        style={{ 
-          height: `${sectionHeights.tasks}px`,
-          minHeight: '120px',
-          transition: isResizing ? 'none' : 'height 0.2s ease-out'
-        }}
-      >
-        <h3 className="section-title">
-          Tasks
-          {isResettingTasks && (
-            <span style={{
-              marginLeft: '8px',
-              fontSize: '12px',
-              color: '#007bff',
-              fontWeight: 'normal'
-            }}>
-              (Resetting...)
-            </span>
-          )}
-        </h3>
-        <div 
-          className="section-content clickable-area"
-          onClick={handleTaskAreaClick}
+        {/* Event Form Section */}
+        <section 
+          className={`sidebar-section ${activeSection === 'eventForm' ? 'resizing' : ''}`}
+          data-section="eventForm"
           style={{ 
-            overflowY: 'auto', 
-            maxHeight: `${sectionHeights.tasks - 60}px`
+            marginTop: '10px', 
+            height: `${sectionHeights.eventForm}px`,
+            minHeight: '120px',
+            transition: isResizing ? 'none' : 'height 0.2s ease-out'
           }}
         >
-          {!initialized ? (
-            <div className="loading-message">Loading tasks...</div>
-          ) : (
-            <>
-              {regularTasks.length > 0 && (
-                <ul className="task-list">
-                  {regularTasks.map((task) => (
-                    <li 
-                      key={task.id} 
-                      className={`task-item ${deletingTasks.has(task.id || '') ? 'deleting' : ''}`}
+          <h3 className="section-title">Create Event</h3>
+          <div className="section-content" style={{ 
+            overflow: 'auto',
+            height: 'calc(100% - 40px)',
+            maxHeight: 'calc(100% - 40px)'
+          }}>
+            <EventForm 
+              setResult={setEventResults} 
+              setError={setEventError}
+              onEventResult={handleEventResult}
+            />
+          </div>
+          <div 
+            className={`resize-handle ${activeSection === 'eventForm' ? 'resizing' : ''}`}
+            onMouseDown={startResize('eventForm')}
+          />
+        </section>
+
+        {/* Today's Schedule Section */}
+        <section 
+          className={`sidebar-section ${activeSection === 'schedule' ? 'resizing' : ''}`}
+          data-section="schedule"
+          style={{ 
+            height: `${sectionHeights.schedule}px`,
+            minHeight: '120px',
+            transition: isResizing ? 'none' : 'height 0.2s ease-out'
+          }}
+        >
+          <h3 className="section-title">Today's Schedule</h3>
+          <div className="section-content" style={{ overflowY: 'auto', maxHeight: `${sectionHeights.schedule - 60}px` }}>
+            {displayError && !isLoading ? (
+              <div className="error-message" style={{ color: 'red', padding: '10px' }}>
+                {displayError}
+              </div>
+            ) : !initialized ? (
+              <div className="loading-message">Loading events...</div>
+            ) : todayEvents.length > 0 ? (
+              <ul className="event-list">
+                {todayEvents.map((event, index) => {
+                  const { hoursUntil, status } = event.timingInfo || { hoursUntil: null, status: 'past' as const };
+                  
+                  const firstUpcomingIndex = todayEvents.findIndex(e => 
+                    e.timingInfo?.status === 'upcoming'
+                  );
+                  
+                  const showTimer = status === 'upcoming' && index === firstUpcomingIndex && hoursUntil !== null;
+                  
+                  return (
+                    <li
+                      key={event.id}
+                      className="event-item"
                       style={{
-                        opacity: deletingTasks.has(task.id || '') ? 0.5 : 1,
-                        transition: 'opacity 0.3s ease'
-                      }}
+                        '--event-color': event.color,
+                        ...(status === 'past' && {
+                          opacity: 0.5
+                        }),
+                        ...(status === 'ongoing' && {
+                          backgroundColor: 'rgba(0, 123, 255, 0.1)',
+                        })
+                      } as React.CSSProperties}
                     >
-                      <label className="task-label">
-                        <input
-                          type="checkbox"
-                          onChange={() => task.id && handleTaskComplete(task.id)}
-                          className="task-checkbox"
-                          disabled={deletingTasks.has(task.id || '') || isResettingTasks}
-                        />
+                      <span 
+                        className="event-name"
+                        style={{
+                          ...(status === 'past' && {
+                            textDecoration: 'line-through',
+                            color: '#888'
+                          })
+                        }}
+                      >
+                        {event.event_name}
+                        {status === 'ongoing' && (
+                          <span style={{
+                            marginLeft: '8px',
+                            fontSize: '11px',
+                            color: '#007bff',
+                            fontWeight: 'bold'
+                          }}>
+                            LIVE
+                          </span>
+                        )}
+                      </span>
+                      <span 
+                        className="event-time"
+                        style={{
+                          ...(status === 'past' && {
+                            textDecoration: 'line-through',
+                            color: '#888'
+                          })
+                        }}
+                      >
+                        {showTimer && hoursUntil !== null && (
+                          <span style={{ 
+                            fontSize: '11px', 
+                            fontWeight: 'bold', 
+                            color: '#007bff',
+                            marginRight: '8px'
+                          }}>
+                            (in {formatHoursUntil(hoursUntil)})
+                          </span>
+                        )}
+                        {status === 'ongoing' && event.end_time ? 
+                          `ends at: ${formatEventTime(event.date, event.end_time)}` :
+                          formatEventTime(event.date, event.start_time)
+                        }
+                      </span>
+                    </li>
+                  );
+                })}
+              </ul>
+            ) : (
+              <div className="empty-state">No events for today</div>
+            )}
+          </div>
+          <div 
+            className={`resize-handle ${activeSection === 'schedule' ? 'active' : ''}`}
+            onMouseDown={startResize('schedule')}
+          />
+        </section>
+
+        {/* Classes Section */}
+        <section 
+          className="sidebar-section"
+          data-section="classes"
+          style={{ 
+            height: `${sectionHeights.classes}px`,
+            minHeight: '120px',
+            transition: isResizing ? 'none' : 'height 0.2s ease-out'
+          }}
+        >
+          <h3 className="section-title">My Classes</h3>
+          <div 
+            className="section-content"
+            style={{ 
+              height: `${sectionHeights.classes - 60}px`,
+              padding: '4px 8px 4px 8px',
+              overflow: 'hidden'
+            }}
+          >
+            {plannerLoading ? (
+              <div className="loading-message">Loading classes...</div>
+            ) : plannerError ? (
+              <div className="error-message" style={{ color: 'red' }}>
+                Error loading classes: {plannerError}
+              </div>
+            ) : !plannerInitialized ? (
+              <div className="loading-message">Initializing planner...</div>
+            ) : classes && classes.length > 0 ? (
+              <div className="classes-list" style={{ 
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '1px',
+                height: '100%'
+              }}>
+                {classes
+                  .sort((a, b) => a.order - b.order)
+                  .map((plannerClass: PlannerClass, index) => {
+                    const dimensions = calculateClassDimensions(sectionHeights.classes - 68, classes.length);
+                    
+                    return (
+                      <div
+                        key={plannerClass.id}
+                        className="class-item"
+                        style={{
+                          padding: dimensions.padding,
+                          backgroundColor: 'var(--muted, #f8f9fa)',
+                          borderRadius: '3px',
+                          color: 'var(--foreground, #000)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          transition: 'background-color 0.1s ease',
+                          flex: 1,
+                          minHeight: 0
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.backgroundColor = 'var(--accent, #e9ecef)';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.backgroundColor = 'var(--muted, #f8f9fa)';
+                        }}
+                      >
                         <span 
-                          className="task-text"
+                          className="class-number"
                           style={{
-                            color: 'var(--foreground, #000)',
-                            fontSize: '14px',
-                            lineHeight: '1.4'
+                            fontSize: dimensions.fontSize === '15px' ? '13px' : 
+                                     dimensions.fontSize === '14px' ? '12px' : 
+                                     dimensions.fontSize === '13px' ? '11px' : '10px',
+                            color: 'var(--muted-foreground, #6c757d)',
+                            fontWeight: '600',
+                            minWidth: '12px',
+                            textAlign: 'center'
                           }}
                         >
-                          {task.event}
+                          {index + 1}
                         </span>
-                      </label>
-                    </li>
-                  ))}
-                </ul>
-              )}
-              
-              {isAddingTask ? (
-                <form onSubmit={handleCreateTask} className="task-form">
-                  <input
-                    type="text"
-                    ref={taskInputRef}
-                    value={newTaskText}
-                    onChange={(e) => setNewTaskText(e.target.value)}
-                    placeholder="Enter new task..."
-                    className="task-input"
-                    disabled={isCreatingTask || isResettingTasks}
-                    style={{
-                      width: '100%',
-                      padding: '8px',
-                      border: '1px solid #ccc',
-                      borderRadius: '4px',
-                      fontSize: '14px'
-                    }}
-                  />
-                  <div className="task-form-buttons" style={{ marginTop: '8px' }}>
-                    <button 
-                      type="submit" 
-                      className="btn btn-save"
-                      disabled={isCreatingTask || !newTaskText.trim() || isResettingTasks}
-                      style={{
-                        padding: '6px 12px',
-                        marginRight: '8px',
-                        backgroundColor: (isCreatingTask || isResettingTasks) ? '#ccc' : '#007bff',
-                        color: 'white',
-                        border: 'none',
-                        borderRadius: '4px',
-                        cursor: (isCreatingTask || isResettingTasks) ? 'not-allowed' : 'pointer'
-                      }}
-                    >
-                      {isCreatingTask ? 'Saving...' : 'Save'}
-                    </button>
-                    <button 
-                      type="button" 
-                      className="btn btn-cancel"
-                      onClick={handleCancelTask}
-                      disabled={isCreatingTask || isResettingTasks}
-                      style={{
-                        padding: '6px 12px',
-                        backgroundColor: '#6c757d',
-                        color: 'white',
-                        border: 'none',
-                        borderRadius: '4px',
-                        cursor: (isCreatingTask || isResettingTasks) ? 'not-allowed' : 'pointer'
-                      }}
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                  {localError && (
-                    <div className="error-message" style={{ 
-                      color: 'red', 
-                      fontSize: '12px', 
-                      marginTop: '4px' 
-                    }}>
-                      {localError}
-                    </div>
-                  )}
-                </form>
-              ) : (
-                <div className="empty-state" style={{ 
-                  padding: '20px', 
-                  textAlign: 'center', 
-                  color: '#666',
-                  cursor: isResettingTasks ? 'not-allowed' : 'pointer',
-                  opacity: isResettingTasks ? 0.5 : 1
-                }}>
-                  {regularTasks.length === 0 ? (
-                    isResettingTasks ? 'Resetting tasks...' : 'Click here to add tasks'
-                  ) : (
-                    isResettingTasks ? 'Resetting tasks...' : 'Click here to add more tasks'
-                  )}
-                </div>
-              )}
-            </>
-          )}
-        </div>
-      </section>
-    </aside>
+                        <span 
+                          className="class-name"
+                          style={{
+                            fontSize: dimensions.fontSize,
+                            fontWeight: '500',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                            flex: 1,
+                            lineHeight: '1.2'
+                          }}
+                        >
+                          {plannerClass.name}
+                        </span>
+                      </div>
+                    );
+                  })}
+              </div>
+            ) : (
+              <div className="empty-state" style={{ 
+                padding: '8px 6px', 
+                textAlign: 'center', 
+                color: '#999',
+                fontSize: '12px'
+              }}>
+                No classes
+              </div>
+            )}
+          </div>
+        </section>
+      </aside>
 
-    <main className="app-content">
-      {eventError && (
-        <div className="error-message" style={{ margin: '20px', color: 'red' }}>
-          {eventError}
-        </div>
-      )}
-    </main>
-  </div>
-);
+      <main className="app-content">
+        {eventError && (
+          <div className="error-message" style={{ margin: '20px', color: 'red' }}>
+            {eventError}
+          </div>
+        )}
+      </main>
+    </div>
+  );
 }
 
 export default Sidebar;

@@ -7,9 +7,8 @@ import Planner from '../components/Planner/Planner';
 import '../globals.css';
 import { ThemeProvider } from '../services/themeContext';
 import { useAppState } from '../hooks/useAppState';
-import { authAPI } from '../../lib/auth'; // Adjust path as needed
+import { authAPI } from '../../lib/auth';
 import Notes from '../components/Notes';
-
 
 // Define available views (matching your header component)
 type ViewType = 'calendar' | 'your-new-view';
@@ -44,11 +43,18 @@ const AppContent: React.FC<AppContentProps> = ({
     setError
   } = useAppState();
 
-  // Check if updateTask is available
-  const updateTask = (useAppState() as any).updateTask;
   
-  // View management state
-  const [activeView, setActiveView] = useState<ViewType>('calendar');
+  // View management state - Initialize from localStorage or default
+  const [activeView, setActiveView] = useState<ViewType>(() => {
+    // Initialize from localStorage if available
+    if (typeof window !== 'undefined') {
+      const savedView = localStorage.getItem('lastActiveView') as ViewType;
+      if (savedView && (savedView === 'calendar' || savedView === 'your-new-view')) {
+        return savedView;
+      }
+    }
+    return 'calendar'; // Default view
+  });
   const [view, setView] = useState<string>('dayGridMonth');
   const [refreshEvents, setRefreshEvents] = useState(0);
   const [navbarVisible, setNavbarVisible] = useState(false);
@@ -70,10 +76,12 @@ const AppContent: React.FC<AppContentProps> = ({
     checkAuth();
   }, []);
 
-  // Initialize data when component mounts
+  // Log the initial view loaded from localStorage
   useEffect(() => {
-    initializeData();
-  }, [initializeData]);
+    console.log('Initial view loaded from localStorage:', activeView);
+  }, []);
+
+
 
   // Track view changes
   useEffect(() => {
@@ -141,7 +149,15 @@ const AppContent: React.FC<AppContentProps> = ({
   const handleAppViewChange = (newView: ViewType) => {
     console.log('handleAppViewChange called with:', newView);
     console.log('Current activeView:', activeView);
+    
+    // Update the active view immediately
     setActiveView(newView);
+    
+    // Save the view preference to localStorage
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('lastActiveView', newView);
+      console.log('Saved view preference to localStorage:', newView);
+    }
   };
 
   // Add this useEffect to monitor activeView changes
@@ -296,42 +312,50 @@ const AppContent: React.FC<AppContentProps> = ({
       <div className="scaled-view-container">
         {/* Calendar View */}
         <div className={`view-component ${activeView === 'calendar' ? 'active' : 'hidden'}`}>
-          <Calendar 
-            refreshTrigger={refreshEvents}
-            onEventChange={handleEventChange} 
-            onViewChange={handleViewChange}
-            rightSidebarOpen={false} // Force to false since we're hiding sidebar
-            activeAppView={activeView}
-            onAppViewChange={handleAppViewChange}
-            currentView={view}
-            isAuthenticated={isAuthenticated}
-          />
+          {/* Only render when this view is active to prevent loading flash */}
+          {activeView === 'calendar' && (
+            <Calendar 
+              refreshTrigger={refreshEvents}
+              onEventChange={handleEventChange} 
+              onViewChange={handleViewChange}
+              rightSidebarOpen={false} // Force to false since we're hiding sidebar
+              activeAppView={activeView}
+              onAppViewChange={handleAppViewChange}
+              currentView={view}
+              isAuthenticated={isAuthenticated}
+            />
+          )}
         </div>
         
         {/* Planner View with Notes */}
         <div className={`view-component ${activeView === 'your-new-view' ? 'active' : 'hidden'}`}>
-          <Planner 
-            rightSidebarOpen={false}
-            activeAppView={activeView}
-            onAppViewChange={handleAppViewChange}
-            isAuthenticated={isAuthenticated}
-          />
-            <div style={{ height: '100%', background: '#f9fafb' }}>
-            <Notes />
-          </div>
+          {/* Only render when this view is active to prevent loading flash */}
+          {activeView === 'your-new-view' && (
+            <>
+              <Planner 
+                rightSidebarOpen={false}
+                activeAppView={activeView}
+                onAppViewChange={handleAppViewChange}
+                isAuthenticated={isAuthenticated}
+              />
+              <div style={{ height: '100%', background: '#f9fafb' }}>
+                <Notes />
+              </div>
+            </>
+          )}
         </div>
       </div>
     );
   };
 
-    // Show loading state while checking auth
-    if (isLoadingAuth) {
-      return (
-        <div className="h-screen flex items-center justify-center">
-          <div>Loading...</div>
-        </div>
-      );
-    }
+  // Show loading state while checking auth
+  if (isLoadingAuth) {
+    return (
+      <div className="h-screen flex items-center justify-center">
+        <div>Loading...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="h-screen overflow-hidden">
@@ -430,8 +454,6 @@ const AppContent: React.FC<AppContentProps> = ({
           opacity: 0;
         }
 
-
-
         @media (max-width: 768px) {
           .main-content-area {
             left: 0;
@@ -505,8 +527,6 @@ const AppContent: React.FC<AppContentProps> = ({
           overflow-y: auto;
           overflow-x: hidden;
         }
-
-
       `}</style>
     </div>
   );

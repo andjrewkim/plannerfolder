@@ -1,11 +1,88 @@
-// pages/userlogin.tsx - WITH PROPER DELAY
+// pages/userlogin.tsx - WITH GOOGLE OAUTH
 "use client"
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Eye, EyeOff, Calendar, Mail, Lock } from 'lucide-react';
 import { authAPI } from '../../lib/auth';
-import { FormData, FormErrors } from '../../types/auth';
+import { FormData, FormErrors, LoginCredentials, RegisterData } from '../../types/auth';
+
+// Google OAuth component
+const GoogleSignInButton: React.FC<{ onSuccess: (token: string) => void; onError: (error: string) => void; isLoading: boolean }> = ({ 
+  onSuccess, 
+  onError,
+  isLoading 
+}) => {
+  useEffect(() => {
+    // Load Google Identity Services script
+    const script = document.createElement('script');
+    script.src = 'https://accounts.google.com/gsi/client';
+    script.async = true;
+    script.defer = true;
+    document.head.appendChild(script);
+
+    script.onload = () => {
+      if (window.google && window.google.accounts) {
+        window.google.accounts.id.initialize({
+          client_id: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID,
+          callback: handleGoogleResponse,
+          auto_select: false,
+          cancel_on_tap_outside: true,
+        });
+      }
+    };
+
+    return () => {
+      if (document.head.contains(script)) {
+        document.head.removeChild(script);
+      }
+    };
+  }, []);
+
+  const handleGoogleResponse = async (response: any) => {
+    try {
+      console.log('🔍 Google OAuth response received');
+      
+      // Send the credential token to your backend
+      const result = await authAPI.googleAuth(response.credential);
+      
+      if (result.token && result.user) {
+        console.log('✅ Google OAuth successful');
+        onSuccess(result.token);
+      } else {
+        throw new Error('Invalid response from server');
+      }
+    } catch (error) {
+      console.error('❌ Google OAuth error:', error);
+      onError(error instanceof Error ? error.message : 'Google sign-in failed');
+    }
+  };
+
+  const handleGoogleSignIn = () => {
+    if (window.google && window.google.accounts) {
+      window.google.accounts.id.prompt();
+    } else {
+      onError('Google Sign-In not loaded');
+    }
+  };
+
+  return (
+    <button
+      type="button"
+      onClick={handleGoogleSignIn}
+      disabled={isLoading}
+      className="w-full flex items-center justify-center px-4 py-3 border border-gray-300 rounded-lg shadow-sm bg-white text-gray-700 hover:bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+    >
+      <svg className="w-5 h-5 mr-3" viewBox="0 0 24 24">
+        <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+        <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+        <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+        <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+      </svg>
+      {isLoading ? 'Signing in...' : 'Continue with Google'}
+    </button>
+  );
+};
 
 const LoginPage: React.FC = () => {
   const router = useRouter();
@@ -21,12 +98,17 @@ const LoginPage: React.FC = () => {
   });
   const [errors, setErrors] = useState<FormErrors>({});
   const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [isGoogleLoading, setIsGoogleLoading] = useState<boolean>(false);
 
   // Check if user is already authenticated
   useEffect(() => {
-    if (authAPI.isAuthenticated()) {
-      router.push('/calendar');
-    }
+    const checkAuth = async () => {
+      const isAuth = await authAPI.checkAuthStatus();
+      if (isAuth) {
+        router.push('/calendar');
+      }
+    };
+    checkAuth();
   }, [router]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>): void => {
@@ -84,6 +166,7 @@ const LoginPage: React.FC = () => {
     
     // Show loading state for user feedback
     setIsLoading(true);
+    setIsGoogleLoading(true);
     
     // Give a moment for token to be stored and any cleanup
     setTimeout(() => {
@@ -100,6 +183,17 @@ const LoginPage: React.FC = () => {
     }, 1000); // 1 second delay - enough for token storage and cleanup
   };
 
+  const handleGoogleSuccess = (token: string) => {
+    console.log('🎉 Google OAuth successful!');
+    handleLoginSuccess();
+  };
+
+  const handleGoogleError = (error: string) => {
+    console.error('❌ Google OAuth error:', error);
+    setErrors({ submit: error });
+    setIsGoogleLoading(false);
+  };
+
   const handleSubmit = async (e: React.FormEvent): Promise<void> => {
     e.preventDefault();
     
@@ -112,10 +206,12 @@ const LoginPage: React.FC = () => {
       if (isLogin) {
         console.log('📝 Attempting login...');
         
-        const response = await authAPI.login({
+        const loginData: LoginCredentials = {
           email: formData.email,
           password: formData.password
-        });
+        };
+        
+        const response = await authAPI.login(loginData);
         
         console.log('✅ Login API call successful');
         handleLoginSuccess();
@@ -123,17 +219,18 @@ const LoginPage: React.FC = () => {
       } else {
         console.log('📝 Attempting registration...');
         
-        // Registration - use email as username
-        const response = await authAPI.register({
+        const registerData: RegisterData = {
           email: formData.email,
           password: formData.password,
           password_confirm: formData.password_confirm,
           first_name: formData.first_name,
           last_name: formData.last_name,
           username: formData.email, // Use email as username
-        });
+        };
         
-        // For registration, we need to set the auth data manually
+        const response = await authAPI.register(registerData);
+        
+        // For registration, we need to set the auth data manually if not done by API
         if (response.token && response.user) {
           console.log('💾 Setting auth data after registration...');
           authAPI.setAuthData(response.token, response.user);
@@ -188,6 +285,25 @@ const LoginPage: React.FC = () => {
 
         {/* Form */}
         <div className="bg-white p-8 rounded-2xl shadow-xl border border-gray-100">
+          {/* Google Sign-In Button */}
+          <div className="mb-6">
+            <GoogleSignInButton
+              onSuccess={handleGoogleSuccess}
+              onError={handleGoogleError}
+              isLoading={isGoogleLoading}
+            />
+          </div>
+
+          {/* Divider */}
+          <div className="relative mb-6">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-gray-300" />
+            </div>
+            <div className="relative flex justify-center text-sm">
+              <span className="px-2 bg-white text-gray-500">Or continue with email</span>
+            </div>
+          </div>
+
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* Name fields (signup only) */}
             {!isLogin && (
@@ -316,7 +432,7 @@ const LoginPage: React.FC = () => {
             {/* Submit button with improved loading state */}
             <button
               type="submit"
-              disabled={isLoading}
+              disabled={isLoading || isGoogleLoading}
               className="w-full bg-blue-600 text-white py-3 px-4 rounded-lg font-medium hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isLoading ? (
@@ -338,7 +454,7 @@ const LoginPage: React.FC = () => {
             <button
               onClick={toggleMode}
               className="text-blue-600 hover:text-blue-800 font-medium"
-              disabled={isLoading}
+              disabled={isLoading || isGoogleLoading}
             >
               {isLogin ? 'Sign up' : 'Sign in'}
             </button>
@@ -348,5 +464,19 @@ const LoginPage: React.FC = () => {
     </div>
   );
 };
+
+// Extend Window interface for Google API
+declare global {
+  interface Window {
+    google: {
+      accounts: {
+        id: {
+          initialize: (config: any) => void;
+          prompt: () => void;
+        };
+      };
+    };
+  }
+}
 
 export default LoginPage;

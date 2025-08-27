@@ -1,4 +1,4 @@
-// lib/auth.ts - RESTORED WITH CACHING
+// lib/auth.ts - WITH GOOGLE OAUTH AND EXISTING CACHING
 import { User, LoginCredentials, RegisterData, AuthResponse } from '../types/auth';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL
@@ -63,6 +63,42 @@ class AuthService {
 
       return data;
     } catch (error) {
+      throw error;
+    }
+  }
+
+  // ✅ NEW: Google OAuth Authentication
+  async googleAuth(credential: string): Promise<AuthResponse> {
+    try {
+      console.log('🔍 Starting Google OAuth authentication...');
+      
+      const response = await fetch(`${API_BASE_URL}/api/auth/google/`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          credential: credential,
+          client_id: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || data.message || 'Google authentication failed');
+      }
+
+      if (data.token && data.user) {
+        console.log('✅ Google OAuth successful, setting auth data...');
+        this.setAuthData(data.token, data.user);
+        this.invalidateAuthCache();
+        this.cachedAuthStatus = true;
+      }
+
+      return data;
+    } catch (error) {
+      console.error('❌ Google OAuth error:', error);
       throw error;
     }
   }
@@ -247,6 +283,50 @@ class AuthService {
     }
 
     return response;
+  }
+
+  // ✅ NEW: Additional helper methods for better integration
+
+  /**
+   * Handle successful authentication from any source (email/password or Google OAuth)
+   * Centralized logic for post-authentication setup
+   */
+  private handleAuthSuccess(token: string, user: User): void {
+    this.setAuthData(token, user);
+    this.invalidateAuthCache();
+    this.cachedAuthStatus = true;
+    console.log('🎉 Authentication successful, user data cached');
+  }
+
+  /**
+   * Force refresh auth status (useful after login/logout)
+   */
+  public forceAuthRefresh(): Promise<boolean> {
+    this.invalidateAuthCache();
+    return this.checkAuthStatus();
+  }
+
+  /**
+   * Get cached auth status without making API call
+   * Useful for immediate UI decisions
+   */
+  public getCachedAuthStatus(): boolean | null {
+    const now = Date.now();
+    if (now - this.lastAuthCheck < this.authCheckCacheTime) {
+      return this.cachedAuthStatus;
+    }
+    return null;
+  }
+
+  /**
+   * Update user profile data in cache
+   */
+  public updateUserData(userData: Partial<User>): void {
+    const currentUser = this.getUser();
+    if (currentUser) {
+      const updatedUser = { ...currentUser, ...userData };
+      this.setAuthData(this.getToken()!, updatedUser);
+    }
   }
 }
 

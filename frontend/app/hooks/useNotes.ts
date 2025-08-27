@@ -53,9 +53,11 @@ export const useNotes = (): UseNotesReturn => {
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
 
-  // Refs for debouncing
+  // Refs for debouncing and preventing multiple fetches
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const pendingContentRef = useRef<string | null>(null);
+  const hasInitializedRef = useRef(false); // Add this to prevent multiple initial fetches
+  const fetchInProgressRef = useRef(false); // Prevent concurrent fetches
 
   const activeNote = notes.find(note => note.id === activeNoteId) || null;
 
@@ -89,12 +91,9 @@ export const useNotes = (): UseNotesReturn => {
       setSaveStatus('saved');
       setLastSaved(new Date());
       
-      // Keep saved status permanently (remove the timeout)
-      
     } catch (err) {
       console.error('Failed to save note:', err);
       setSaveStatus('error');
-      // Keep error status for 5 seconds, then go to idle
       setTimeout(() => setSaveStatus('idle'), 5000);
     }
   }, []);
@@ -115,12 +114,20 @@ export const useNotes = (): UseNotesReturn => {
     setError(err?.message || defaultMessage);
   };
 
-  // Fetch all notes
+  // Fetch all notes - REMOVED activeNoteId dependency
   const fetchNotes = useCallback(async () => {
+    // Prevent concurrent fetches
+    if (fetchInProgressRef.current) {
+      console.log('Fetch already in progress, skipping...');
+      return;
+    }
+
     try {
+      fetchInProgressRef.current = true;
       setLoading(true);
       clearError();
       
+      console.log('Fetching notes...');
       const response = await authAPI.authenticatedFetch(
         `${process.env.NEXT_PUBLIC_API_URL}/api/notes/`,
         { method: 'GET' }
@@ -134,16 +141,18 @@ export const useNotes = (): UseNotesReturn => {
       const sortedNotes = data.sort((a: NoteTab, b: NoteTab) => a.order - b.order);
       setNotes(sortedNotes);
 
-      // Set first note as active if none is selected and notes exist
-      if (!activeNoteId && sortedNotes.length > 0) {
+      // Only set first note as active on initial load, not on every fetch
+      if (!hasInitializedRef.current && sortedNotes.length > 0) {
         setActiveNoteId(sortedNotes[0].id);
+        hasInitializedRef.current = true;
       }
     } catch (err) {
       handleError(err, 'Failed to fetch notes');
     } finally {
       setLoading(false);
+      fetchInProgressRef.current = false;
     }
-  }, [activeNoteId]);
+  }, []); // Empty dependency array - no dependencies needed
 
   // Create a new note
   const createNote = useCallback(async (data: CreateNoteData): Promise<NoteTab | null> => {
@@ -317,10 +326,13 @@ export const useNotes = (): UseNotesReturn => {
     await updateNote(activeNoteId, { title });
   }, [activeNoteId, updateNote]);
 
-  // Fetch notes on mount
+  // Fetch notes on mount - ONLY ONCE
   useEffect(() => {
-    fetchNotes();
-  }, [fetchNotes]);
+    console.log('useEffect running, hasInitialized:', hasInitializedRef.current);
+    if (!hasInitializedRef.current && !fetchInProgressRef.current) {
+      fetchNotes();
+    }
+  }, []); // Empty dependency array
 
   return {
     notes,

@@ -3,16 +3,22 @@ from django.contrib.auth import get_user_model
 User = get_user_model()
 
 from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.authtoken.models import Token
 from django.contrib.auth import authenticate
 from django.views.decorators.csrf import csrf_exempt
+from django.conf import settings
+from google.oauth2 import id_token
+from google.auth.transport import requests
 import json
+import logging
+
+logger = logging.getLogger(__name__)
 
 @api_view(['POST'])
-@permission_classes([AllowAny])  # Allow unauthenticated users to register
+@permission_classes([AllowAny])  # Fixed: Allow unauthenticated users to register
 def register_user(request):
     try:
         # Get data from request
@@ -71,7 +77,7 @@ def register_user(request):
 
 
 @api_view(['POST'])
-@permission_classes([AllowAny])
+@permission_classes([AllowAny])  # Fixed: Allow unauthenticated users to login
 def login_user(request):
     try:
         print(f"DEBUG: Login attempt - Session key: {request.session.session_key}")
@@ -137,4 +143,92 @@ def login_user(request):
         print(f"DEBUG: Exception in login: {str(e)}")
         return Response({
             'error': f'Login failed: {str(e)}'
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def google_auth(request):
+    """
+    Handle Google OAuth authentication - integrated with existing token system
+    """
+    try:
+        credential = request.data.get('credential')
+        
+        if not credential:
+            return Response({
+                'error': 'No Google credential provided'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Verify the token with Google
+        try:
+            idinfo = id_token.verify_oauth2_token(
+                credential, 
+                requests.Request(), 
+                settings.GOOGLE_OAUTH_CLIENT_ID
+            )
+        except ValueError as e:
+            logger.error(f"Google token verification failed: {e}")
+            return Response({
+                'error': 'Invalid Google token'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Extract user information from Google
+        email = idinfo.get('email')
+        first_name = idinfo.get('given_name', '')
+        last_name = idinfo.get('family_name', '')
+        google_id = idinfo.get('sub')
+        
+        if not email:
+            return Response({
+                'error': 'No email provided by Google'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Get or create user (same logic as your existing system)
+        user, created = User.objects.get_or_create(
+            email=email,
+            defaults={
+                'username': email,  # Use email as username like your system
+                'first_name': first_name,
+                'last_name': last_name,
+                'is_active': True,
+            }
+        )
+        
+        # Update user info if they already exist but info has changed
+        if not created:
+            updated = False
+            if user.first_name != first_name:
+                user.first_name = first_name
+                updated = True
+            if user.last_name != last_name:
+                user.last_name = last_name
+                updated = True
+            if updated:
+                user.save()
+        
+        # Use the SAME token system as your existing login
+        Token.objects.filter(user=user).delete()  # Delete any existing tokens
+        token = Token.objects.create(user=user)   # Create a fresh token
+        
+        print(f"DEBUG: Google auth successful - User ID: {user.id}")
+        print(f"DEBUG: New token created: {token.key}")
+        
+        # Return response in SAME format as your existing login
+        return Response({
+            'message': f'Google {"registration" if created else "login"} successful',
+            'token': token.key,
+            'user': {
+                'id': user.id,
+                'username': user.username,
+                'email': user.email,
+                'first_name': user.first_name,
+                'last_name': user.last_name,
+            }
+        }, status=status.HTTP_200_OK)
+        
+    except Exception as e:
+        logger.error(f"Google auth error: {e}")
+        return Response({
+            'error': f'Google authentication failed: {str(e)}'
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

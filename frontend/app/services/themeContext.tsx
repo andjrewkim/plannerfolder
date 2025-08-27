@@ -1,5 +1,4 @@
 import React, { createContext, useState, useContext, useEffect, useCallback } from 'react';
-import { authAPI } from '../../lib/auth';
 import { useUserSettings } from '../hooks/useUserSettings';
 
 

@@ -267,7 +267,6 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.2s ease;
   position: relative;
 }
 
@@ -493,8 +492,8 @@
   right: 2px;
   width: 20px;
   height: 20px;
-  border: 1px solid hsl(var(--border));
-  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border)/0.5);
+  background: hsl(var(--calendar-background));
   border-radius: 4px;
   display: flex;
   align-items: center;
@@ -504,18 +503,14 @@
   color: hsl(var(--accent));
   font-weight: 400;
   transition: transform 0.15s ease;
-  opacity: 0.4;
   z-index: 2;
 }
 
 .add-assignment-btn:hover {
   transform: scale(1.1);
-  opacity: 1;
 }
 
-.assignment-cell:hover .add-assignment-btn {
-  opacity: 0.8;
-}
+
 
 /* Responsive Design - Enhanced for better scaling */
 @media (max-width: 1400px) {

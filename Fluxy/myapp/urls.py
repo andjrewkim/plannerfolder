@@ -11,6 +11,7 @@ from myapp.views_check_login import check_login
 from .view_dispatcher import ScheduleInputDispatcher, ScheduleInputParser  # Import the missing views
 from myapp.views_llm_text import llm_text
 from .views_notes import NoteTabListCreateView, NoteTabDetailView
+from . import views_user
 
 from .user_settings import UserSettingsView
 from rest_framework.routers import DefaultRouter
@@ -34,6 +35,8 @@ urlpatterns = [
     path('api/logout/', logout_view),
     path('api/register/', register_user),
     path('api/login/', login_user),
+    path('auth/google/', views_user.google_auth, name='google_auth'),
+
     path('api/check-login/', check_login),
     path('api/schedule/parse/', ScheduleInputParser.as_view(), name='schedule-parser'),
     #path('parse/', views.parse_time, name='parse_time'),

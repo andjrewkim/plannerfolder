@@ -279,7 +279,7 @@ class PlannerClassSerializer(serializers.ModelSerializer):
 class AssignmentSerializer(serializers.ModelSerializer):
     class Meta:
         model = Assignment
-        fields = ['id', 'title', 'day_of_week', 'planner_class', 'completed', 'order', 'created_at', 'updated_at']
+        fields = ['id', 'title', 'date', 'planner_class', 'completed', 'order', 'created_at', 'updated_at']
         read_only_fields = ['created_at', 'updated_at']
 
     def validate_planner_class(self, value):
@@ -293,8 +293,7 @@ class AssignmentSerializer(serializers.ModelSerializer):
         if not value or not value.strip():
             raise serializers.ValidationError("Assignment title cannot be empty.")
         return value.strip()
-    
-    
+
 from .models import NoteTab
 
 class NoteTabSerializer(serializers.ModelSerializer):

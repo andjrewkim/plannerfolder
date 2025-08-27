@@ -350,7 +350,7 @@ export const useAppState = () => {
         performGlobalInitialization().catch(console.error);
       }
     }
-  }, [instanceId]); // Depend on instanceId so it re-runs on remount
+  }, []); // Depend on instanceId so it re-runs on remount
 
   const setError = useCallback((error: string | null) => {
     updateState({ error });

@@ -1,12 +1,23 @@
-// hooks/usePlanner.ts - FIXED VERSION (Remount Safe)
+// hooks/usePlanner.ts - DATE-BASED VERSION
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { authAPI } from '../../lib/auth';
+
+// Simple global state to prevent duplicate fetches across hook instances
+let globalPlannerState: {
+  classes: PlannerClass[];
+  assignments: Assignment[];
+  initialized: boolean;
+  error: string | null;
+} | null = null;
+
+let fetchInProgress = false;
+const subscribers = new Set<(state: any) => void>();
 
 export interface Assignment {
   id: string;
   title: string;
   completed: boolean;
-  day_of_week: string;
+  date: string; // Changed from day_of_week to date (YYYY-MM-DD format)
   planner_class: string;
   order: number;
   created_at?: string;
@@ -99,181 +110,176 @@ const fetchAssignments = async (): Promise<Assignment[]> => {
 export const usePlanner = () => {
   debugLog('usePlanner: Hook called/re-rendered');
   
-  const [state, setState] = useState<PlannerState>({
-    classes: [],
-    assignments: [],
-    isLoading: true,
-    error: null,
-    initialized: false
+  const [state, setState] = useState<PlannerState>(() => {
+    if (globalPlannerState) {
+      // Use existing global state if available
+      return {
+        classes: globalPlannerState.classes,
+        assignments: globalPlannerState.assignments,
+        isLoading: false,
+        error: globalPlannerState.error,
+        initialized: globalPlannerState.initialized
+      };
+    }
+    return {
+      classes: [],
+      assignments: [],
+      isLoading: true,
+      error: null,
+      initialized: false
+    };
   });
-  
-  // Use state-based tracking instead of refs to survive remounts
-  const [initializationId] = useState(() => Math.random().toString(36));
-  const activeInitRef = useRef<string | null>(null);
 
   debugLog('usePlanner: Current state', {
     isLoading: state.isLoading,
     initialized: state.initialized,
-    initializationId,
-    activeInit: activeInitRef.current,
+    globalInitialized: globalPlannerState?.initialized,
     classesCount: state.classes.length,
     assignmentsCount: state.assignments.length,
     error: state.error
   });
 
-  // Fixed initialization that handles remounts properly
+  // Subscribe to global state changes
   useEffect(() => {
-    debugLog('useEffect: Effect triggered', { initializationId });
+    const updateState = (newState: any) => {
+      setState(newState);
+    };
     
-    // If we're already initialized, don't re-initialize
-    if (state.initialized) {
-      debugLog('useEffect: Already initialized, skipping');
+    subscribers.add(updateState);
+    return () => {
+      subscribers.delete(updateState);
+    };
+  }, []);
+
+  // Initialize data - only once globally
+  const initializeData = useCallback(async () => {
+    // If already initialized globally, don't fetch again
+    if (globalPlannerState?.initialized || fetchInProgress) {
+      debugLog('initializeData: Skipping - already initialized or in progress');
       return;
     }
 
-    // If there's already an active initialization for this component, don't start another
-    if (activeInitRef.current === initializationId) {
-      debugLog('useEffect: Initialization already active for this component');
+    debugLog('initializeData: Starting initialization process');
+    fetchInProgress = true;
+
+    // Check authentication
+    let isAuthenticated;
+    try {
+      isAuthenticated = authAPI.isAuthenticated();
+      debugLog('initializeData: Auth check result', isAuthenticated);
+    } catch (authError) {
+      debugLog('initializeData: Auth check threw error', authError);
+      
+      globalPlannerState = {
+        classes: [],
+        assignments: [],
+        initialized: true,
+        error: 'Authentication system error'
+      };
+      
+      const newState = {
+        classes: [],
+        assignments: [],
+        isLoading: false,
+        error: 'Authentication system error',
+        initialized: true
+      };
+      
+      // Notify all subscribers
+      subscribers.forEach(callback => callback(newState));
+      fetchInProgress = false;
       return;
     }
 
-    const initializeData = async () => {
-      debugLog('initializeData: Starting initialization process', { initializationId });
-      activeInitRef.current = initializationId;
+    if (!isAuthenticated) {
+      debugLog('initializeData: Not authenticated - setting not loading');
+      
+      globalPlannerState = {
+        classes: [],
+        assignments: [],
+        initialized: true,
+        error: null
+      };
+      
+      const newState = {
+        classes: [],
+        assignments: [],
+        isLoading: false,
+        error: null,
+        initialized: true
+      };
+      
+      // Notify all subscribers
+      subscribers.forEach(callback => callback(newState));
+      fetchInProgress = false;
+      return;
+    }
 
-      // Check environment variables
-      debugLog('initializeData: Environment check', {
-        NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL,
-        hasAuthAPI: !!authAPI
+    debugLog('initializeData: Authentication passed, starting data fetch');
+
+    try {
+      const [classesResult, assignmentsResult] = await Promise.allSettled([
+        fetchClasses(),
+        fetchAssignments()
+      ]);
+
+      const classes = classesResult.status === 'fulfilled' ? classesResult.value : [];
+      const assignments = assignmentsResult.status === 'fulfilled' ? assignmentsResult.value : [];
+
+      globalPlannerState = {
+        classes,
+        assignments,
+        initialized: true,
+        error: null
+      };
+
+      const newState = {
+        classes,
+        assignments,
+        isLoading: false,
+        error: null,
+        initialized: true
+      };
+
+      debugLog('initializeData: Fetched planner data successfully', { 
+        classesCount: classes.length, 
+        assignmentsCount: assignments.length 
       });
 
-      // Check authentication
-      let isAuthenticated;
-      try {
-        isAuthenticated = authAPI.isAuthenticated();
-        debugLog('initializeData: Auth check result', isAuthenticated);
-      } catch (authError) {
-        debugLog('initializeData: Auth check threw error', authError);
-        
-        // Only update state if this is still the active initialization
-        if (activeInitRef.current === initializationId) {
-          setState({
-            classes: [],
-            assignments: [],
-            isLoading: false,
-            error: 'Authentication system error',
-            initialized: true
-          });
-        }
-        return;
-      }
+      // Notify all subscribers
+      subscribers.forEach(callback => callback(newState));
 
-      // If not authenticated, set to not loading immediately
-      if (!isAuthenticated) {
-        debugLog('initializeData: Not authenticated - setting not loading');
-        
-        // Only update state if this is still the active initialization
-        if (activeInitRef.current === initializationId) {
-          setState({
-            classes: [],
-            assignments: [],
-            isLoading: false,
-            error: null,
-            initialized: true
-          });
-        }
-        return;
-      }
+    } catch (error) {
+      debugLog('initializeData: Caught error in try-catch', error);
+      
+      globalPlannerState = {
+        classes: [],
+        assignments: [],
+        initialized: true,
+        error: error instanceof Error ? error.message : 'Failed to load planner data'
+      };
+      
+      const newState = {
+        classes: [],
+        assignments: [],
+        isLoading: false,
+        error: error instanceof Error ? error.message : 'Failed to load planner data',
+        initialized: true
+      };
+      
+      // Notify all subscribers
+      subscribers.forEach(callback => callback(newState));
+    } finally {
+      fetchInProgress = false;
+    }
+  }, []);
 
-      debugLog('initializeData: Authentication passed, starting data fetch');
-
-      try {
-        debugLog('initializeData: Starting Promise.allSettled for API calls');
-        const startTime = Date.now();
-        
-        const [classesResult, assignmentsResult] = await Promise.allSettled([
-          fetchClasses(),
-          fetchAssignments()
-        ]);
-        
-        const endTime = Date.now();
-        debugLog('initializeData: Promise.allSettled completed', {
-          duration: `${endTime - startTime}ms`,
-          classesStatus: classesResult.status,
-          assignmentsStatus: assignmentsResult.status,
-          activeInit: activeInitRef.current,
-          currentInit: initializationId
-        });
-
-        // Only proceed if this is still the active initialization
-        if (activeInitRef.current !== initializationId) {
-          debugLog('initializeData: Initialization was superseded, aborting state update');
-          return;
-        }
-
-        const classes = classesResult.status === 'fulfilled' ? classesResult.value : [];
-        const assignments = assignmentsResult.status === 'fulfilled' ? assignmentsResult.value : [];
-
-        if (classesResult.status === 'rejected') {
-          debugLog('initializeData: Classes fetch failed', classesResult.reason);
-        }
-        
-        if (assignmentsResult.status === 'rejected') {
-          debugLog('initializeData: Assignments fetch failed', assignmentsResult.reason);
-        }
-
-        debugLog('initializeData: Fetched planner data successfully', { 
-          classesCount: classes.length, 
-          assignmentsCount: assignments.length 
-        });
-
-        // Update state with fetched data
-        setState({
-          classes,
-          assignments,
-          isLoading: false,
-          error: null,
-          initialized: true
-        });
-        debugLog('initializeData: State updated - isLoading should now be false');
-
-      } catch (error) {
-        debugLog('initializeData: Caught error in try-catch', error);
-        
-        // Only update state if this is still the active initialization
-        if (activeInitRef.current === initializationId) {
-          setState({
-            classes: [],
-            assignments: [],
-            isLoading: false,
-            error: error instanceof Error ? error.message : 'Failed to load planner data',
-            initialized: true
-          });
-        }
-      }
-    };
-
-    // Add timeout to catch hanging initialization
-    const timeoutId = setTimeout(() => {
-      if (activeInitRef.current === initializationId) {
-        debugLog('TIMEOUT: Initialization taking longer than 10 seconds!', {
-          initializationId,
-          activeInit: activeInitRef.current,
-          currentState: state
-        });
-      }
-    }, 10000);
-
-    initializeData().finally(() => {
-      clearTimeout(timeoutId);
-      debugLog('initializeData: Initialization process completed (finally block)', { initializationId });
-    });
-    
-    return () => {
-      debugLog('useEffect cleanup', { initializationId });
-      clearTimeout(timeoutId);
-    };
-  }, [state.initialized, initializationId]); // Depend on initialized state
+  // Initialize on mount if needed
+  useEffect(() => {
+    if (!globalPlannerState?.initialized && !fetchInProgress) {
+      initializeData();
+    }
+  }, [initializeData]);
 
   // Debug state changes
   useEffect(() => {
@@ -286,10 +292,29 @@ export const usePlanner = () => {
     });
   }, [state]);
 
+  // Update operations need to update both local state and global state
+  const updateGlobalAndLocalState = useCallback((updater: (prev: PlannerState) => PlannerState) => {
+    setState(prev => {
+      const newState = updater(prev);
+      
+      // Update global state
+      if (globalPlannerState) {
+        globalPlannerState.classes = newState.classes;
+        globalPlannerState.assignments = newState.assignments;
+        globalPlannerState.error = newState.error;
+      }
+      
+      // Notify other hook instances
+      subscribers.forEach(callback => callback(newState));
+      
+      return newState;
+    });
+  }, []);
+
   const setError = useCallback((error: string | null) => {
     debugLog('setError called', error);
-    setState(prev => ({ ...prev, error }));
-  }, []);
+    updateGlobalAndLocalState(prev => ({ ...prev, error }));
+  }, [updateGlobalAndLocalState]);
 
   // Class operations
   const createClass = useCallback(async (name: string): Promise<boolean> => {
@@ -326,7 +351,7 @@ export const usePlanner = () => {
       const newClass: PlannerClass = await response.json();
       debugLog('createClass: New class created', newClass);
       
-      setState(prev => ({
+      updateGlobalAndLocalState(prev => ({
         ...prev,
         classes: [...prev.classes, newClass],
         error: null
@@ -338,7 +363,7 @@ export const usePlanner = () => {
       setError(error instanceof Error ? error.message : 'Failed to create class');
       return false;
     }
-  }, [setError, state.classes.length]);
+  }, [setError, state.classes.length, updateGlobalAndLocalState]);
 
   const updateClass = useCallback(async (classId: string, updates: Partial<PlannerClass>): Promise<boolean> => {
     if (!authAPI.isAuthenticated()) {
@@ -363,7 +388,7 @@ export const usePlanner = () => {
 
       const updatedClass: PlannerClass = await response.json();
       
-      setState(prev => ({
+      updateGlobalAndLocalState(prev => ({
         ...prev,
         classes: prev.classes.map(cls =>
           cls.id === classId ? updatedClass : cls
@@ -376,7 +401,7 @@ export const usePlanner = () => {
       setError(error instanceof Error ? error.message : 'Failed to update class');
       return false;
     }
-  }, [setError]);
+  }, [setError, updateGlobalAndLocalState]);
 
   const deleteClass = useCallback(async (classId: string): Promise<boolean> => {
     if (!authAPI.isAuthenticated()) {
@@ -395,7 +420,7 @@ export const usePlanner = () => {
         throw new Error(`Failed to delete class: ${response.status} - ${errorText}`);
       }
 
-      setState(prev => ({
+      updateGlobalAndLocalState(prev => ({
         ...prev,
         classes: prev.classes.filter(cls => cls.id !== classId),
         assignments: prev.assignments.filter(assignment => assignment.planner_class !== classId),
@@ -407,7 +432,7 @@ export const usePlanner = () => {
       setError(error instanceof Error ? error.message : 'Failed to delete class');
       return false;
     }
-  }, [setError]);
+  }, [setError, updateGlobalAndLocalState]);
 
   // Assignment operations
   const createAssignment = useCallback(async (assignmentData: Omit<Assignment, 'id' | 'created_at' | 'updated_at'>): Promise<boolean> => {
@@ -433,7 +458,7 @@ export const usePlanner = () => {
 
       const newAssignment: Assignment = await response.json();
       
-      setState(prev => ({
+      updateGlobalAndLocalState(prev => ({
         ...prev,
         assignments: [...prev.assignments, newAssignment],
         error: null
@@ -444,7 +469,7 @@ export const usePlanner = () => {
       setError(error instanceof Error ? error.message : 'Failed to create assignment');
       return false;
     }
-  }, [setError]);
+  }, [setError, updateGlobalAndLocalState]);
 
   const updateAssignment = useCallback(async (assignmentId: string, updates: Partial<Assignment>): Promise<boolean> => {
     if (!authAPI.isAuthenticated()) {
@@ -469,7 +494,7 @@ export const usePlanner = () => {
 
       const updatedAssignment: Assignment = await response.json();
       
-      setState(prev => ({
+      updateGlobalAndLocalState(prev => ({
         ...prev,
         assignments: prev.assignments.map(assignment =>
           assignment.id === assignmentId ? updatedAssignment : assignment
@@ -482,7 +507,7 @@ export const usePlanner = () => {
       setError(error instanceof Error ? error.message : 'Failed to update assignment');
       return false;
     }
-  }, [setError]);
+  }, [setError, updateGlobalAndLocalState]);
 
   const deleteAssignment = useCallback(async (assignmentId: string): Promise<boolean> => {
     if (!authAPI.isAuthenticated()) {
@@ -501,7 +526,7 @@ export const usePlanner = () => {
         throw new Error(`Failed to delete assignment: ${response.status} - ${errorText}`);
       }
 
-      setState(prev => ({
+      updateGlobalAndLocalState(prev => ({
         ...prev,
         assignments: prev.assignments.filter(assignment => assignment.id !== assignmentId),
         error: null
@@ -512,7 +537,7 @@ export const usePlanner = () => {
       setError(error instanceof Error ? error.message : 'Failed to delete assignment');
       return false;
     }
-  }, [setError]);
+  }, [setError, updateGlobalAndLocalState]);
 
   const refreshPlanner = useCallback(async () => {
     debugLog('refreshPlanner: Starting');
@@ -523,8 +548,6 @@ export const usePlanner = () => {
     }
 
     try {
-      setState(prev => ({ ...prev, error: null }));
-
       const [classesResult, assignmentsResult] = await Promise.allSettled([
         fetchClasses(),
         fetchAssignments()
@@ -538,30 +561,53 @@ export const usePlanner = () => {
         assignmentsCount: assignments.length
       });
 
-      setState(prev => ({
-        ...prev,
+      // Update global state
+      if (globalPlannerState) {
+        globalPlannerState.classes = classes;
+        globalPlannerState.assignments = assignments;
+        globalPlannerState.error = null;
+      }
+
+      const newState = {
         classes,
         assignments,
-        error: null
-      }));
+        isLoading: false,
+        error: null,
+        initialized: true
+      };
+
+      // Notify all subscribers
+      subscribers.forEach(callback => callback(newState));
     } catch (error) {
       debugLog('refreshPlanner: Error caught', error);
       setError(error instanceof Error ? error.message : 'Failed to refresh data');
     }
   }, [setError]);
 
-  // Helper function to get assignments organized by class and day
-  const getAssignmentsByClassAndDay = useCallback(() => {
+  // Helper function to get assignments organized by class and date
+  const getAssignmentsByClassAndDate = useCallback(() => {
     const organized: Record<string, Record<string, Assignment[]>> = {};
     
     state.assignments.forEach(assignment => {
       if (!organized[assignment.planner_class]) {
         organized[assignment.planner_class] = {};
       }
-      if (!organized[assignment.planner_class][assignment.day_of_week]) {
-        organized[assignment.planner_class][assignment.day_of_week] = [];
+      if (!organized[assignment.planner_class][assignment.date]) {
+        organized[assignment.planner_class][assignment.date] = [];
       }
-      organized[assignment.planner_class][assignment.day_of_week].push(assignment);
+      organized[assignment.planner_class][assignment.date].push(assignment);
+    });
+
+    // Sort assignments within each date by order, then by created_at
+    Object.keys(organized).forEach(classId => {
+      Object.keys(organized[classId]).forEach(date => {
+        organized[classId][date].sort((a, b) => {
+          if (a.order !== b.order) {
+            return a.order - b.order;
+          }
+          return (a.created_at || '').localeCompare(b.created_at || '');
+        });
+      });
     });
 
     return organized;
@@ -587,6 +633,6 @@ export const usePlanner = () => {
     // Utilities
     refreshPlanner,
     setError,
-    getAssignmentsByClassAndDay
+    getAssignmentsByClassAndDate
   };
 };

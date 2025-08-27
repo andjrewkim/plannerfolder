@@ -1,74 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Plus, X, Edit2, FileText, List } from 'lucide-react';
-
-// Mock useNotes hook for demonstration
-const useNotes = () => {
-  const [notes, setNotes] = useState([
-    { id: 1, title: "My First Note", content: "Welcome to your notes!", createdAt: new Date(), updatedAt: new Date() }
-  ]);
-  const [activeNoteId, setActiveNoteId] = useState(1);
-  const [saveStatus, setSaveStatus] = useState('saved');
-
-  const activeNote = notes.find(note => note.id === activeNoteId);
-
-  const createNote = async (noteData) => {
-    const newNote = {
-      id: Math.max(...notes.map(n => n.id), 0) + 1,
-      ...noteData,
-      createdAt: new Date(),
-      updatedAt: new Date()
-    };
-    setNotes(prev => [...prev, newNote]);
-    setActiveNoteId(newNote.id);
-    return newNote;
-  };
-
-  const updateNote = async (id, updates) => {
-    setNotes(prev => prev.map(note => 
-      note.id === id ? { ...note, ...updates, updatedAt: new Date() } : note
-    ));
-  };
-
-  const deleteNote = async (id) => {
-    setNotes(prev => {
-      const filtered = prev.filter(note => note.id !== id);
-      if (activeNoteId === id && filtered.length > 0) {
-        setActiveNoteId(filtered[0].id);
-      }
-      return filtered;
-    });
-  };
-
-  const setActiveNote = (id) => {
-    setActiveNoteId(id);
-  };
-
-  const updateActiveNoteContent = (content) => {
-    setSaveStatus('saving');
-    updateNote(activeNoteId, { content });
-    setTimeout(() => setSaveStatus('saved'), 500);
-  };
-
-  const updateActiveNoteTitle = (title) => {
-    updateNote(activeNoteId, { title });
-  };
-
-  return {
-    notes,
-    loading: false,
-    error: null,
-    activeNoteId,
-    activeNote,
-    saveStatus,
-    lastSaved: new Date(),
-    createNote,
-    updateNote,
-    deleteNote,
-    setActiveNote,
-    updateActiveNoteContent,
-    updateActiveNoteTitle
-  };
-};
+import { useNotes } from '../hooks/useNotes';
 
 const NotesComponent = () => {
   const {
@@ -99,7 +31,8 @@ const NotesComponent = () => {
     });
   };
 
-  const removeTab = async (noteId) => {
+
+  const removeTab = async (noteId: number): Promise<void> => {
     if (notes.length === 1) return;
     await deleteNote(noteId);
   };
@@ -118,7 +51,7 @@ const NotesComponent = () => {
 
   const handleKeyDown = (e) => {
     const textarea = e.currentTarget;
-    const { selectionStart, selectionEnd, value } = textarea;
+    const { selectionStart, selectionEnd, value } = textarea as HTMLTextAreaElement;
 
     if (e.key === 'Tab') {
       e.preventDefault();
@@ -341,7 +274,7 @@ const NotesComponent = () => {
       
       {/* Header */}
       <div style={{
-        padding: '8px 12px',
+        padding: '4px 12px',
         background: 'hsl(var(--calendar-background))',
         borderBottom: '1px solid hsl(var(--border) / 0.5)',
         borderTop: '1px solid hsl(var(--border) / 0.5)',
