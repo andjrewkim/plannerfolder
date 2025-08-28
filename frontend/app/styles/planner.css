@@ -1,5 +1,5 @@
 /* Planner.css */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@100;400;500;600;700&display=swap');
+/* Remove the Google Fonts import - now handled by Next.js */
 
 :root {
   /* CSS custom properties for HSL colors - matching calendar exactly */
@@ -35,7 +35,7 @@
   width: 100%;
   height: 100vh;
   background: hsl(var(--card));
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+  font-family: var(--font-inter), -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
   color: hsl(var(--foreground));
   display: flex;
   flex-direction: column;

@@ -1,13 +1,17 @@
 'use client';
-import { Geist, Geist_Mono, Poppins } from "next/font/google";
+import { Inter, Geist_Mono } from "next/font/google";
 import './globals.css';
 import { useEffect } from 'react';
 import posthog from 'posthog-js';
 import { PostHogProvider } from 'posthog-js/react';
 
-const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
+const inter = Inter({ 
+  subsets: ["latin"],
+  weight: ['100', '400', '500', '600', '700'],
+  variable: "--font-inter"
+});
+
 const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
-const poppins = Poppins({ subsets: ['latin'], weight: ['300', '700'] });
 
 // Initialize PostHog
 if (typeof window !== 'undefined') {
@@ -28,7 +32,7 @@ const RootLayout: React.FC<RootLayoutProps> = ({ children }) => {
           Planner</title> {/* Browser tab title */}
         <link rel="icon" href="/favicon.ico" /> {/* Favicon */}
       </head>
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
+      <body className={`${inter.variable} ${geistMono.variable} antialiased`}>
         <PostHogProvider client={posthog}>
           <main style={{ flex: 1 }}>
             {children}
