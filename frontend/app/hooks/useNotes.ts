@@ -328,7 +328,6 @@ export const useNotes = (): UseNotesReturn => {
 
   // Fetch notes on mount - ONLY ONCE
   useEffect(() => {
-    console.log('useEffect running, hasInitialized:', hasInitializedRef.current);
     if (!hasInitializedRef.current && !fetchInProgressRef.current) {
       fetchNotes();
     }

@@ -79,9 +79,9 @@ const CustomCalendarHeader: React.FC<CustomCalendarHeaderProps> = ({
   }
 
   const viewOptions: ViewOption[] = [
-    { key: 'dayGridMonth', label: 'Month', icon: '⬜' },
-    { key: 'timeGridWeek', label: 'Week', icon: '▦' },
-    { key: 'timeGridDay', label: 'Day', icon: '▬' }
+    { key: 'dayGridMonth', label: 'Month', icon: '' },
+    { key: 'timeGridWeek', label: 'Week', icon: '' },
+    { key: 'timeGridDay', label: 'Day', icon: '' }
   ];
 
   const renderNavItems = () => {

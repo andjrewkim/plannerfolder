@@ -376,8 +376,8 @@ const NotesComponent: React.FC = () => {
                   alignItems: 'center',
                   justifyContent: 'center',
                   cursor: loading ? 'not-allowed' : 'pointer',
-                  fontSize: '12px',
-                  color: 'hsl(var(--primary-foreground))',
+                  fontSize: '18px',
+                  color: 'hsl(var(--accent))',
                   fontWeight: 500,
                   transition: 'transform 0.15s ease',
                   opacity: loading ? 0.5 : 1

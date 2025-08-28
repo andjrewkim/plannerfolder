@@ -6,8 +6,7 @@ import { Eye, EyeOff, Calendar, Mail, Lock } from 'lucide-react';
 import { authAPI } from '../../lib/auth';
 import { FormData, FormErrors, LoginCredentials, RegisterData } from '../../types/auth';
 
-// Remove this duplicate declaration - it conflicts with the one in auth.ts
-
+// Move GoogleSignInButton to be an internal component (not exported)
 const GoogleSignInButton: React.FC<{ 
   onSuccess: (token: string) => void; 
   onError: (error: string) => void; 
@@ -182,8 +181,6 @@ const GoogleSignInButton: React.FC<{
     </div>
   );
 };
-
-export { GoogleSignInButton };
 
 const LoginPage: React.FC = () => {
   const router = useRouter();

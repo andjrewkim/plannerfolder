@@ -80,10 +80,10 @@
   overflow: hidden;
 }
 
-/* Sidebar */
+/* Sidebar - Changed to match calendar-background */
 .sidebar {
   width: clamp(120px, 15vw, 160px);
-  background: hsl(var(--sidebar));
+  background: hsl(var(--calendar-background));
   border-right: 1px solid hsl(var(--darker-border) / 0.5);
   flex-shrink: 0;
   display: flex;
@@ -126,8 +126,8 @@
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  font-size: 12px;
-  color: hsl(var(--primary-foreground));
+  font-size: 18px;
+  color: hsl(var(--accent));
   font-weight: 500;
   transition: transform 0.15s ease;
 }
@@ -174,7 +174,7 @@
   padding: 8px 10px;
   border-bottom: 1px solid hsl(var(--border) / 0.2);
   transition: background-color 0.15s ease;
-  background: hsl(var(--sidebar));
+  background: hsl(var(--sidebar)/0.4);
   border-right: none;
 }
 
@@ -239,6 +239,27 @@
   flex-direction: column;
   min-width: 0;
   overflow: hidden;
+  position: relative;
+}
+
+/* Today column highlight overlay */
+.main-grid::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 20%; /* Position for second column (today) */
+  width: 20%; /* Width of one column */
+  background: linear-gradient(
+    to bottom,
+    hsl(var(--accent) / 0.04) 0%,
+    hsl(var(--accent) / 0.02) 50%,
+    hsl(var(--accent) / 0.04) 100%
+  );
+  pointer-events: none;
+  z-index: 0;
+  border-left: 1px solid hsl(var(--accent) / 0.08);
+  border-right: 1px solid hsl(var(--accent) / 0.08);
 }
 
 .grid-header {
@@ -248,6 +269,8 @@
   border-bottom: 1px solid hsl(var(--darker-border) / 0.2);
   flex-shrink: 0;
   height: 38px;
+  position: relative;
+  z-index: 1;
 }
 
 .day-header {
@@ -262,26 +285,35 @@
   border-right: 1px solid hsl(var(--border) / 0.3);
   border-top: 1px solid hsl(var(--border) / 0.3);
   border-bottom: 1px solid hsl(var(--border) / 0.3);
-
-
   display: flex;
   align-items: center;
   justify-content: center;
   position: relative;
+  transition: all 0.3s ease;
 }
 
 .day-header:last-child {
   border-right: none;
 }
 
-/* Today highlighting */
+/* Enhanced today highlighting */
 .day-header.today {
   color: hsl(var(--accent));
-  background: hsl(var(--accent) / 0.04);
+  background: linear-gradient(
+    135deg, 
+    hsl(var(--accent) / 0.12) 0%, 
+    hsl(var(--accent) / 0.06) 50%,
+    hsl(var(--accent) / 0.12) 100%
+  );
   font-weight: 700;
+  border-left: 2px solid hsl(var(--accent) / 0.4);
+  border-right: 2px solid hsl(var(--accent) / 0.4);
+  box-shadow: 
+    inset 0 1px 0 hsl(var(--accent) / 0.1),
+    0 2px 8px hsl(var(--accent) / 0.1);
 }
 
-/* Today indicator circle */
+/* Enhanced today indicator circle */
 .day-header.today::after {
   content: '';
   position: absolute;
@@ -292,22 +324,33 @@
   background: hsl(var(--accent));
   border-radius: 50%;
   transform: translateY(-50%);
-  box-shadow: 0 0 4px hsl(var(--accent) / 0.5);
-  animation: pulse 2s infinite;
+  box-shadow: 
+    0 0 6px hsl(var(--accent) / 0.6),
+    0 0 12px hsl(var(--accent) / 0.3);
+  animation: todayPulse 3s infinite ease-in-out;
 }
 
-@keyframes pulse {
+@keyframes todayPulse {
   0% {
-    box-shadow: 0 0 4px hsl(var(--accent) / 0.5);
+    box-shadow: 
+      0 0 6px hsl(var(--accent) / 0.6),
+      0 0 12px hsl(var(--accent) / 0.3);
     opacity: 1;
+    transform: translateY(-50%) scale(1);
   }
   50% {
-    box-shadow: 0 0 8px hsl(var(--accent) / 0.7);
+    box-shadow: 
+      0 0 10px hsl(var(--accent) / 0.8),
+      0 0 20px hsl(var(--accent) / 0.4);
     opacity: 0.8;
+    transform: translateY(-50%) scale(1.1);
   }
   100% {
-    box-shadow: 0 0 4px hsl(var(--accent) / 0.5);
+    box-shadow: 
+      0 0 6px hsl(var(--accent) / 0.6),
+      0 0 12px hsl(var(--accent) / 0.3);
     opacity: 1;
+    transform: translateY(-50%) scale(1);
   }
 }
 
@@ -317,6 +360,8 @@
   background: hsl(var(--calendar-background));
   scrollbar-width: thin;
   scrollbar-color: hsl(var(--muted-foreground) / 0.4) hsl(var(--muted) / 0.1);
+  position: relative;
+  z-index: 1;
 }
 
 .grid-body::-webkit-scrollbar {
@@ -343,7 +388,6 @@
   display: grid;
   grid-template-columns: repeat(5, 1fr);
   border-bottom: 1px solid hsl(var(--darker-border));
-  
 }
 
 .class-row:last-child {
@@ -351,7 +395,7 @@
 }
 
 .assignment-cell {
-  background: hsl(var(--sidebar));
+  background: hsl(var(--sidebar)/0.4);
   padding: 2px;
   display: flex;
   flex-direction: column;
@@ -360,19 +404,28 @@
   border-right: 1px solid hsl(var(--border) / 0.2);
   width: 100%;
   max-width: 100%;
+  transition: all 0.3s ease;
 }
 
 .assignment-cell:last-child {
   border-right: none;
 }
 
-/* Today cell highlighting */
+/* Enhanced today cell highlighting with subtle glow */
 .assignment-cell.today-cell {
-  background: hsl(var(--sidebar));
+  background: linear-gradient(
+    135deg,
+
+    hsl(var(--sidebar)) 100%
+  );
+  border-left: 1px solid hsl(var(--accent) / 0.12);
+  border-right: 1px solid hsl(var(--accent) / 0.12);
+  box-shadow: inset 0 0 15px hsl(var(--accent) / 0.015);
 }
 
+
+
 .assignments-list {
-    
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -392,7 +445,7 @@
   border-radius: 8px;
   background: hsl(var(--muted) / 0.4);
   border: 1px solid hsl(var(--border) / 0.1);
-  transition: transform 0.15s ease;
+  transition: all 0.2s ease;
   min-height: 24px;
   width: 99%;
   max-width: 100%;
@@ -402,8 +455,27 @@
   margin-bottom: 1px;
 }
 
+/* Enhanced assignment items in today column */
+.today-cell .assignment-item {
+  background: linear-gradient(
+    135deg,
+    hsl(var(--muted) / 0.5) 0%,
+    hsl(var(--accent) / 0.05) 50%,
+    hsl(var(--muted) / 0.4) 100%
+  );
+  border: 1px solid hsl(var(--accent) / 0.1);
+  box-shadow: 
+    0 1px 2px hsl(var(--accent) / 0.05),
+    inset 0 1px 0 hsl(var(--accent) / 0.03);
+}
+
 .assignment-item:hover {
   transform: scale(1.01);
+}
+
+.today-cell .assignment-item:hover {
+  transform: scale(1.01);
+
 }
 
 .assignment-checkbox {
@@ -429,9 +501,27 @@
   padding-right: 12px;
 }
 
+/* Enhanced text in today column */
+.today-cell .assignment-title {
+  color: hsl(var(--foreground));
+}
+
 .assignment-title.completed {
-  text-decoration: line-through;
-  color: hsl(var(--muted-foreground));
+  position: relative;
+  color: hsl(var(--muted-foreground) / 0.4);
+  opacity: 0.4;
+}
+
+.assignment-title.completed::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: hsl(var(--muted-foreground) / 0.3);
+  transform: translateY(-50%);
+  pointer-events: none;
 }
 
 .assignment-edit-input {
@@ -468,7 +558,7 @@
   align-items: center;
   justify-content: center;
   border-radius: 2px;
-  font-size: 8px;
+  font-size: 12px;
   opacity: 0;
   transition: all 0.15s ease;
   padding: 0;
@@ -502,15 +592,26 @@
   font-size: 20px;
   color: hsl(var(--accent));
   font-weight: 400;
-  transition: transform 0.15s ease;
+  transition: all 0.2s ease;
   z-index: 2;
 }
 
 .add-assignment-btn:hover {
-  transform: scale(1.1);
+  transform: scale(1.05);
 }
 
+/* Subtle today column add button - maintains focus but less visual contrast */
+.today-cell .add-assignment-btn {
+  background: hsl(var(--calendar-background));
+  border: 1px solid hsl(var(--accent) / 0.15);
+  color: hsl(var(--accent));
+}
 
+.today-cell .add-assignment-btn:hover {
+  transform: scale(1.05);
+  background: hsl(var(--accent) / 0.08);
+  border: 1px solid hsl(var(--accent) / 0.25);
+}
 
 /* Responsive Design - Enhanced for better scaling */
 @media (max-width: 1400px) {
@@ -638,12 +739,14 @@
     height: 4px;
     right: 4px;
   }
+
+  /* Disable shimmer on mobile for performance - removed shimmer entirely */
 }
 
 /* High DPI / Zoom adjustments */
 @media (min-resolution: 144dpi), (min-resolution: 1.5dppx) {
   .assignment-item {
-    min-height: 26px;
+    min-height: 23px;
   }
 
   .assignment-checkbox {
@@ -659,7 +762,7 @@
   }
 
   .assignment-item {
-    min-height: 28px;
+    min-height: 23px;
     padding: 3px 5px;
   }
 
@@ -682,7 +785,7 @@
   }
 
   .assignment-item {
-    min-height: 32px;
+    min-height: 27px;
     padding: 4px 6px;
   }
 

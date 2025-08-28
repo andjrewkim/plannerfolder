@@ -65,7 +65,7 @@ const Planner: React.FC<PlannerProps> = ({
   const getFiveDaysToShow = () => {
     const today = new Date();
     const startDate = new Date(today);
-    startDate.setDate(today.getDate() + currentDateOffset - 2); // Start from 2 days before current offset
+    startDate.setDate(today.getDate() + currentDateOffset - 1); // Start from 1 day before current offset (changed from -2)
 
     const days = [];
     for (let i = 0; i < 5; i++) {
@@ -300,21 +300,6 @@ const Planner: React.FC<PlannerProps> = ({
   }
 
   // Debug logging
-  console.log('Planner Debug:', {
-    classesCount: classes.length,
-    assignmentsCount: assignments.length,
-    isAuthenticated,
-    error,
-    isLoading,
-    initialized,
-    classes: classes.map(c => ({ id: c.id, name: c.name })),
-    currentDateOffset,
-    fiveDays: fiveDays.map(d => ({ 
-      displayName: d.displayName, 
-      dateString: d.dateString, 
-      isToday: d.isToday 
-    }))
-  });
 
   // Show fallback classes if not authenticated, or if authenticated but no classes loaded yet
   const showFallback = !isAuthenticated || (isAuthenticated && classes.length === 0);

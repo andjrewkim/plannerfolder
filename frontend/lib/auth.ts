@@ -1,8 +1,16 @@
-// lib/auth.ts - WITH GOOGLE OAUTH AND EXISTING CACHING
+// lib/auth.ts - PRODUCTION READY WITH MINIMAL LOGGING
 import { User, LoginCredentials, RegisterData, AuthResponse } from '../types/auth';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL
-console.log('API_BASE_URL:', API_BASE_URL, typeof API_BASE_URL);
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
+
+// Helper function to handle unknown errors
+const handleError = (error: unknown): Error => {
+  if (error instanceof Error) {
+    return error;
+  }
+  return new Error(String(error));
+};
+
 class AuthService {
   private authCheckPromise: Promise<boolean> | null = null;
   private lastAuthCheck: number = 0;
@@ -34,14 +42,12 @@ class AuthService {
       }
 
       if (data.token && data.user) {
-        this.setAuthData(data.token, data.user);
-        this.invalidateAuthCache();
-        this.cachedAuthStatus = true;
+        this.handleAuthSuccess(data.token, data.user);
       }
 
       return data;
     } catch (error) {
-      throw error;
+      throw handleError(error);
     }
   }
 
@@ -63,69 +69,46 @@ class AuthService {
 
       return data;
     } catch (error) {
-      throw error;
+      throw handleError(error);
     }
   }
 
-  // ✅ NEW: Google OAuth Authentication
   async googleAuth(credential: string): Promise<AuthResponse> {
     try {
-      console.log('🔍 Starting Google OAuth authentication...');
-      console.log('📊 Debug Info:');
-      console.log('  - API_BASE_URL:', API_BASE_URL);
-      console.log('  - credential length:', credential?.length || 'undefined');
-      console.log('  - GOOGLE_CLIENT_ID:', process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID);
-      
-      // Check if credential is valid
+      // Basic validation
       if (!credential || credential === 'null' || credential === 'undefined') {
         throw new Error('Invalid credential provided to Google OAuth');
       }
 
-      // Construct the full URL
-      const fullUrl = `${API_BASE_URL}/api/auth/google/`;
-      console.log('  - Full URL:', fullUrl);
-      
-      // Prepare the body
-      const requestBody = { 
-        credential: credential,
-        client_id: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID
-      };
-      console.log('  - Request body:', JSON.stringify(requestBody, null, 2));
-      
-      const response = await fetch(fullUrl, {
+      const response = await fetch(`${API_BASE_URL}/api/auth/google/`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(requestBody),
+        body: JSON.stringify({
+          credential: credential,
+          client_id: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID
+        }),
       });
 
-      console.log('📡 Response status:', response.status);
-      console.log('📡 Response headers:', Object.fromEntries(response.headers.entries()));
-
       const data = await response.json();
-      console.log('📋 Response data:', data);
 
       if (!response.ok) {
-        console.error('❌ Response not OK:', response.status, data);
         throw new Error(data.error || data.message || 'Google authentication failed');
       }
 
       if (data.token && data.user) {
-        console.log('✅ Google OAuth successful, setting auth data...');
-        this.setAuthData(data.token, data.user);
-        this.invalidateAuthCache();
-        this.cachedAuthStatus = true;
+        this.handleAuthSuccess(data.token, data.user);
       }
 
       return data;
     } catch (error) {
-      console.error('❌ Google OAuth error details:');
-      console.error('  - Error type:', error.constructor.name);
-      console.error('  - Error message:', error.message);
-      console.error('  - Error stack:', error.stack);
-      console.error('  - Full error object:', error);
-      throw error;
+      const handledError = handleError(error);
+      // Only log errors in development or for critical issues
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Google OAuth error:', handledError.message);
+      }
+      throw handledError;
     }
   }
 
@@ -150,6 +133,7 @@ class AuthService {
       
       return response.ok;
     } catch (error) {
+      // Always clear auth data on logout, regardless of network errors
       this.clearAuthData();
       this.invalidateAuthCache();
       this.cachedAuthStatus = false;
@@ -178,57 +162,44 @@ class AuthService {
       const result = await this.authCheckPromise;
       this.cachedAuthStatus = result;
       return result;
+    } catch (error) {
+      this.cachedAuthStatus = false;
+      return false;
     } finally {
       this.authCheckPromise = null;
     }
   }
 
   private async performAuthCheck(): Promise<boolean> {
-    const startTime = Date.now();
-    console.log(`🔍 [${new Date().toLocaleTimeString()}] Starting auth check...`);
-    
     try {
       const token = this.getToken();
       if (!token) {
-        console.log(`❌ [${new Date().toLocaleTimeString()}] No token found`);
         return false;
       }
 
-      console.log(`📡 [${new Date().toLocaleTimeString()}] Making request to check-login...`);
       const response = await fetch(`${API_BASE_URL}/api/check-login/`, {
         method: 'GET',
         headers: this.getAuthHeaders(),
         credentials: 'include',
       });
       
-      const elapsed = Date.now() - startTime;
-      console.log(`📥 [${new Date().toLocaleTimeString()}] Response received in ${elapsed}ms, status: ${response.status}`);
-      
       if (!response.ok) {
-        console.log(`❌ [${new Date().toLocaleTimeString()}] Response not OK: ${response.status}`);
         return false;
       }
       
       const data = await response.json();
-      const parseTime = Date.now() - startTime;
-      console.log(`📋 [${new Date().toLocaleTimeString()}] JSON parsed in ${parseTime}ms:`, data);
-      
       const isAuthenticated = data.isAuthenticated;
       
       if (!isAuthenticated) {
-        console.log(`❌ [${new Date().toLocaleTimeString()}] Server says not authenticated - clearing data`);
         this.clearAuthData();
-      } else {
-        console.log(`✅ [${new Date().toLocaleTimeString()}] Authentication confirmed`);
       }
-      
-      const totalTime = Date.now() - startTime;
-      console.log(`⏱️ [${new Date().toLocaleTimeString()}] Total auth check time: ${totalTime}ms`);
       
       return isAuthenticated;
     } catch (error) {
-      const errorTime = Date.now() - startTime;
-      console.error(`💥 [${new Date().toLocaleTimeString()}] Auth check error after ${errorTime}ms:`, error);
+      // Only log auth check errors in development
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Auth check failed:', handleError(error).message);
+      }
       return false;
     }
   }
@@ -289,29 +260,31 @@ class AuthService {
       throw new Error('No authentication token');
     }
 
-    const response = await fetch(url, {
-      ...options,
-      credentials: 'include',
-      headers: {
-        ...this.getAuthHeaders(),
-        ...options.headers,
-      },
-    });
-    
-    if (response.status === 401) {
-      this.clearAuthData();
-      this.invalidateAuthCache();
-      this.cachedAuthStatus = false;
+    try {
+      const response = await fetch(url, {
+        ...options,
+        credentials: 'include',
+        headers: {
+          ...this.getAuthHeaders(),
+          ...options.headers,
+        },
+      });
       
-      if (typeof window !== 'undefined') {
-        window.location.href = '/userlogin';
+      if (response.status === 401) {
+        this.clearAuthData();
+        this.invalidateAuthCache();
+        this.cachedAuthStatus = false;
+        
+        if (typeof window !== 'undefined') {
+          window.location.href = '/userlogin';
+        }
       }
+
+      return response;
+    } catch (error) {
+      throw handleError(error);
     }
-
-    return response;
   }
-
-  // ✅ NEW: Additional helper methods for better integration
 
   /**
    * Handle successful authentication from any source (email/password or Google OAuth)
@@ -321,7 +294,6 @@ class AuthService {
     this.setAuthData(token, user);
     this.invalidateAuthCache();
     this.cachedAuthStatus = true;
-    console.log('🎉 Authentication successful, user data cached');
   }
 
   /**

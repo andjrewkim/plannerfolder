@@ -147,8 +147,7 @@ const AppContent: React.FC<AppContentProps> = ({
   };
 
   const handleAppViewChange = (newView: ViewType) => {
-    console.log('handleAppViewChange called with:', newView);
-    console.log('Current activeView:', activeView);
+
     
     // Update the active view immediately
     setActiveView(newView);
@@ -160,10 +159,6 @@ const AppContent: React.FC<AppContentProps> = ({
     }
   };
 
-  // Add this useEffect to monitor activeView changes
-  useEffect(() => {
-    console.log('activeView changed to:', activeView);
-  }, [activeView]);
 
   const handleRightSidebarToggle = () => {
     setRightSidebarOpen(!rightSidebarOpen);
@@ -192,41 +187,7 @@ const AppContent: React.FC<AppContentProps> = ({
     }
   };
 
-  const handleSidebarTaskUpdate = async (taskId: string, updates: any): Promise<void> => {
-    if (updateTask && typeof updateTask === 'function') {
-      const updatedTask = await updateTask(taskId, updates);
-      if (updatedTask) {
-        console.log('Task updated:', updatedTask);
-        
-        if (posthog) {
-          posthog.capture('task_updated', {
-            task_id: taskId,
-            updates: Object.keys(updates),
-            timestamp: new Date().toISOString()
-          });
-        }
-      }
-    } else {
-      console.warn('updateTask function is not available in useAppState hook');
-      
-      try {
-        await deleteTask(taskId);
-        const updatedTaskData = { ...updates, id: taskId };
-        await createTask(updatedTaskData);
-        console.log('Task updated via delete/create workaround');
-        
-        if (posthog) {
-          posthog.capture('task_updated_workaround', {
-            task_id: taskId,
-            timestamp: new Date().toISOString()
-          });
-        }
-      } catch (error) {
-        console.error('Failed to update task:', error);
-        setError('Failed to update task');
-      }
-    }
-  };
+
 
   const handleSidebarTaskDelete = async (taskId: string): Promise<boolean> => {
     try {

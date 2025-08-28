@@ -45,7 +45,6 @@ interface PlannerState {
 // Enhanced debug logging
 const debugLog = (message: string, data?: any) => {
   const timestamp = new Date().toISOString();
-  console.log(`[${timestamp}] PLANNER DEBUG: ${message}`, data || '');
 };
 
 // API functions
