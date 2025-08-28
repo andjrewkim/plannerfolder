@@ -6,6 +6,13 @@ import sys
 
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'Fluxy.settings')
 
+import builtins
+
+DEBUG = False
+
+if not DEBUG:
+    builtins.print = lambda *args, **kwargs: None
+
 
 def main():
     """Run administrative tasks."""
@@ -38,5 +45,10 @@ os.environ.setdefault("DJANGO_SETTINGS_MODULE", "Fluxy.settings")
 django.setup()
 
 User = get_user_model()
-if not User.objects.filter(username="admin").exists():
-    User.objects.create_superuser("admin", "vexr0265@gmail.com", "Horosny1414!")
+
+admin_username = os.getenv("DJANGO_SUPERUSER_USERNAME")
+admin_email = os.getenv("DJANGO_SUPERUSER_EMAIL")
+admin_password = os.getenv("DJANGO_SUPERUSER_PASSWORD")
+
+if admin_email and not User.objects.filter(email=admin_email).exists():
+    User.objects.create_superuser(admin_username, admin_email, admin_password)
