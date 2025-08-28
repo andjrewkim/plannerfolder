@@ -603,7 +603,6 @@
 /* Subtle today column add button - maintains focus but less visual contrast */
 .today-cell .add-assignment-btn {
   background: hsl(var(--calendar-background));
-  border: 1px solid hsl(var(--accent) / 0.15);
   color: hsl(var(--accent));
 }
 
