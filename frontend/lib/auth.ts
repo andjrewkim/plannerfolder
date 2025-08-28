@@ -2,7 +2,7 @@
 import { User, LoginCredentials, RegisterData, AuthResponse } from '../types/auth';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL
-
+console.log('API_BASE_URL:', API_BASE_URL, typeof API_BASE_URL);
 class AuthService {
   private authCheckPromise: Promise<boolean> | null = null;
   private lastAuthCheck: number = 0;
@@ -71,21 +71,43 @@ class AuthService {
   async googleAuth(credential: string): Promise<AuthResponse> {
     try {
       console.log('🔍 Starting Google OAuth authentication...');
+      console.log('📊 Debug Info:');
+      console.log('  - API_BASE_URL:', API_BASE_URL);
+      console.log('  - credential length:', credential?.length || 'undefined');
+      console.log('  - GOOGLE_CLIENT_ID:', process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID);
       
-      const response = await fetch(`${API_BASE_URL}/api/auth/google/`, {
+      // Check if credential is valid
+      if (!credential || credential === 'null' || credential === 'undefined') {
+        throw new Error('Invalid credential provided to Google OAuth');
+      }
+
+      // Construct the full URL
+      const fullUrl = `${API_BASE_URL}/api/auth/google/`;
+      console.log('  - Full URL:', fullUrl);
+      
+      // Prepare the body
+      const requestBody = { 
+        credential: credential,
+        client_id: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID
+      };
+      console.log('  - Request body:', JSON.stringify(requestBody, null, 2));
+      
+      const response = await fetch(fullUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ 
-          credential: credential,
-          client_id: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID
-        }),
+        body: JSON.stringify(requestBody),
       });
 
+      console.log('📡 Response status:', response.status);
+      console.log('📡 Response headers:', Object.fromEntries(response.headers.entries()));
+
       const data = await response.json();
+      console.log('📋 Response data:', data);
 
       if (!response.ok) {
+        console.error('❌ Response not OK:', response.status, data);
         throw new Error(data.error || data.message || 'Google authentication failed');
       }
 
@@ -98,7 +120,11 @@ class AuthService {
 
       return data;
     } catch (error) {
-      console.error('❌ Google OAuth error:', error);
+      console.error('❌ Google OAuth error details:');
+      console.error('  - Error type:', error.constructor.name);
+      console.error('  - Error message:', error.message);
+      console.error('  - Error stack:', error.stack);
+      console.error('  - Full error object:', error);
       throw error;
     }
   }

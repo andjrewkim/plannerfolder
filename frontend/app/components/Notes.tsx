@@ -2,7 +2,16 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Plus, X, Edit2, FileText, List } from 'lucide-react';
 import { useNotes } from '../hooks/useNotes';
 
-const NotesComponent = () => {
+// Define types for the component
+interface Note {
+  id: number;
+  title: string;
+  content: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+const NotesComponent: React.FC = () => {
   const {
     notes,
     loading,
@@ -19,25 +28,24 @@ const NotesComponent = () => {
     updateActiveNoteTitle
   } = useNotes();
 
-  const [isEditingTitle, setIsEditingTitle] = useState(null);
-  const [editTitle, setEditTitle] = useState("");
-  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
-  const textareaRef = useRef(null);
+  const [isEditingTitle, setIsEditingTitle] = useState<number | null>(null);
+  const [editTitle, setEditTitle] = useState<string>("");
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState<boolean>(false);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  const addNewTab = async () => {
+  const addNewTab = async (): Promise<void> => {
     const newNote = await createNote({
       title: "New Note",
       content: ""
     });
   };
 
-
   const removeTab = async (noteId: number): Promise<void> => {
     if (notes.length === 1) return;
     await deleteNote(noteId);
   };
 
-  const updateTabContent = (content) => {
+  const updateTabContent = (content: string): void => {
     setHasUnsavedChanges(true);
     updateActiveNoteContent(content);
   };
@@ -49,9 +57,9 @@ const NotesComponent = () => {
     }
   }, [saveStatus]);
 
-  const handleKeyDown = (e) => {
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>): void => {
     const textarea = e.currentTarget;
-    const { selectionStart, selectionEnd, value } = textarea as HTMLTextAreaElement;
+    const { selectionStart, selectionEnd, value } = textarea;
 
     if (e.key === 'Tab') {
       e.preventDefault();
@@ -156,7 +164,7 @@ const NotesComponent = () => {
     }
   };
 
-  const addBulletPoint = () => {
+  const addBulletPoint = (): void => {
     if (!activeNote || !textareaRef.current) return;
     
     const textarea = textareaRef.current;
@@ -192,16 +200,29 @@ const NotesComponent = () => {
     }, 0);
   };
 
-  const startEditingTitle = (noteId, currentTitle) => {
+  const startEditingTitle = (noteId: number, currentTitle: string): void => {
     setIsEditingTitle(noteId);
     setEditTitle(currentTitle);
   };
 
-  const saveTitle = async (noteId) => {
+  const saveTitle = async (noteId: number): Promise<void> => {
     const title = editTitle.trim() || "Untitled";
     await updateNote(noteId, { title });
     setIsEditingTitle(null);
     setEditTitle("");
+  };
+
+  const handleInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, noteId: number): void => {
+    if (e.key === 'Enter') saveTitle(noteId);
+    if (e.key === 'Escape') setIsEditingTitle(null);
+  };
+
+  const handleMouseEnter = (element: HTMLElement, styles: React.CSSProperties): void => {
+    Object.assign(element.style, styles);
+  };
+
+  const handleMouseLeave = (element: HTMLElement, styles: React.CSSProperties): void => {
+    Object.assign(element.style, styles);
   };
 
   // Show loading state
@@ -278,7 +299,6 @@ const NotesComponent = () => {
         background: 'hsl(var(--calendar-background))',
         borderBottom: '1px solid hsl(var(--border) / 0.5)',
         borderTop: '1px solid hsl(var(--border) / 0.5)',
-
         flexShrink: 0,
         position: 'relative',
         overflow: 'hidden'
@@ -290,7 +310,6 @@ const NotesComponent = () => {
           left: 0,
           right: 0,
           bottom: 0,
-          
           pointerEvents: 'none'
         }}></div>
         <h1 style={{
@@ -420,10 +439,7 @@ const NotesComponent = () => {
                       value={editTitle}
                       onChange={(e) => setEditTitle(e.target.value)}
                       onBlur={() => saveTitle(note.id)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') saveTitle(note.id);
-                        if (e.key === 'Escape') setIsEditingTitle(null);
-                      }}
+                      onKeyDown={(e) => handleInputKeyDown(e, note.id)}
                       style={{
                         flex: 1,
                         background: 'hsl(var(--background))',
@@ -489,17 +505,6 @@ const NotesComponent = () => {
                         e.currentTarget.style.color = 'hsl(var(--muted-foreground))';
                         e.currentTarget.style.borderColor = 'hsl(var(--border) / 0.5)';
                       }}
-                      ref={(el) => {
-                        if (el && el.parentElement && el.parentElement.parentElement) {
-                          const parent = el.parentElement.parentElement;
-                          parent.addEventListener('mouseenter', () => {
-                            el.style.opacity = '1';
-                          });
-                          parent.addEventListener('mouseleave', () => {
-                            el.style.opacity = '0';
-                          });
-                        }
-                      }}
                     >
                       <Edit2 size={10} />
                     </button>
@@ -535,17 +540,6 @@ const NotesComponent = () => {
                         e.currentTarget.style.background = 'hsl(var(--background))';
                         e.currentTarget.style.color = 'hsl(var(--muted-foreground))';
                         e.currentTarget.style.borderColor = 'hsl(var(--border) / 0.5)';
-                      }}
-                      ref={(el) => {
-                        if (el && el.parentElement && el.parentElement.parentElement) {
-                          const parent = el.parentElement.parentElement;
-                          parent.addEventListener('mouseenter', () => {
-                            el.style.opacity = '1';
-                          });
-                          parent.addEventListener('mouseleave', () => {
-                            el.style.opacity = '0';
-                          });
-                        }
                       }}
                     >
                       ×

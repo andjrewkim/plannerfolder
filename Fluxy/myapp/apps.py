@@ -23,7 +23,7 @@ class YourAppConfig(AppConfig):
             properties={"example_property": "with_some_value"}
             )
         else:
-            print("⚠️ No user found to capture the event")
+            print("No user found to capture the event")
 
         from .views_llm_text import (
             llm_service,
@@ -45,11 +45,10 @@ class YourAppConfig(AppConfig):
                     events_function=get_calendar_events,
                     update_event_function=update_calendar_event
                 ))
-                print("✅ Registered OpenAI provider")
             except Exception as e:
-                print(f"❌ Failed to register OpenAI provider: {e}")
+                print(f"Failed to register OpenAI provider: {e}")
         else:
-            print("❌ OPENAI_API_KEY not found in settings")
+            print("OPENAI_API_KEY not found in settings")
 
         # ✅ Optionally register Gemini provider
         if hasattr(settings, 'GEMINI_API_KEY') and settings.GEMINI_API_KEY:
@@ -60,9 +59,8 @@ class YourAppConfig(AppConfig):
                     events_function=get_calendar_events,
                     update_event_function=update_calendar_event
                 ))
-                print("✅ Registered Gemini provider")
             except Exception as e:
-                print(f"❌ Failed to register Gemini provider: {e}")
+                print(f"Failed to register Gemini provider: {e}")
         else:
             print("⚠️ GEMINI_API_KEY not found in settings (Gemini will not be available)")
 

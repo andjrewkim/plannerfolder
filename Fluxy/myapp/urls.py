@@ -35,7 +35,7 @@ urlpatterns = [
     path('api/logout/', logout_view),
     path('api/register/', register_user),
     path('api/login/', login_user),
-    path('auth/google/', views_user.google_auth, name='google_auth'),
+    path('api/auth/google/', views_user.google_auth, name='google_auth'),
 
     path('api/check-login/', check_login),
     path('api/schedule/parse/', ScheduleInputParser.as_view(), name='schedule-parser'),
