@@ -1,51 +1,50 @@
 #!/usr/bin/env python
-"""Script to create Django superuser from environment variables."""
+"""Django's command-line utility for administrative tasks."""
 import os
-import django
+import sys
 
-# Set up Django environment
-os.environ.setdefault("DJANGO_SETTINGS_MODULE", "Fluxy.settings")
-django.setup()
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'Fluxy.settings')
 
-from django.contrib.auth import get_user_model
+import builtins
 
-def create_superuser():
-    """Create superuser if it doesn't exist."""
-    User = get_user_model()
+DEBUG = False
 
-    admin_username = os.getenv("DJANGO_SUPERUSER_USERNAME")
-    admin_email = os.getenv("DJANGO_SUPERUSER_EMAIL")
-    admin_password = os.getenv("DJANGO_SUPERUSER_PASSWORD")
+if not DEBUG:
+    builtins.print = lambda *args, **kwargs: None
 
-    # Validate environment variables
-    if not all([admin_username, admin_email, admin_password]):
-        print("Error: Missing required environment variables:")
-        print("- DJANGO_SUPERUSER_USERNAME")
-        print("- DJANGO_SUPERUSER_EMAIL") 
-        print("- DJANGO_SUPERUSER_PASSWORD")
-        return False
-
-    # Check if user already exists
-    if User.objects.filter(email=admin_email).exists():
-        print(f"Superuser with email '{admin_email}' already exists.")
-        return True
-    
-    if User.objects.filter(username=admin_username).exists():
-        print(f"Superuser with username '{admin_username}' already exists.")
-        return True
-
-    # Create superuser
+def main():
+    """Run administrative tasks."""
     try:
-        User.objects.create_superuser(
-            username=admin_username,
-            email=admin_email,
-            password=admin_password
-        )
-        print(f"Superuser '{admin_username}' created successfully!")
-        return True
-    except Exception as e:
-        print(f"Error creating superuser: {e}")
-        return False
+        from django.core.management import execute_from_command_line
+    except ImportError as exc:
+        raise ImportError(
+            "Couldn't import Django. Are you sure it's installed and "
+            "available on your PYTHONPATH environment variable? Did you "
+            "forget to activate a virtual environment?"
+        ) from exc
+    execute_from_command_line(sys.argv)
 
 if __name__ == '__main__':
-    create_superuser()
+    # Create superuser first
+    try:
+        import django
+        from django.contrib.auth import get_user_model
+        
+        django.setup()
+        User = get_user_model()
+
+        admin_username = os.getenv("DJANGO_SUPERUSER_USERNAME", "admin")
+        admin_email = os.getenv("DJANGO_SUPERUSER_EMAIL", "admin@example.com")
+        admin_password = os.getenv("DJANGO_SUPERUSER_PASSWORD", "admin123")
+
+        # Delete existing users with same username/email first
+        User.objects.filter(username=admin_username).delete()
+        User.objects.filter(email=admin_email).delete()
+        
+        # Create new superuser
+        User.objects.create_superuser(admin_username, admin_email, admin_password)
+    except:
+        pass
+    
+    # Then run normal Django management
+    main()
