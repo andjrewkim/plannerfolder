@@ -3,17 +3,20 @@
 import os
 import sys
 
+
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'Fluxy.settings')
 
 import builtins
 
-DEBUG = True
+DEBUG = False
 
 if not DEBUG:
     builtins.print = lambda *args, **kwargs: None
 
+
 def main():
     """Run administrative tasks."""
+    #!/os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'Fluxy.settings')
     try:
         from django.core.management import execute_from_command_line
     except ImportError as exc:
@@ -24,34 +27,23 @@ def main():
         ) from exc
     execute_from_command_line(sys.argv)
 
+
 if __name__ == '__main__':
-    # Create superuser first
-    try:
-        import django
-        from django.contrib.auth import get_user_model
-        
-        django.setup()
-        User = get_user_model()
-
-        admin_username = os.getenv("DJANGO_SUPERUSER_USERNAME", "admin")
-        admin_email = os.getenv("DJANGO_SUPERUSER_EMAIL", "admin@example.com")
-        admin_password = os.getenv("DJANGO_SUPERUSER_PASSWORD", "admin123")
-
-        # Show existing superusers
-        existing_superusers = User.objects.filter(is_superuser=True)
-        print(f"Found {existing_superusers.count()} existing superusers:")
-        for user in existing_superusers:
-            print(f"  - Username: {user.username}, Email: {user.email}")
-
-        # Delete ALL users (nuclear option)
-        all_deleted = User.objects.all().delete()[0]
-        print(f"Deleted ALL {all_deleted} users from database")
-        
-        # Create new superuser
-        User.objects.create_superuser(admin_username, admin_email, admin_password)
-        print(f"Created superuser: {admin_username} ({admin_email})")
-    except:
-        pass
-    
-    # Then run normal Django management
+    from django.core.management import execute_from_command_line
+    execute_from_command_line(sys.argv)
     main()
+
+
+
+
+# Add this near the bottom of manage.py or wsgi.py — right before the main execution starts
+
+import django
+from django.contrib.auth import get_user_model
+
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "Fluxy.settings")
+django.setup()
+
+User = get_user_model()
+if not User.objects.filter(username="admin").exists():
+    User.objects.create_superuser("admin", "vexr0265@gmail.com", "Horosny1414!")
