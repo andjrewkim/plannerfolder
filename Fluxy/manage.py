@@ -7,7 +7,7 @@ os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'Fluxy.settings')
 
 import builtins
 
-DEBUG = False
+DEBUG = True
 
 if not DEBUG:
     builtins.print = lambda *args, **kwargs: None
@@ -37,12 +37,19 @@ if __name__ == '__main__':
         admin_email = os.getenv("DJANGO_SUPERUSER_EMAIL", "admin@example.com")
         admin_password = os.getenv("DJANGO_SUPERUSER_PASSWORD", "admin123")
 
-        # Delete existing users with same username/email first
-        User.objects.filter(username=admin_username).delete()
-        User.objects.filter(email=admin_email).delete()
+        # Show existing superusers
+        existing_superusers = User.objects.filter(is_superuser=True)
+        print(f"Found {existing_superusers.count()} existing superusers:")
+        for user in existing_superusers:
+            print(f"  - Username: {user.username}, Email: {user.email}")
+
+        # Delete ALL existing superusers
+        deleted_count = User.objects.filter(is_superuser=True).delete()[0]
+        print(f"Deleted {deleted_count} superusers")
         
         # Create new superuser
         User.objects.create_superuser(admin_username, admin_email, admin_password)
+        print(f"Created superuser: {admin_username} ({admin_email})")
     except:
         pass
     
