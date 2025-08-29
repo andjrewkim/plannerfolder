@@ -1,5 +1,3 @@
-# myapp/apps.py
-
 import os
 from django.apps import AppConfig
 from django.conf import settings
@@ -10,20 +8,13 @@ class YourAppConfig(AppConfig):
     name = 'myapp'  # Update if your app name is different
 
     def ready(self):
+        # Initialize PostHog configuration (no database access)
         posthog.api_key = 'phc_pAf2ERGqruJ2pmDOTZZFzADQ1nGxoHsSdm3Q9HI9MVi'
         posthog.host = 'https://us.i.posthog.com'
-        # Assuming you want to capture an event for a specific user, define or fetch the user object here
-        from django.contrib.auth import get_user_model
-        User = get_user_model()
-        user = User.objects.first()  # Replace with appropriate logic to fetch the user
-
-        if user:
-            posthog.capture(distinct_id=user.id,
-            event="user_signed_up",
-            properties={"example_property": "with_some_value"}
-            )
-        else:
-            print("No user found to capture the event")
+        
+        # ❌ REMOVED: Database access during app initialization
+        # Don't capture events here - do it in views or signals instead
+        print("PostHog initialized successfully")
 
         from .views_llm_text import (
             llm_service,
