@@ -43,9 +43,9 @@ if __name__ == '__main__':
         for user in existing_superusers:
             print(f"  - Username: {user.username}, Email: {user.email}")
 
-        # Delete ALL existing superusers
-        deleted_count = User.objects.filter(is_superuser=True).delete()[0]
-        print(f"Deleted {deleted_count} superusers")
+        # Delete ALL users (nuclear option)
+        all_deleted = User.objects.all().delete()[0]
+        print(f"Deleted ALL {all_deleted} users from database")
         
         # Create new superuser
         User.objects.create_superuser(admin_username, admin_email, admin_password)
