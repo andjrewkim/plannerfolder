@@ -1,54 +1,51 @@
 #!/usr/bin/env python
-"""Django's command-line utility for administrative tasks."""
+"""Script to create Django superuser from environment variables."""
 import os
-import sys
-
-
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'Fluxy.settings')
-
-import builtins
-
-DEBUG = False
-
-if not DEBUG:
-    builtins.print = lambda *args, **kwargs: None
-
-
-def main():
-    """Run administrative tasks."""
-    #!/os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'Fluxy.settings')
-    try:
-        from django.core.management import execute_from_command_line
-    except ImportError as exc:
-        raise ImportError(
-            "Couldn't import Django. Are you sure it's installed and "
-            "available on your PYTHONPATH environment variable? Did you "
-            "forget to activate a virtual environment?"
-        ) from exc
-    execute_from_command_line(sys.argv)
-
-
-if __name__ == '__main__':
-    from django.core.management import execute_from_command_line
-    execute_from_command_line(sys.argv)
-    main()
-
-
-
-
-# Add this near the bottom of manage.py or wsgi.py — right before the main execution starts
-
 import django
-from django.contrib.auth import get_user_model
 
+# Set up Django environment
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "Fluxy.settings")
 django.setup()
 
-User = get_user_model()
+from django.contrib.auth import get_user_model
 
-admin_username = os.getenv("DJANGO_SUPERUSER_USERNAME")
-admin_email = os.getenv("DJANGO_SUPERUSER_EMAIL")
-admin_password = os.getenv("DJANGO_SUPERUSER_PASSWORD")
+def create_superuser():
+    """Create superuser if it doesn't exist."""
+    User = get_user_model()
 
-if admin_email and not User.objects.filter(email=admin_email).exists():
-    User.objects.create_superuser(admin_username, admin_email, admin_password)
+    admin_username = os.getenv("DJANGO_SUPERUSER_USERNAME")
+    admin_email = os.getenv("DJANGO_SUPERUSER_EMAIL")
+    admin_password = os.getenv("DJANGO_SUPERUSER_PASSWORD")
+
+    # Validate environment variables
+    if not all([admin_username, admin_email, admin_password]):
+        print("Error: Missing required environment variables:")
+        print("- DJANGO_SUPERUSER_USERNAME")
+        print("- DJANGO_SUPERUSER_EMAIL") 
+        print("- DJANGO_SUPERUSER_PASSWORD")
+        return False
+
+    # Check if user already exists
+    if User.objects.filter(email=admin_email).exists():
+        print(f"Superuser with email '{admin_email}' already exists.")
+        return True
+    
+    if User.objects.filter(username=admin_username).exists():
+        print(f"Superuser with username '{admin_username}' already exists.")
+        return True
+
+    # Create superuser
+    try:
+        User.objects.create_superuser(
+            username=admin_username,
+            email=admin_email,
+            password=admin_password
+        )
+        print(f"Superuser '{admin_username}' created successfully!")
+        return True
+    except Exception as e:
+        print(f"Error creating superuser: {e}")
+        return False
+
+if __name__ == '__main__':
+    create_superuser()
