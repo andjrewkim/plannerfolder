@@ -292,9 +292,7 @@
   transition: all 0.3s ease;
 }
 
-.day-header:last-child {
-  border-right: none;
-}
+
 
 /* Enhanced today highlighting */
 .day-header.today {
@@ -407,9 +405,6 @@
   transition: all 0.3s ease;
 }
 
-.assignment-cell:last-child {
-  border-right: none;
-}
 
 /* Enhanced today cell highlighting with subtle glow */
 .assignment-cell.today-cell {
