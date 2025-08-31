@@ -24,11 +24,13 @@ const AppContent: React.FC<AppContentProps> = ({
 }) => {
   const posthog = usePostHog();
   
-  // Authentication state
+  // Authentication state - removed isLoadingAuth
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [isLoadingAuth, setIsLoadingAuth] = useState(true);
   
-  // Use the centralized state hook - but only initialize after auth
+  // Add layout ready state to prevent layout shifts
+  const [layoutReady, setLayoutReady] = useState(false);
+  
+  // Use the centralized state hook
   const {
     events,
     tasks,
@@ -43,22 +45,33 @@ const AppContent: React.FC<AppContentProps> = ({
     setError
   } = useAppState();
 
-  // View management state - Initialize immediately from localStorage
+  
+  // View management state - Changed default to 'your-new-view' (planner)
   const [activeView, setActiveView] = useState<ViewType>(() => {
+    // Initialize from localStorage if available
     if (typeof window !== 'undefined') {
       const savedView = localStorage.getItem('lastActiveView') as ViewType;
       if (savedView && (savedView === 'calendar' || savedView === 'your-new-view')) {
         return savedView;
       }
     }
-    return 'your-new-view';
+    return 'your-new-view'; // Default view changed to planner
   });
-  
   const [view, setView] = useState<string>('dayGridMonth');
   const [refreshEvents, setRefreshEvents] = useState(0);
   const [navbarVisible, setNavbarVisible] = useState(false);
 
-  // Check authentication status
+  // Ensure layout is ready before showing content
+  useEffect(() => {
+    // Use requestAnimationFrame to ensure DOM is ready
+    const timer = requestAnimationFrame(() => {
+      setLayoutReady(true);
+    });
+    
+    return () => cancelAnimationFrame(timer);
+  }, []);
+
+  // Check authentication status - runs in background without blocking UI
   useEffect(() => {
     const checkAuth = async () => {
       try {
@@ -76,43 +89,42 @@ const AppContent: React.FC<AppContentProps> = ({
       } catch (error) {
         console.error('Error checking auth status:', error);
         setIsAuthenticated(false);
-      } finally {
-        setIsLoadingAuth(false);
       }
     };
 
     checkAuth();
   }, []);
 
-  // Initialize data only after authentication is confirmed
+  
+
+  // Log the initial view loaded from localStorage
   useEffect(() => {
-    if (isAuthenticated && !isLoadingAuth) {
-      initializeData();
-    }
-  }, [isAuthenticated, isLoadingAuth, initializeData]);
+    console.log('Initial view loaded from localStorage:', activeView);
+  }, []);
 
   // Track view changes
   useEffect(() => {
-    if (posthog && isAuthenticated) {
+    if (posthog) {
       posthog.capture('app_view_changed', {
         view: activeView,
         timestamp: new Date().toISOString()
       });
     }
-  }, [posthog, activeView, isAuthenticated]);
+  }, [posthog, activeView]);
 
   // Track calendar view changes (only when in calendar view)
   useEffect(() => {
-    if (posthog && activeView === 'calendar' && isAuthenticated) {
+    if (posthog && activeView === 'calendar') {
       posthog.capture('calendar_view_changed', {
         view: view,
         timestamp: new Date().toISOString()
       });
     }
-  }, [posthog, view, activeView, isAuthenticated]);
+  }, [posthog, view, activeView]);
 
-  // Set up scroll and cleanup - do this immediately
+  // Don't disable scrolling at all - let everything scroll
   useEffect(() => {
+    // Remove any scroll blocking
     document.body.style.overflow = 'auto';
     document.documentElement.style.overflow = 'auto';
 
@@ -127,7 +139,7 @@ const AppContent: React.FC<AppContentProps> = ({
     };
   }, [posthog]);
 
-  // Listen for navbar visibility changes - set up immediately
+  // Listen for navbar visibility changes
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
       if (e.clientY <= 25) {
@@ -138,14 +150,15 @@ const AppContent: React.FC<AppContentProps> = ({
     };
 
     window.addEventListener('mousemove', handleMouseMove);
-    return () => window.removeEventListener('mousemove', handleMouseMove);
+
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+    };
   }, []);
 
   const handleEventChange = async () => {
-    if (isAuthenticated) {
-      await initializeData();
-      setRefreshEvents((prev) => prev + 1);
-    }
+    await initializeData();
+    setRefreshEvents((prev) => prev + 1);
   };
 
   const handleViewChange = (newView: string) => {
@@ -153,8 +166,10 @@ const AppContent: React.FC<AppContentProps> = ({
   };
 
   const handleAppViewChange = (newView: ViewType) => {
+    // Update the active view immediately
     setActiveView(newView);
     
+    // Save the view preference to localStorage
     if (typeof window !== 'undefined') {
       localStorage.setItem('lastActiveView', newView);
       console.log('Saved view preference to localStorage:', newView);
@@ -164,7 +179,7 @@ const AppContent: React.FC<AppContentProps> = ({
   const handleRightSidebarToggle = () => {
     setRightSidebarOpen(!rightSidebarOpen);
     
-    if (posthog && isAuthenticated) {
+    if (posthog) {
       posthog.capture('sidebar_toggled', {
         isOpen: !rightSidebarOpen,
         timestamp: new Date().toISOString()
@@ -174,8 +189,6 @@ const AppContent: React.FC<AppContentProps> = ({
 
   // Task handlers with PostHog tracking
   const handleSidebarTaskCreate = async (taskData: any): Promise<void> => {
-    if (!isAuthenticated) return;
-    
     const newTask = await createTask(taskData);
     if (newTask) {
       console.log('Task created:', newTask);
@@ -191,8 +204,6 @@ const AppContent: React.FC<AppContentProps> = ({
   };
 
   const handleSidebarTaskDelete = async (taskId: string): Promise<boolean> => {
-    if (!isAuthenticated) return false;
-    
     try {
       const success = await deleteTask(taskId);
       if (success) {
@@ -215,8 +226,6 @@ const AppContent: React.FC<AppContentProps> = ({
 
   // Event handlers with PostHog tracking
   const handleEventCreate = async (eventData: any): Promise<void> => {
-    if (!isAuthenticated) return;
-    
     const newEvent = await createEvent(eventData);
     if (newEvent) {
       console.log('Event created:', newEvent);
@@ -235,8 +244,6 @@ const AppContent: React.FC<AppContentProps> = ({
   };
 
   const handleEventUpdate = async (eventId: string, updates: any): Promise<void> => {
-    if (!isAuthenticated) return;
-    
     const updatedEvent = await updateEvent(eventId, updates);
     if (updatedEvent) {
       console.log('Event updated:', updatedEvent);
@@ -253,8 +260,6 @@ const AppContent: React.FC<AppContentProps> = ({
   };
 
   const handleEventDelete = async (eventId: string): Promise<boolean> => {
-    if (!isAuthenticated) return false;
-    
     try {
       const success = await deleteEvent(eventId);
       if (success) {
@@ -276,37 +281,11 @@ const AppContent: React.FC<AppContentProps> = ({
     }
   };
 
-  // Content loading overlay component
-  const ContentLoadingOverlay = () => (
-    <div className="content-loading-overlay">
-      <div className="loading-spinner">
-        <div className="spinner"></div>
-        <div className="loading-text">Loading your workspace...</div>
-      </div>
-    </div>
-  );
-
-  // Render authenticated content or loading overlay
-  const renderMainContent = () => {
-    if (isLoadingAuth) {
-      return <ContentLoadingOverlay />;
-    }
-
-    if (!isAuthenticated) {
-      return (
-        <div className="auth-required-overlay">
-          <div className="auth-message">
-            <h2>Authentication Required</h2>
-            <p>Please log in to access your workspace.</p>
-          </div>
-        </div>
-      );
-    }
-
-    // Render the actual content only when authenticated
+  // Render the active view content - FIXED: Always render both, just hide with CSS
+  const renderActiveView = () => {
     return (
       <div className="scaled-view-container">
-        {/* Planner View with Notes */}
+        {/* Planner View with Notes - Always rendered, visibility controlled by CSS */}
         <div className={`view-component ${activeView === 'your-new-view' ? 'active' : 'hidden'}`}>
           <Planner 
             rightSidebarOpen={false}
@@ -319,7 +298,7 @@ const AppContent: React.FC<AppContentProps> = ({
           </div>
         </div>
         
-        {/* Calendar View */}
+        {/* Calendar View - Always rendered, visibility controlled by CSS */}
         <div className={`view-component ${activeView === 'calendar' ? 'active' : 'hidden'}`}>
           <Calendar 
             refreshTrigger={refreshEvents}
@@ -336,26 +315,40 @@ const AppContent: React.FC<AppContentProps> = ({
     );
   };
 
+  // Removed loading screen - content loads immediately with layout protection
   return (
     <div className="h-screen overflow-hidden">
-      {/* Sidebar - Always visible for app shell */}
-      <Sidebar 
-        onEventChange={handleEventChange}
-        refreshTrigger={refreshEvents}
-      />
+      {/* Sidebar - Always render but with opacity control */}
+      <div style={{ opacity: layoutReady ? 1 : 0, transition: 'opacity 0.1s ease-in' }}>
+        <Sidebar 
+          onEventChange={handleEventChange}
+          refreshTrigger={refreshEvents}
+        />
+      </div>
       
-      {/* Main content area - Always rendered with full styling */}
-      <div className="main-content-area">
+      {/* Main content area - Full height with opacity control */}
+      <div className="main-content-area" style={{ opacity: layoutReady ? 1 : 0, transition: 'opacity 0.1s ease-in' }}>
         {/* Error message overlay */}
         {error && (
-          <div className="error-overlay">
+          <div style={{ 
+            position: 'absolute', 
+            top: '60px', 
+            left: '20px', 
+            right: '20px',
+            zIndex: 1001,
+            background: '#fee2e2',
+            color: '#dc2626',
+            padding: '8px 12px',
+            borderRadius: '4px',
+            fontSize: '14px'
+          }}>
             {error}
           </div>
         )}
         
-        {/* Dynamic View Content */}
+        {/* Dynamic View Content - The header is now integrated into both components */}
         <div className="view-content">
-          {renderMainContent()}
+          {renderActiveView()}
         </div>
       </div>
 
@@ -368,6 +361,7 @@ const AppContent: React.FC<AppContentProps> = ({
           min-height: 100vh;
           overflow: visible;
           padding: 0;
+          visibility: visible;
         }
 
         .view-content {
@@ -413,94 +407,6 @@ const AppContent: React.FC<AppContentProps> = ({
           transition: opacity 0.2s ease-in-out;
         }
 
-        .error-overlay {
-          position: absolute;
-          top: 60px;
-          left: 20px;
-          right: 20px;
-          z-index: 1001;
-          background: #fee2e2;
-          color: #dc2626;
-          padding: 8px 12px;
-          border-radius: 4px;
-          font-size: 14px;
-        }
-
-        .content-loading-overlay {
-          position: absolute;
-          top: 0;
-          left: 0;
-          right: 0;
-          bottom: 0;
-          background: rgba(255, 255, 255, 0.95);
-          backdrop-filter: blur(2px);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          z-index: 1000;
-        }
-
-        .loading-spinner {
-          text-align: center;
-          color: #6b7280;
-        }
-
-        .spinner {
-          width: 40px;
-          height: 40px;
-          border: 3px solid #f3f4f6;
-          border-top: 3px solid #3b82f6;
-          border-radius: 50%;
-          animation: spin 1s linear infinite;
-          margin: 0 auto 16px auto;
-        }
-
-        .loading-text {
-          font-size: 16px;
-          font-weight: 500;
-        }
-
-        .auth-required-overlay {
-          position: absolute;
-          top: 0;
-          left: 0;
-          right: 0;
-          bottom: 0;
-          background: rgba(255, 255, 255, 0.98);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          z-index: 1000;
-        }
-
-        .auth-message {
-          text-align: center;
-          color: #374151;
-          max-width: 400px;
-          padding: 32px;
-          background: white;
-          border-radius: 12px;
-          box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
-        }
-
-        .auth-message h2 {
-          font-size: 24px;
-          font-weight: 600;
-          margin-bottom: 12px;
-          color: #111827;
-        }
-
-        .auth-message p {
-          font-size: 16px;
-          color: #6b7280;
-          margin: 0;
-        }
-
-        @keyframes spin {
-          0% { transform: rotate(0deg); }
-          100% { transform: rotate(360deg); }
-        }
-
         @media (max-width: 768px) {
           .main-content-area {
             left: 0;
@@ -517,17 +423,12 @@ const AppContent: React.FC<AppContentProps> = ({
             padding: 15px;
           }
 
-          .auth-message {
-            margin: 20px;
-            padding: 24px;
+          .planner-section {
+            width: 100%;
           }
 
-          .auth-message h2 {
-            font-size: 20px;
-          }
-
-          .auth-message p {
-            font-size: 14px;
+          .notes-section {
+            width: 100%;
           }
         }
 
@@ -541,24 +442,17 @@ const AppContent: React.FC<AppContentProps> = ({
           .view-content {
             padding: 10px;
           }
-
-          .auth-message {
-            margin: 16px;
-            padding: 20px;
-          }
         }
       `}</style>
 
       <style jsx global>{`
-        /* Ensure body and html are ready immediately */
+        /* Allow scrolling */
         html, body {
           overflow: auto !important;
           height: auto;
-          margin: 0;
-          padding: 0;
         }
 
-        /* Pre-load the main app container styles */
+        /* Apply border radius to the container and clip content */
         .scaled-view-container {
           border-radius: 12px !important;
           overflow: hidden !important;
@@ -572,7 +466,7 @@ const AppContent: React.FC<AppContentProps> = ({
           overflow: hidden;
         }
 
-        /* Pre-load component-specific styling */
+        /* Optional: If you need to target specific calendar/planner classes */
         .fc-theme-standard,
         .fc,
         .planner-container {
@@ -585,16 +479,6 @@ const AppContent: React.FC<AppContentProps> = ({
           border-radius: 0 0 12px 12px;
           overflow-y: auto;
           overflow-x: hidden;
-        }
-
-        /* Ensure smooth transitions for loading states */
-        * {
-          box-sizing: border-box;
-        }
-
-        /* Pre-load any critical app fonts and styles */
-        .main-content-area * {
-          transition: opacity 0.2s ease-in-out;
         }
       `}</style>
     </div>
