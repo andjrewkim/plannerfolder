@@ -342,7 +342,6 @@ const Sidebar: React.FC<SidebarProps> = ({
       <div className="app-layout">
         <aside className="app-sidebar bg-[hsl(var(--background))] text-[hsl(var(--foreground))]">
           <div className="loading-message" style={{ padding: '20px', textAlign: 'center' }}>
-            Initializing application...
           </div>
         </aside>
       </div>
@@ -401,8 +400,6 @@ const Sidebar: React.FC<SidebarProps> = ({
               <div className="error-message" style={{ color: 'red', padding: '10px' }}>
                 {displayError}
               </div>
-            ) : !initialized ? (
-              <div className="loading-message">Loading events...</div>
             ) : todayEvents.length > 0 ? (
               <ul className="event-list">
                 {todayEvents.map((event, index) => {
@@ -507,13 +504,13 @@ const Sidebar: React.FC<SidebarProps> = ({
             }}
           >
             {plannerLoading ? (
-              <div className="loading-message">Loading classes...</div>
+              <div className="loading-message"></div>
             ) : plannerError ? (
               <div className="error-message" style={{ color: 'red' }}>
                 Error loading classes: {plannerError}
               </div>
             ) : !plannerInitialized ? (
-              <div className="loading-message">Initializing planner...</div>
+              <div className="loading-message"></div>
             ) : classes && classes.length > 0 ? (
               <div className="classes-list" style={{ 
                 display: 'flex',

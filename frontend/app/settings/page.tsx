@@ -57,24 +57,8 @@ const CalendarSettings: React.FC = () => {
 
   // Handle hash-based section selection
   useEffect(() => {
-    const handleHashChange = () => {
-      const hash = window.location.hash.slice(1);
-      if (hash && Object.keys(sectionTitles).includes(hash as SectionName)) {
-        setActiveSection(hash as SectionName);
-      } else {
-        setActiveSection('preferences');
-        if (!window.location.hash) {
-          window.location.hash = 'preferences';
-        }
-      }
-    };
-
-    handleHashChange();
-    window.addEventListener('hashchange', handleHashChange);
-
-    return () => {
-      window.removeEventListener('hashchange', handleHashChange);
-    };
+    // Just set default section, no hash handling
+    setActiveSection('preferences');
   }, []);
 
   const handleSignOut = async () => {
@@ -94,7 +78,7 @@ const CalendarSettings: React.FC = () => {
       const confirmLeave = window.confirm('You have unsaved changes. Are you sure you want to leave?');
       if (!confirmLeave) return;
     }
-    router.push('/calendar');
+    window.location.href = '/calendar';
   };
 
   const handleSectionSwitch = useCallback((sectionId: SectionName) => {
@@ -106,7 +90,8 @@ const CalendarSettings: React.FC = () => {
     }
     
     setActiveSection(sectionId);
-    window.location.hash = sectionId;
+    // Don't use hash - just use state
+    // window.location.hash = sectionId; // Remove this line
   }, [hasUnsavedChanges, activeSection]);
 
   const sidebarItems = [

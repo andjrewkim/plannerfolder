@@ -127,7 +127,6 @@ export const useNotes = (): UseNotesReturn => {
       setLoading(true);
       clearError();
       
-      console.log('Fetching notes...');
       const response = await authAPI.authenticatedFetch(
         `${process.env.NEXT_PUBLIC_API_URL}/api/notes/`,
         { method: 'GET' }
@@ -316,7 +315,7 @@ export const useNotes = (): UseNotesReturn => {
         debouncedSave(activeNoteId, pendingContentRef.current);
         pendingContentRef.current = null;
       }
-    }, 1000);
+    }, 1500);
   }, [activeNoteId, debouncedSave]);
 
   // Convenience method to update active note title

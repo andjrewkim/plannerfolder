@@ -40,14 +40,13 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  border-radius: 8px;
   height: calc(100vh - 8px);
 }
 
 .planner-header {
   padding: 8px 12px;
   background: linear-gradient(135deg, hsl(var(--card)) 0%, hsl(var(--muted) / 0.1) 100%);
-  border-bottom: 2px solid hsl(var(--darker-border) / 0.4);
+  border-bottom: 2px solid hsl(var(--border) / 0.35);
   flex-shrink: 0;
   position: relative;
   overflow: hidden;
@@ -78,13 +77,14 @@
   flex: 1;
   min-height: 0;
   overflow: hidden;
+  border-top: none;
 }
 
-/* Sidebar - Changed to match calendar-background */
+/* Sidebar - Fixed borders to align with grid */
 .sidebar {
   width: clamp(120px, 15vw, 160px);
   background: hsl(var(--calendar-background));
-  border-right: 1px solid hsl(var(--darker-border) / 0.5);
+  border-right: 1px solid hsl(var(--border) / 0.35);
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
@@ -93,13 +93,12 @@
 
 .sidebar-header {
   padding: 8px 10px;
-  border-bottom: 1px solid hsl(var(--darker-border) / 0.2);
+  border-bottom: 1px solid hsl(var(--border) / 0.35);
   flex-shrink: 0;
   height: 38px;
   display: flex;
   align-items: center;
   background: hsl(var(--calendar-background));
-
 }
 
 .classes-header {
@@ -172,10 +171,9 @@
   align-items: center;
   justify-content: space-between;
   padding: 8px 10px;
-  border-bottom: 1px solid hsl(var(--border) / 0.2);
+  border-bottom: 1px solid hsl(var(--border) / 0.35);
   transition: background-color 0.15s ease;
   background: hsl(var(--sidebar)/0.4);
-  border-right: none;
 }
 
 .class-item:hover {
@@ -266,7 +264,7 @@
   display: grid;
   grid-template-columns: repeat(5, 1fr);
   background: hsl(var(--calendar-background));
-  border-bottom: 1px solid hsl(var(--darker-border) / 0.2);
+  border-bottom: 1px solid hsl(var(--border) / 0.35);
   flex-shrink: 0;
   height: 38px;
   position: relative;
@@ -282,9 +280,7 @@
   text-transform: uppercase;
   letter-spacing: 0.05em;
   background: hsl(var(--calendar-background));
-  border-right: 1px solid hsl(var(--border) / 0.3);
-  border-top: 1px solid hsl(var(--border) / 0.3);
-  border-bottom: 1px solid hsl(var(--border) / 0.3);
+  border-right: 1px solid hsl(var(--border) / 0.35);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -292,7 +288,9 @@
   transition: all 0.3s ease;
 }
 
-
+.day-header:last-child {
+  border-right: none;
+}
 
 /* Enhanced today highlighting */
 .day-header.today {
@@ -374,7 +372,7 @@
 .grid-body::-webkit-scrollbar-thumb {
   background: linear-gradient(180deg, hsl(var(--muted-foreground) / 0.4) 0%, hsl(var(--muted-foreground) / 0.2) 100%);
   border-radius: 4px;
-  border: 1px solid hsl(var(--darker-border) / 0.2);
+  border: 1px solid hsl(var(--border) / 0.35);
   transition: all 0.3s ease;
 }
 
@@ -385,12 +383,9 @@
 .class-row {
   display: grid;
   grid-template-columns: repeat(5, 1fr);
-  border-bottom: 1px solid hsl(var(--darker-border));
+  border-bottom: 1px solid hsl(var(--border) / 0.35);
 }
 
-.class-row:last-child {
-  border-bottom: 1px solid hsl(var(--darker-border) / 0.2);
-}
 
 .assignment-cell {
   background: hsl(var(--sidebar)/0.4);
@@ -399,26 +394,27 @@
   flex-direction: column;
   position: relative;
   overflow: hidden;
-  border-right: 1px solid hsl(var(--border) / 0.2);
+  border-right: 1px solid hsl(var(--border) / 0.35);
   width: 100%;
   max-width: 100%;
   transition: all 0.3s ease;
 }
 
+.assignment-cell:last-child {
+  border-right: none;
+}
 
 /* Enhanced today cell highlighting with subtle glow */
 .assignment-cell.today-cell {
   background: linear-gradient(
     135deg,
-
     hsl(var(--sidebar)) 100%
   );
   border-left: 1px solid hsl(var(--accent) / 0.12);
-  border-right: 1px solid hsl(var(--accent) / 0.12);
+  border-right: 1px solid hsl(var(--border) / 0.35);
+  
   box-shadow: inset 0 0 15px hsl(var(--accent) / 0.015);
 }
-
-
 
 .assignments-list {
   display: flex;
@@ -470,7 +466,6 @@
 
 .today-cell .assignment-item:hover {
   transform: scale(1.01);
-
 }
 
 .assignment-checkbox {

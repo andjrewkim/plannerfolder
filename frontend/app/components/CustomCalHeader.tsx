@@ -15,8 +15,8 @@ interface CalendarRef {
   getApi(): FullCalendarApi;
 }
 
-// Define view types for the main app views
-type ViewType = 'calendar' | 'your-new-view';
+// Define view types for the main app views - Planner first, Calendar second
+type ViewType = 'your-new-view' | 'calendar';
 
 // Define the component props interface
 interface CustomCalendarHeaderProps {
@@ -36,7 +36,7 @@ const CustomCalendarHeader: React.FC<CustomCalendarHeaderProps> = ({
   currentView,
   onViewChange,
   isAuthenticated = false,
-  activeAppView = 'calendar',
+  activeAppView = 'your-new-view', // Default changed to planner
   onAppViewChange
 }) => {
   const handlePrevious = (): void => {
@@ -115,7 +115,7 @@ const CustomCalendarHeader: React.FC<CustomCalendarHeaderProps> = ({
         <Link href="/settings">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <circle cx="12" cy="12" r="3"/>
-            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1.51-1V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
           </svg>
         </Link>
       </>
@@ -125,19 +125,19 @@ const CustomCalendarHeader: React.FC<CustomCalendarHeaderProps> = ({
   return (
     <div className="advanced-calendar-header">
       <div className="header-container">
-        {/* Left: App View Switcher */}
+        {/* Left: App View Switcher - Planner now comes first (left side) */}
         <div className="app-view-switcher">
-          <button
-            className={`app-view-btn ${activeAppView === 'calendar' ? 'active' : ''}`}
-            onClick={() => handleAppViewChange('calendar')}
-          >
-            Calendar
-          </button>
           <button
             className={`app-view-btn ${activeAppView === 'your-new-view' ? 'active' : ''}`}
             onClick={() => handleAppViewChange('your-new-view')}
           >
             Planner
+          </button>
+          <button
+            className={`app-view-btn ${activeAppView === 'calendar' ? 'active' : ''}`}
+            onClick={() => handleAppViewChange('calendar')}
+          >
+            Calendar
           </button>
         </div>
 
