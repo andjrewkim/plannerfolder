@@ -173,7 +173,7 @@
   padding: 8px 10px;
   border-bottom: 1px solid hsl(var(--border) / 0.35);
   transition: background-color 0.15s ease;
-  background: hsl(var(--sidebar)/0.4);
+  background: hsl(var(--calendar-background));
 }
 
 .class-item:hover {
@@ -288,9 +288,6 @@
   transition: all 0.3s ease;
 }
 
-.day-header:last-child {
-  border-right: none;
-}
 
 /* Enhanced today highlighting */
 .day-header.today {
@@ -388,7 +385,7 @@
 
 
 .assignment-cell {
-  background: hsl(var(--sidebar)/0.4);
+  background: hsl(var(--calendar-background));
   padding: 2px;
   display: flex;
   flex-direction: column;
@@ -400,16 +397,13 @@
   transition: all 0.3s ease;
 }
 
-.assignment-cell:last-child {
-  border-right: none;
-}
+
 
 /* Enhanced today cell highlighting with subtle glow */
 .assignment-cell.today-cell {
-  background: linear-gradient(
-    135deg,
-    hsl(var(--sidebar)) 100%
-  );
+  background:
+    hsl(var(--sidebar));
+
   border-left: 1px solid hsl(var(--accent) / 0.12);
   border-right: 1px solid hsl(var(--border) / 0.35);
   
@@ -423,7 +417,7 @@
   flex: 1;
   overflow: hidden;
   width: 100%;
-  z-index: 1;
+  z-index: 1;src: 0;
   position: relative;
   align-items: center;
   margin-top: 2px;
@@ -516,7 +510,6 @@
 
 .assignment-edit-input {
   flex: 1;
-  border: none;
   background: none;
   font-size: clamp(13px, 1.4vw, 1px);
   color: hsl(var(--foreground));
