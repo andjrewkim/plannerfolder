@@ -294,7 +294,7 @@ const Planner: React.FC<PlannerProps> = ({
           activeAppView={activeAppView}
           onAppViewChange={onAppViewChange}
         />
-        <div className="planner-loading">Loading planner...</div>
+        <div className="planner-loading"></div>
       </div>
     );
   }

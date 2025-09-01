@@ -237,7 +237,7 @@ const NotesComponent: React.FC = () => {
         background: 'hsl(var(--card))',
         color: 'hsl(var(--foreground))'
       }}>
-        Loading notes...
+
       </div>
     );
   }
