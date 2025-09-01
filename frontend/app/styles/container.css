@@ -10,7 +10,7 @@
   --text-secondary: hsl(var(--muted-foreground));
   --sidebarItem: hsl(var(--sidebar-item-color) / 1);
   --sidebarBackground: hsl(var(--real-sidebar) / 1);
-  background: var(--sidebarBackground);
+  background: hsl(var(--real-sidebar));
   
   width: var(--sidebar-width);
   height: 100vh;
@@ -36,7 +36,6 @@
 
 /* Section containers - no separation */
 .sidebar-section {
-  background: transparent;
   overflow: hidden;
   border: none;
   display: flex;

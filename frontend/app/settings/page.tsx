@@ -52,13 +52,13 @@ const CalendarSettings: React.FC = () => {
     resetToOriginal
   } = useUserSettings();
 
-  const [activeSection, setActiveSection] = useState<SectionName>('preferences');
+  const [activeSection, setActiveSection] = useState<SectionName>('display');
   const [isSigningOut, setIsSigningOut] = useState(false);
 
   // Handle hash-based section selection
   useEffect(() => {
     // Just set default section, no hash handling
-    setActiveSection('preferences');
+    setActiveSection('display');
   }, []);
 
   const handleSignOut = async () => {
@@ -96,15 +96,15 @@ const CalendarSettings: React.FC = () => {
 
   const sidebarItems = [
     {
-      id: 'preferences' as SectionName,
-      icon: Sliders,
-      label: 'General Preferences',
-      section: 'APP SETTINGS'
-    },
-    {
       id: 'display' as SectionName,
       icon: Palette,
       label: 'Display Settings',
+      section: 'APP SETTINGS'
+    },
+    {
+      id: 'preferences' as SectionName,
+      icon: Sliders,
+      label: 'General Preferences',
       section: 'APP SETTINGS'
     },
     {
