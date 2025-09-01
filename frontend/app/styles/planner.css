@@ -492,8 +492,8 @@
 
 .assignment-title.completed {
   position: relative;
-  color: hsl(var(--muted-foreground) / 0.4);
-  opacity: 0.4;
+  color: hsl(var(--muted-foreground) / 0.6);
+  opacity: 1;
 }
 
 .assignment-title.completed::after {
@@ -503,7 +503,7 @@
   left: 0;
   right: 0;
   height: 1px;
-  background: hsl(var(--muted-foreground) / 0.3);
+  background: hsl(var(--muted-foreground) / 0.4);
   transform: translateY(-50%);
   pointer-events: none;
 }
