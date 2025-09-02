@@ -28,9 +28,8 @@ const RootLayout: React.FC<RootLayoutProps> = ({ children }) => {
   return (
     <html lang="en">
       <head>
-        <title>
-          Planner</title> {/* Browser tab title */}
-        <link rel="icon" href="/favicon.ico" /> {/* Favicon */}
+        <title>Planner</title>
+        <link rel="icon" href="/favicon.ico" />
       </head>
       <body className={`${inter.variable} ${geistMono.variable} antialiased`}>
         <PostHogProvider client={posthog}>
