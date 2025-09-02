@@ -76,9 +76,18 @@ const Planner: React.FC<PlannerProps> = ({
   // Get organized assignments
   const organizedAssignments = getAssignmentsByClassAndDate();
 
-  // Helper function to format date as YYYY-MM-DD for API
+  // FIXED: Helper function to format date as YYYY-MM-DD for API (avoiding timezone issues)
   const formatDateForAPI = (date: Date): string => {
-    return date.toISOString().split('T')[0];
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  // FIXED: Helper function to create date from API date string (avoiding timezone conversion)
+  const createDateFromAPIString = (dateString: string): Date => {
+    const [year, month, day] = dateString.split('-').map(Number);
+    return new Date(year, month - 1, day); // month is 0-indexed in JavaScript Date
   };
 
   // Helper function to get display name for date
@@ -86,11 +95,14 @@ const Planner: React.FC<PlannerProps> = ({
     return date.toLocaleDateString('en-US', { weekday: 'long' }).toUpperCase();
   };
 
-  // Get the 5 days to display based on current offset
+  // FIXED: Get the 5 days to show based on current offset (using local date construction)
   const getFiveDaysToShow = () => {
     const today = new Date();
+    // Reset time to avoid any time-based issues
+    today.setHours(0, 0, 0, 0);
+    
     const startDate = new Date(today);
-    startDate.setDate(today.getDate() + currentDateOffset - 1); // Start from 1 day before current offset (changed from -2)
+    startDate.setDate(today.getDate() + currentDateOffset - 1);
 
     const days = [];
     for (let i = 0; i < 5; i++) {
@@ -112,6 +124,7 @@ const Planner: React.FC<PlannerProps> = ({
   // Get current title based on the view window
   const getCurrentTitle = () => {
     const centerDate = new Date();
+    centerDate.setHours(0, 0, 0, 0);
     centerDate.setDate(centerDate.getDate() + currentDateOffset);
     return centerDate.toLocaleDateString('en-US', { 
       month: 'long', 
@@ -426,8 +439,6 @@ const Planner: React.FC<PlannerProps> = ({
       </div>
     );
   }
-
-  // Debug logging
 
   // Show fallback classes if not authenticated, or if authenticated but no classes loaded yet
   const showFallback = !isAuthenticated || (isAuthenticated && classes.length === 0);
