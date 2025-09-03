@@ -115,7 +115,7 @@ export default function DisplaySettings({ settings, onSettingsChange }: DisplayS
             </button>
           ))}
         </div>
-        <p className="form-helper mt-2">Choose from our wide selection of carefully crafted themes</p>
+        <p className="form-helper mt-2"> </p>
       </div>
     </div>
   );

@@ -210,7 +210,7 @@ const CalendarSettings: React.FC = () => {
           <div>
             <div className="mb-6">
               <h2 className="text-2xl font-semibold text-foreground mb-2">Display Settings</h2>
-              <p className="text-muted-foreground">Personalize the look and feel of your calendar</p>
+              <p className="text-muted-foreground">Personalize the look and feel of your planner</p>
             </div>
             <DisplaySettings 
               settings={settings}

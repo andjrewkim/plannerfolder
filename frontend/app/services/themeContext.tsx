@@ -98,7 +98,7 @@ export const themes: Theme[] = [
       secondary: '220 10% 30%',
       accent: '217 50% 68%',
       background: '222 10% 8%',
-      calendarBackground: '220 3% 7%',
+      calendarBackground: '220 5% 7%',
       foreground: '220 10% 85%',
       muted: '220 8% 18%',
       mutedForeground: '220 10% 55%',
