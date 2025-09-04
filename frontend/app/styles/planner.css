@@ -466,7 +466,7 @@
   align-items: center;
   gap: 5px;
   border-radius: 8px;
-  background: hsl(var(--muted) / 0.55);
+  background: hsl(var(--muted) / 0.75);
   border: 1px solid hsl(var(--border) / 0.1);
   transition: all 0.2s ease;
   min-height: 24px;
