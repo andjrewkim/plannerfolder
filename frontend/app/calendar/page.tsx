@@ -372,12 +372,10 @@ const AppContent: React.FC<AppContentProps> = ({
         }
 
         .scaled-view-container {
-          width: 85%;
-          min-height: 200vh;
-          margin: 2% auto 50px auto;
+          width: 100%;
+          min-height: 100vh;
+          margin: 0;
           position: relative;
-          border-radius: 12px;
-          box-shadow: 0 8px 16px -4px rgba(0, 0, 0, 0.1), 0 4px 8px -2px rgba(0, 0, 0, 0.06);
           overflow: visible;
           background: white;
         }
@@ -414,13 +412,13 @@ const AppContent: React.FC<AppContentProps> = ({
           }
 
           .scaled-view-container {
-            width: 90%;
-            height: 88%;
-            margin: 1% auto;
+            width: 100%;
+            height: 100%;
+            margin: 0;
           }
 
           .view-content {
-            padding: 15px;
+            padding: 0;
           }
 
           .planner-section {
@@ -434,13 +432,13 @@ const AppContent: React.FC<AppContentProps> = ({
 
         @media (max-width: 480px) {
           .scaled-view-container {
-            width: 95%;
-            height: 90%;
-            margin: 1% auto;
+            width: 100%;
+            height: 100%;
+            margin: 0;
           }
 
           .view-content {
-            padding: 10px;
+            padding: 0;
           }
         }
       `}</style>
@@ -452,31 +450,31 @@ const AppContent: React.FC<AppContentProps> = ({
           height: auto;
         }
 
-        /* Apply border radius to the container and clip content */
+        /* Remove border radius and ensure full container coverage */
         .scaled-view-container {
-          border-radius: 12px !important;
-          overflow: hidden !important;
+          border-radius: 0 !important;
+          overflow: visible !important;
         }
 
-        /* Ensure first-level children fill the container and respect border radius */
+        /* Ensure first-level children fill the container completely */
         .scaled-view-container > .view-component > *:first-child {
           width: 100%;
           height: 100%;
-          border-radius: 12px;
-          overflow: hidden;
+          border-radius: 0;
+          overflow: visible;
         }
 
-        /* Optional: If you need to target specific calendar/planner classes */
+        /* Remove border radius from calendar/planner classes */
         .fc-theme-standard,
         .fc,
         .planner-container {
-          border-radius: 12px !important;
+          border-radius: 0 !important;
         }
 
-        /* Notes component styling adjustments */
+        /* Notes component styling adjustments - keeping notes section intact */
         .notes-section .notes-container {
           height: 100%;
-          border-radius: 0 0 12px 12px;
+          border-radius: 0;
           overflow-y: auto;
           overflow-x: hidden;
         }

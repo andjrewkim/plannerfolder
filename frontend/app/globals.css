@@ -146,3 +146,17 @@ textarea::-webkit-scrollbar {
   width: 90%
 }
 
+
+
+/* Add this to your globals.css file */
+@media (max-width: 768px) {
+  /* Hide the entire sidebar layout on mobile */
+  .app-layout .app-sidebar {
+    display: none !important;
+  }
+  
+  /* Make main content take full width */
+  .main-content-area {
+    left: 0 !important;
+  }
+}

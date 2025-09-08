@@ -277,7 +277,7 @@ const NotesComponent: React.FC = () => {
   return (
     <div style={{
       width: '100%',
-      height: '600px',
+      height: '743px',
       background: 'hsl(var(--card))',
       fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif",
       color: 'hsl(var(--foreground))',
