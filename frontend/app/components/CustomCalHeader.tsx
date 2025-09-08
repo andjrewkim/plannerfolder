@@ -87,7 +87,7 @@ const CustomCalendarHeader: React.FC<CustomCalendarHeaderProps> = ({
   const renderNavItems = () => {
     if (!isAuthenticated) {
       return (
-        <Link href="/help">
+        <Link href="/help" style={{ pointerEvents: 'none' }}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <circle cx="12" cy="12" r="10"/>
             <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/>
@@ -99,13 +99,13 @@ const CustomCalendarHeader: React.FC<CustomCalendarHeaderProps> = ({
 
     return (
       <>
-        <Link href="/search">
+        <Link href="/search" style={{ pointerEvents: 'none' }}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <circle cx="11" cy="11" r="8"/>
             <path d="m21 21-4.35-4.35"/>
           </svg>
         </Link>
-        <Link href="/help">
+        <Link href="/help" style={{ pointerEvents: 'none' }}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <circle cx="12" cy="12" r="10"/>
             <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/>

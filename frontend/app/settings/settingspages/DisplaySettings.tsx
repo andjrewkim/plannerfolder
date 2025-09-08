@@ -75,7 +75,7 @@ export default function DisplaySettings({ settings, onSettingsChange }: DisplayS
 
   return (
     <div className="settings-section">
-      <div className="form-group">
+      <div className="form-group" style={{ borderBottom: 'none', paddingBottom: '1.5rem' }}>
         <div className="flex items-center justify-between">
           <div>
             <label className="form-label flex items-center gap-2">
@@ -91,7 +91,7 @@ export default function DisplaySettings({ settings, onSettingsChange }: DisplayS
         </div>
       </div>
 
-      <div className="form-group">
+      <div className="form-group" style={{ borderBottom: 'none', paddingBottom: '0' }}>
         <label className="form-label mb-2">Theme</label>
         <div className="theme-grid">
           {themes.map((theme) => (

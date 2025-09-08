@@ -702,3 +702,16 @@
 .fc-timegrid-event .fc-event-resizer:hover {
   background: rgba(255, 255, 255, 0.5);
 }
+
+
+
+.nav-icons a.disabled-icon {
+  opacity: 0.4 !important;
+  pointer-events: none;
+}
+
+.nav-icons a.disabled-icon:hover {
+  background: transparent !important;
+  color: var(--text-secondary) !important;
+  transform: none !important;
+}

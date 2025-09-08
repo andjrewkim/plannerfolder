@@ -82,6 +82,9 @@ const CalendarSettings: React.FC = () => {
   };
 
   const handleSectionSwitch = useCallback((sectionId: SectionName) => {
+    // Only allow switching to display settings
+    if (sectionId !== 'display') return;
+    
     const sectionsWithUnsavedCheck = ['preferences', 'display'];
     
     if (hasUnsavedChanges && sectionsWithUnsavedCheck.includes(activeSection)) {
@@ -99,56 +102,63 @@ const CalendarSettings: React.FC = () => {
       id: 'display' as SectionName,
       icon: Palette,
       label: 'Display Settings',
-      section: 'APP SETTINGS'
+      section: 'APP SETTINGS',
+      enabled: true
     },
     {
       id: 'preferences' as SectionName,
       icon: Sliders,
       label: 'General Preferences',
-      section: 'APP SETTINGS'
+      section: 'APP SETTINGS',
+      enabled: false
     },
     {
       id: 'timezone' as SectionName,
       icon: Clock,
       label: 'Time & Date',
-      section: 'APP SETTINGS'
+      section: 'APP SETTINGS',
+      enabled: false
     },
     {
       id: 'notifications' as SectionName,
       icon: Bell,
       label: 'Notifications',
-      section: 'APP SETTINGS'
+      section: 'APP SETTINGS',
+      enabled: false
     },
     {
       id: 'profile' as SectionName,
       icon: User,
       label: 'Account Settings',
-      section: 'ACCOUNT'
+      section: 'ACCOUNT',
+      enabled: false
     },
     {
       id: 'sharing' as SectionName,
       icon: Globe,
       label: 'Calendar Sharing',
-      section: 'ACCOUNT'
+      section: 'ACCOUNT',
+      enabled: false
     },
     {
       id: 'email' as SectionName,
       icon: Mail,
       label: 'Email Settings',
-      section: 'ACCOUNT'
+      section: 'ACCOUNT',
+      enabled: false
     }
   ];
 
   // Save button component
   const SaveButton = () => (
-    <div className="mt-8 pt-6 border-t border-border">
+    <div className="mt-8 pt-6">
       {saveSuccess && (
         <div className="mb-4 p-3 bg-green-50 border border-green-200 text-green-700 rounded-lg text-sm dark:bg-green-900/20 dark:border-green-800 dark:text-green-300">
           Settings saved successfully!
         </div>
       )}
       {saveError && (
-        <div className="mb-4 p-3 bg-destructive/10 border border-destructive/20 text-destructive rounded-lg text-sm">
+        <div className="mb-4 p-3 bg-destructive/10 text-destructive rounded-lg text-sm">
           {saveError}
         </div>
       )}
@@ -283,8 +293,8 @@ const CalendarSettings: React.FC = () => {
   return (
     <div className="flex h-screen text-foreground" style={{ backgroundColor: `hsl(var(--sidebar-background))` }}>
       {/* Sidebar */}
-      <div className="w-80 bg-calendar-background border-r border-border">
-        <div className="p-6">
+      <div className="w-80 bg-calendar-background border-r border-border flex flex-col">
+        <div className="flex-1 p-6">
           <h1 className="text-lg font-semibold text-foreground mb-6">CALENDAR SETTINGS</h1>
           
           <div className="space-y-6">
@@ -295,11 +305,14 @@ const CalendarSettings: React.FC = () => {
                 {appSettingsItems.map((item) => (
                   <button
                     key={item.id}
-                    onClick={() => handleSectionSwitch(item.id)}
+                    onClick={() => item.enabled && handleSectionSwitch(item.id)}
+                    disabled={!item.enabled}
                     className={`w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-left transition-colors ${
-                      activeSection === item.id
-                        ? 'bg-muted text-foreground'          // Selected: stays on the hover color
-                        : 'text-foreground hover:bg-muted' 
+                      !item.enabled
+                        ? 'text-muted-foreground/50 cursor-not-allowed opacity-50'
+                        : activeSection === item.id
+                        ? 'bg-muted text-foreground'
+                        : 'text-foreground hover:bg-muted'
                     }`}
                   >
                     <item.icon className="h-4 w-4" />
@@ -319,11 +332,14 @@ const CalendarSettings: React.FC = () => {
                 {accountItems.map((item) => (
                   <button
                     key={item.id}
-                    onClick={() => handleSectionSwitch(item.id)}
+                    onClick={() => item.enabled && handleSectionSwitch(item.id)}
+                    disabled={!item.enabled}
                     className={`w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-left transition-colors ${
-                      activeSection === item.id
-                        ? 'bg-muted text-foreground'          // Selected: stays on the hover color
-                        : 'text-foreground hover:bg-muted'  
+                      !item.enabled
+                        ? 'text-muted-foreground/50 cursor-not-allowed opacity-50'
+                        : activeSection === item.id
+                        ? 'bg-muted text-foreground'
+                        : 'text-foreground hover:bg-muted'
                     }`}
                   >
                     <item.icon className="h-4 w-4" />
@@ -335,21 +351,17 @@ const CalendarSettings: React.FC = () => {
           </div>
         </div>
 
-        {/* Sign Out Button at Bottom */}
-        <div className="absolute bottom-0 left-0 right-0 w-80 p-6 border-t border-border bg-card">
+        {/* Sign Out Button integrated into sidebar */}
+        <div className="p-6">
           <button
             onClick={handleSignOut}
             disabled={isSigningOut}
             className="w-full flex items-center justify-center space-x-2 px-4 py-2 rounded-lg bg-destructive/10 text-destructive hover:bg-destructive/20 transition-colors disabled:opacity-50"
           >
-            {isSigningOut ? (
-              <span className="text-sm">Signing out...</span>
-            ) : (
-              <>
-                <LogOut className="h-4 w-4" />
-                <span className="text-sm font-medium">Sign Out</span>
-              </>
-            )}
+            <LogOut className="h-4 w-4" />
+            <span className="text-sm font-medium">
+              {isSigningOut ? 'Signing out...' : 'Sign Out'}
+            </span>
           </button>
         </div>
       </div>
