@@ -23,9 +23,8 @@ interface AssignmentCellProps {
   onCancelNewAssignment: (classId: string, dateString: string) => void;
   onKeyPress: (e: React.KeyboardEvent, action: () => void) => void;
   onToggleStripePattern: (classId: string, dateString: string) => void;
-  onToggleAssignment: (assignmentId: string, currentCompleted: boolean) => void; // <-- add this
-  onDeleteAssignment: (assignmentId: string) => void; // <-- add this
-
+  onToggleAssignment: (assignmentId: string, currentCompleted: boolean) => void;
+  onDeleteAssignment: (assignmentId: string) => void;
 }
 
 const AssignmentCell: React.FC<AssignmentCellProps> = ({
@@ -47,7 +46,9 @@ const AssignmentCell: React.FC<AssignmentCellProps> = ({
   onCreateAssignment,
   onCancelNewAssignment,
   onKeyPress,
-  onToggleStripePattern
+  onToggleStripePattern,
+  onToggleAssignment,
+  onDeleteAssignment
 }) => {
   const { 
     updateAssignment, 
@@ -60,33 +61,54 @@ const AssignmentCell: React.FC<AssignmentCellProps> = ({
   const shouldShowNoWorkPattern = showStripePattern && hasNoAssignments;
 
   const handleToggleAssignment = async (assignmentId: string, currentCompleted: boolean) => {
+    // Optimistic update - call parent handler immediately
+    onToggleAssignment(assignmentId, currentCompleted);
+    
     try {
       const success = await updateAssignment(assignmentId, { 
         completed: !currentCompleted 
       });
       
       if (!success) {
+        // Rollback on failure
+        onToggleAssignment(assignmentId, !currentCompleted);
+        setError('Failed to update assignment');
         console.error('Failed to toggle assignment');
       }
     } catch (error) {
+      // Rollback on error
+      onToggleAssignment(assignmentId, !currentCompleted);
       console.error('Error toggling assignment:', error);
       setError('Failed to update assignment');
     }
   };
 
   const handleDeleteAssignment = async (assignmentId: string) => {
+    // Find the assignment to backup for potential rollback
+    const assignmentToDelete = assignments.find(a => a.id === assignmentId);
+    if (!assignmentToDelete) return;
+    
+    // Optimistic update - call parent handler immediately
+    onDeleteAssignment(assignmentId);
+    
     try {
       const success = await deleteAssignment(assignmentId);
       
       if (!success) {
+        // Rollback by re-adding the assignment (you'll need to implement this in your parent)
+        // This would require a new prop like onRestoreAssignment
+        setError('Failed to delete assignment');
         console.error('Failed to delete assignment');
+        
+        // For now, we can only show error - full rollback requires parent component changes
+        // You might want to refresh the data or implement onRestoreAssignment
       }
     } catch (error) {
+      // Same rollback strategy as above
       console.error('Error deleting assignment:', error);
       setError('Failed to delete assignment');
     }
   };
-
 
   return (
     <div 
