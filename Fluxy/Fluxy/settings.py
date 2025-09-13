@@ -46,6 +46,17 @@ CSRF_TRUSTED_ORIGINS = [
 #DUCKLING STUFF
 DUCKLING_URL = os.environ.get('DUCKLING_URL', 'http://127.0.0.1:8080')
 
+
+REST_FRAMEWORK = {
+    "DEFAULT_THROTTLE_CLASSES": [
+        "rest_framework.throttling.UserRateThrottle",
+    ],
+    "DEFAULT_THROTTLE_RATES": {
+        "user": "2/second",   
+    }
+}
+
+
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
@@ -90,6 +101,8 @@ CORS_ALLOW_METHODS = [
 CORS_ALLOW_CREDENTIALS = True
 CSRF_COOKIE_SAMESITE = 'Lax'
 CSRF_COOKIE_HTTPONLY = False
+
+
 
 # Custom user model
 AUTH_USER_MODEL = 'myapp.CustomUser'

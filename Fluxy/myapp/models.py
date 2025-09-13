@@ -76,7 +76,7 @@ class UserSettings(models.Model):
         ('classic', 'Classic'),
         ('emerald', 'Emerald'),
         ('ocean', 'Ocean'),
-        ('sunset', 'Sunset'),
+        ('coffee', 'Coffee'),
         ('royal', 'Royal'),
         ('monochrome', 'Monochrome'),
     ]
@@ -198,7 +198,21 @@ class Assignment(models.Model):
     def __str__(self):
         return f"{self.planner_class.name} - {self.title} ({self.date})"
     
-    
+class NoWorkDay(models.Model):
+    planner_class = models.ForeignKey(PlannerClass, on_delete=models.CASCADE, related_name='no_work_days')
+    date = models.DateField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['date']
+        unique_together = ['planner_class', 'date']  # Prevent duplicate no-work days for same class/date
+
+    def __str__(self):
+        return f"{self.planner_class.name} - No Work Day ({self.date})"
+
+
+
     
     
 class NoteTab(models.Model):

@@ -1,4 +1,4 @@
-// hooks/usePlanner.ts - DATE-BASED VERSION
+// hooks/usePlanner.ts - DATE-BASED VERSION WITH NO-WORK DAYS
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { authAPI } from '../../lib/auth';
 
@@ -6,6 +6,7 @@ import { authAPI } from '../../lib/auth';
 let globalPlannerState: {
   classes: PlannerClass[];
   assignments: Assignment[];
+  noWorkDays: NoWorkDay[];
   initialized: boolean;
   error: string | null;
 } | null = null;
@@ -34,9 +35,18 @@ export interface PlannerClass {
   isEditing?: boolean; // Frontend only
 }
 
+export interface NoWorkDay {
+  id: string;
+  date: string; // YYYY-MM-DD format
+  planner_class: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
 interface PlannerState {
   classes: PlannerClass[];
   assignments: Assignment[];
+  noWorkDays: NoWorkDay[];
   isLoading: boolean;
   error: string | null;
   initialized: boolean;
@@ -106,6 +116,35 @@ const fetchAssignments = async (): Promise<Assignment[]> => {
   return data;
 };
 
+const fetchNoWorkDays = async (): Promise<NoWorkDay[]> => {
+  debugLog('fetchNoWorkDays: Starting');
+  
+  if (!authAPI.isAuthenticated()) {
+    debugLog('fetchNoWorkDays: Not authenticated - throwing error');
+    throw new Error('Not authenticated');
+  }
+  
+  const url = `${process.env.NEXT_PUBLIC_API_URL}/api/planner/no-work-days/`;
+  debugLog('fetchNoWorkDays: Making request to', url);
+
+  const response = await authAPI.authenticatedFetch(url);
+  debugLog('fetchNoWorkDays: Response received', {
+    ok: response.ok,
+    status: response.status,
+    statusText: response.statusText
+  });
+  
+  if (!response.ok) {
+    const errorText = await response.text();
+    debugLog('fetchNoWorkDays: Response not ok, error text:', errorText);
+    throw new Error(`No Work Days API error: ${response.status} - ${errorText}`);
+  }
+
+  const data = await response.json();
+  debugLog('fetchNoWorkDays: Successfully parsed JSON data', data);
+  return data;
+};
+
 export const usePlanner = () => {
   debugLog('usePlanner: Hook called/re-rendered');
   
@@ -115,6 +154,7 @@ export const usePlanner = () => {
       return {
         classes: globalPlannerState.classes,
         assignments: globalPlannerState.assignments,
+        noWorkDays: globalPlannerState.noWorkDays,
         isLoading: false,
         error: globalPlannerState.error,
         initialized: globalPlannerState.initialized
@@ -123,6 +163,7 @@ export const usePlanner = () => {
     return {
       classes: [],
       assignments: [],
+      noWorkDays: [],
       isLoading: true,
       error: null,
       initialized: false
@@ -135,6 +176,7 @@ export const usePlanner = () => {
     globalInitialized: globalPlannerState?.initialized,
     classesCount: state.classes.length,
     assignmentsCount: state.assignments.length,
+    noWorkDaysCount: state.noWorkDays.length,
     error: state.error
   });
 
@@ -172,6 +214,7 @@ export const usePlanner = () => {
       globalPlannerState = {
         classes: [],
         assignments: [],
+        noWorkDays: [],
         initialized: true,
         error: 'Authentication system error'
       };
@@ -179,6 +222,7 @@ export const usePlanner = () => {
       const newState = {
         classes: [],
         assignments: [],
+        noWorkDays: [],
         isLoading: false,
         error: 'Authentication system error',
         initialized: true
@@ -196,6 +240,7 @@ export const usePlanner = () => {
       globalPlannerState = {
         classes: [],
         assignments: [],
+        noWorkDays: [],
         initialized: true,
         error: null
       };
@@ -203,6 +248,7 @@ export const usePlanner = () => {
       const newState = {
         classes: [],
         assignments: [],
+        noWorkDays: [],
         isLoading: false,
         error: null,
         initialized: true
@@ -217,17 +263,20 @@ export const usePlanner = () => {
     debugLog('initializeData: Authentication passed, starting data fetch');
 
     try {
-      const [classesResult, assignmentsResult] = await Promise.allSettled([
+      const [classesResult, assignmentsResult, noWorkDaysResult] = await Promise.allSettled([
         fetchClasses(),
-        fetchAssignments()
+        fetchAssignments(),
+        fetchNoWorkDays()
       ]);
 
       const classes = classesResult.status === 'fulfilled' ? classesResult.value : [];
       const assignments = assignmentsResult.status === 'fulfilled' ? assignmentsResult.value : [];
+      const noWorkDays = noWorkDaysResult.status === 'fulfilled' ? noWorkDaysResult.value : [];
 
       globalPlannerState = {
         classes,
         assignments,
+        noWorkDays,
         initialized: true,
         error: null
       };
@@ -235,6 +284,7 @@ export const usePlanner = () => {
       const newState = {
         classes,
         assignments,
+        noWorkDays,
         isLoading: false,
         error: null,
         initialized: true
@@ -242,7 +292,8 @@ export const usePlanner = () => {
 
       debugLog('initializeData: Fetched planner data successfully', { 
         classesCount: classes.length, 
-        assignmentsCount: assignments.length 
+        assignmentsCount: assignments.length,
+        noWorkDaysCount: noWorkDays.length
       });
 
       // Notify all subscribers
@@ -254,6 +305,7 @@ export const usePlanner = () => {
       globalPlannerState = {
         classes: [],
         assignments: [],
+        noWorkDays: [],
         initialized: true,
         error: error instanceof Error ? error.message : 'Failed to load planner data'
       };
@@ -261,6 +313,7 @@ export const usePlanner = () => {
       const newState = {
         classes: [],
         assignments: [],
+        noWorkDays: [],
         isLoading: false,
         error: error instanceof Error ? error.message : 'Failed to load planner data',
         initialized: true
@@ -287,7 +340,8 @@ export const usePlanner = () => {
       initialized: state.initialized,
       error: state.error,
       classesCount: state.classes.length,
-      assignmentsCount: state.assignments.length
+      assignmentsCount: state.assignments.length,
+      noWorkDaysCount: state.noWorkDays.length
     });
   }, [state]);
 
@@ -300,6 +354,7 @@ export const usePlanner = () => {
       if (globalPlannerState) {
         globalPlannerState.classes = newState.classes;
         globalPlannerState.assignments = newState.assignments;
+        globalPlannerState.noWorkDays = newState.noWorkDays;
         globalPlannerState.error = newState.error;
       }
       
@@ -423,6 +478,7 @@ export const usePlanner = () => {
         ...prev,
         classes: prev.classes.filter(cls => cls.id !== classId),
         assignments: prev.assignments.filter(assignment => assignment.planner_class !== classId),
+        noWorkDays: prev.noWorkDays.filter(noWorkDay => noWorkDay.planner_class !== classId),
         error: null
       }));
       
@@ -538,6 +594,83 @@ export const usePlanner = () => {
     }
   }, [setError, updateGlobalAndLocalState]);
 
+  // No Work Day operations
+  const createNoWorkDay = useCallback(async (noWorkDayData: Omit<NoWorkDay, 'id' | 'created_at' | 'updated_at'>): Promise<boolean> => {
+    if (!authAPI.isAuthenticated()) {
+      setError('Not authenticated');
+      return false;
+    }
+
+    try {
+      const response = await authAPI.authenticatedFetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/planner/no-work-days/`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(noWorkDayData),
+        }
+      );
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Failed to create no-work day: ${response.status} - ${errorText}`);
+      }
+
+      const newNoWorkDay: NoWorkDay = await response.json();
+      
+      updateGlobalAndLocalState(prev => ({
+        ...prev,
+        noWorkDays: [...prev.noWorkDays, newNoWorkDay],
+        error: null
+      }));
+      
+      return true;
+    } catch (error) {
+      setError(error instanceof Error ? error.message : 'Failed to create no-work day');
+      return false;
+    }
+  }, [setError, updateGlobalAndLocalState]);
+
+  const deleteNoWorkDay = useCallback(async (classId: string, dateString: string): Promise<boolean> => {
+    if (!authAPI.isAuthenticated()) {
+      setError('Not authenticated');
+      return false;
+    }
+
+    // Find the no-work day to delete
+    const noWorkDay = state.noWorkDays.find(
+      nwd => nwd.planner_class === classId && nwd.date === dateString
+    );
+
+    if (!noWorkDay) {
+      debugLog('deleteNoWorkDay: No matching no-work day found');
+      return true; // Already doesn't exist
+    }
+
+    try {
+      const response = await authAPI.authenticatedFetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/planner/no-work-days/${noWorkDay.id}/`,
+        { method: 'DELETE' }
+      );
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Failed to delete no-work day: ${response.status} - ${errorText}`);
+      }
+
+      updateGlobalAndLocalState(prev => ({
+        ...prev,
+        noWorkDays: prev.noWorkDays.filter(nwd => nwd.id !== noWorkDay.id),
+        error: null
+      }));
+      
+      return true;
+    } catch (error) {
+      setError(error instanceof Error ? error.message : 'Failed to delete no-work day');
+      return false;
+    }
+  }, [setError, updateGlobalAndLocalState, state.noWorkDays]);
+
   const refreshPlanner = useCallback(async () => {
     debugLog('refreshPlanner: Starting');
     
@@ -547,29 +680,34 @@ export const usePlanner = () => {
     }
 
     try {
-      const [classesResult, assignmentsResult] = await Promise.allSettled([
+      const [classesResult, assignmentsResult, noWorkDaysResult] = await Promise.allSettled([
         fetchClasses(),
-        fetchAssignments()
+        fetchAssignments(),
+        fetchNoWorkDays()
       ]);
 
       const classes = classesResult.status === 'fulfilled' ? classesResult.value : [];
       const assignments = assignmentsResult.status === 'fulfilled' ? assignmentsResult.value : [];
+      const noWorkDays = noWorkDaysResult.status === 'fulfilled' ? noWorkDaysResult.value : [];
 
       debugLog('refreshPlanner: Data refreshed', {
         classesCount: classes.length,
-        assignmentsCount: assignments.length
+        assignmentsCount: assignments.length,
+        noWorkDaysCount: noWorkDays.length
       });
 
       // Update global state
       if (globalPlannerState) {
         globalPlannerState.classes = classes;
         globalPlannerState.assignments = assignments;
+        globalPlannerState.noWorkDays = noWorkDays;
         globalPlannerState.error = null;
       }
 
       const newState = {
         classes,
         assignments,
+        noWorkDays,
         isLoading: false,
         error: null,
         initialized: true
@@ -615,6 +753,7 @@ export const usePlanner = () => {
   return {
     classes: state.classes,
     assignments: state.assignments,
+    noWorkDays: state.noWorkDays,
     isLoading: state.isLoading,
     error: state.error,
     initialized: state.initialized,
@@ -628,6 +767,10 @@ export const usePlanner = () => {
     createAssignment,
     updateAssignment,
     deleteAssignment,
+    
+    // No Work Day operations
+    createNoWorkDay,
+    deleteNoWorkDay,
     
     // Utilities
     refreshPlanner,

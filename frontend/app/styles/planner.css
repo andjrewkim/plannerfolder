@@ -482,22 +482,14 @@
 .today-cell .assignment-item {
   background: linear-gradient(
     135deg,
-    hsl(var(--muted) / 0.5) 0%,
+    hsl(var(--muted) / 0.65) 0%,
     hsl(var(--accent) / 0.05) 50%,
-    hsl(var(--muted) / 0.4) 100%
+    hsl(var(--muted) / 0.5) 100%
   );
   border: 1px solid hsl(var(--accent) / 0.1);
   box-shadow: 
     0 1px 2px hsl(var(--accent) / 0.05),
     inset 0 1px 0 hsl(var(--accent) / 0.03);
-}
-
-.assignment-item:hover {
-  transform: scale(1.01);
-}
-
-.today-cell .assignment-item:hover {
-  transform: scale(1.01);
 }
 
 .assignment-checkbox {
@@ -597,13 +589,11 @@
   color: hsl(var(--destructive-foreground));
 }
 
+/* Fixed add assignment button positioning */
 .add-assignment-btn {
-  position: absolute;
-  bottom: 2px;
-  right: 2px;
   width: 20px;
   height: 20px;
-  border: 1px solid hsl(var(--border)/0.5);
+  border: 1px solid hsl(var(--border)/0.);
   background: hsl(var(--calendar-background));
   border-radius: 4px;
   display: flex;
@@ -615,10 +605,30 @@
   font-weight: 400;
   transition: all 0.2s ease;
   z-index: 2;
+  /* Default: absolute positioning for standalone button */
+  position: absolute;
+  bottom: 2px;
+  right: 2px;
 }
 
-.add-assignment-btn:hover {
-  transform: scale(1.05);
+
+
+/* Cell buttons container - positioned absolutely */
+.cell-buttons {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  position: absolute;
+  bottom: 2px;
+  right: 2px;
+  z-index: 2;
+}
+
+/* Remove absolute positioning when button is inside flex container */
+.cell-buttons .add-assignment-btn {
+  position: static;
+  bottom: auto;
+  right: auto;
 }
 
 /* Subtle today column add button - maintains focus but less visual contrast */
@@ -627,11 +637,6 @@
   color: hsl(var(--accent));
 }
 
-.today-cell .add-assignment-btn:hover {
-  transform: scale(1.05);
-  background: hsl(var(--accent) / 0.08);
-  border: 1px solid hsl(var(--accent) / 0.25);
-}
 
 /* Responsive Design - Enhanced for better scaling */
 @media (max-width: 1400px) {
@@ -816,3 +821,5 @@
     right: 12px;
   }
 }
+
+

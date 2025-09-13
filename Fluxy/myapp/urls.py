@@ -12,6 +12,7 @@ from .view_dispatcher import ScheduleInputDispatcher, ScheduleInputParser  # Imp
 from myapp.views_llm_text import llm_text
 from .views_notes import NoteTabListCreateView, NoteTabDetailView
 from . import views_user
+from .views_no_work import delete_no_work_day, no_work_days_list_create
 
 from .user_settings import UserSettingsView
 from rest_framework.routers import DefaultRouter
@@ -47,5 +48,7 @@ urlpatterns = [
     
     path('api/notes/', NoteTabListCreateView.as_view(), name='note-list-create'),
     path('api/notes/<int:pk>/', NoteTabDetailView.as_view(), name='note-detail'),
+    
+    path('api/planner/no-work-days/', no_work_days_list_create, name='no-work-days-list-create'),
+    path('api/planner/no-work-days/<int:pk>/', delete_no_work_day, name='delete-no-work-day'),
 ]
- 

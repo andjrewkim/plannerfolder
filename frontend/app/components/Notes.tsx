@@ -667,7 +667,7 @@ const NotesComponent: React.FC = () => {
             borderTop: 'none'
           }}>
             <div style={{
-              background: 'hsl(var(--real-sidebar))',
+              background: 'hsl(var(--real-sidebar)/0.5)',
               padding: '12px',
               display: 'flex',
               flexDirection: 'column',

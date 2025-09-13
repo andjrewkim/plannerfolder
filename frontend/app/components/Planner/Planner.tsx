@@ -1,7 +1,9 @@
-import React, { useState, useRef } from 'react';
-import { Edit2, GripVertical } from 'lucide-react';
+import React, { useState, useRef, useMemo } from 'react';
 import CustomCalendarHeader from '../CustomCalHeader';
 import { usePlanner } from '../../hooks/usePlanner';
+import DeleteConfirmationModal from './DeleteConfirmationModal';
+import ClassesSidebar from './ClassesSidebar';
+import PlannerGrid from './PlannerGrid';
 import '../../styles/planner.css';
 
 // Define or import ViewType - matching the main app view types
@@ -38,7 +40,11 @@ const Planner: React.FC<PlannerProps> = ({
     createAssignment,
     updateAssignment,
     deleteAssignment,
-    getAssignmentsByClassAndDate
+    getAssignmentsByClassAndDate,
+    // ADD: Assuming you have these functions in your usePlanner hook
+    createNoWorkDay,
+    deleteNoWorkDay,
+    noWorkDays
   } = usePlanner();
 
   const [newClassName, setNewClassName] = useState('');
@@ -48,6 +54,18 @@ const Planner: React.FC<PlannerProps> = ({
   const [editingAssignment, setEditingAssignment] = useState<string | null>(null);
   const [editingAssignmentValue, setEditingAssignmentValue] = useState('');
   const [newAssignmentInputs, setNewAssignmentInputs] = useState<Record<string, string>>({});
+  
+  // CHANGED: Get striped cells from backend instead of local state
+  const stripedCells = useMemo(() => {
+    if (!isAuthenticated || !noWorkDays) return new Set<string>();
+    
+    const cellSet = new Set<string>();
+    noWorkDays.forEach(noWorkDay => {
+      const cellKey = `${noWorkDay.planner_class}-${noWorkDay.date}`;
+      cellSet.add(cellKey);
+    });
+    return cellSet;
+  }, [isAuthenticated, noWorkDays]);
   
   // New state for date navigation
   const [currentDateOffset, setCurrentDateOffset] = useState(0); // 0 = today, -1 = yesterday, 1 = tomorrow
@@ -73,8 +91,8 @@ const Planner: React.FC<PlannerProps> = ({
   // Create a dummy ref for the header (not used in planner but required by header component)
   const dummyCalendarRef = useRef(null);
 
-  // Get organized assignments
-  const organizedAssignments = getAssignmentsByClassAndDate();
+  // Get organized assignments - only if authenticated
+  const organizedAssignments = isAuthenticated ? getAssignmentsByClassAndDate() : {};
 
   // FIXED: Helper function to format date as YYYY-MM-DD for API (avoiding timezone issues)
   const formatDateForAPI = (date: Date): string => {
@@ -134,6 +152,34 @@ const Planner: React.FC<PlannerProps> = ({
 
   const fiveDays = getFiveDaysToShow();
 
+  // FIXED: Create fallback classes with proper structure
+  const fallbackClasses = [
+    { id: 'temp-1', name: 'Class 1', order: 0, created_at: '', updated_at: '', user: '' },
+    { id: 'temp-2', name: 'Class 2', order: 1, created_at: '', updated_at: '', user: '' },
+    { id: 'temp-3', name: 'Class 3', order: 2, created_at: '', updated_at: '', user: '' },
+    { id: 'temp-4', name: 'Class 4', order: 3, created_at: '', updated_at: '', user: '' },
+    { id: 'temp-5', name: 'Class 5', order: 4, created_at: '', updated_at: '', user: '' },
+    { id: 'temp-6', name: 'Class 6', order: 5, created_at: '', updated_at: '', user: '' }
+  ];
+
+  // FIXED: Improved display classes logic
+  const displayClasses = useMemo(() => {
+    if (!isAuthenticated) {
+      return fallbackClasses;
+    }
+
+    if (!initialized || isLoading) {
+      return fallbackClasses;
+    }
+
+    if (!classes || classes.length === 0) {
+      return fallbackClasses;
+    }
+
+    // Sort authenticated classes by order
+    return [...classes].sort((a, b) => a.order - b.order);
+  }, [isAuthenticated, initialized, isLoading, classes]);
+
   // Navigation functions for the header
   const handlePrevious = () => {
     setCurrentDateOffset(prev => prev - 1);
@@ -147,8 +193,33 @@ const Planner: React.FC<PlannerProps> = ({
     setCurrentDateOffset(0);
   };
 
-  // Drag and drop handlers
+  // CHANGED: Save stripe pattern to backend
+  const handleToggleStripePattern = async (classId: string, dateString: string) => {
+    if (!isAuthenticated) return;
+    
+    const cellKey = `${classId}-${dateString}`;
+    const isCurrentlyStriped = stripedCells.has(cellKey);
+    
+    try {
+      if (isCurrentlyStriped) {
+        // Remove the no-work day from backend
+        await deleteNoWorkDay(classId, dateString);
+      } else {
+        // Add the no-work day to backend
+        await createNoWorkDay({
+          planner_class: classId,
+          date: dateString
+        });
+      }
+    } catch (error) {
+      console.error('Failed to toggle no-work day:', error);
+    }
+  };
+
+  // FIXED: Only allow drag and drop for authenticated users with real classes
   const handleDragStart = (e: React.DragEvent, index: number) => {
+    if (!isAuthenticated) return;
+    
     e.dataTransfer.effectAllowed = 'move';
     setDragState({
       isDragging: true,
@@ -158,6 +229,8 @@ const Planner: React.FC<PlannerProps> = ({
   };
 
   const handleDragOver = (e: React.DragEvent, index: number) => {
+    if (!isAuthenticated) return;
+    
     e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
     
@@ -168,6 +241,8 @@ const Planner: React.FC<PlannerProps> = ({
   };
 
   const handleDragLeave = (e: React.DragEvent) => {
+    if (!isAuthenticated) return;
+    
     // Only clear dragOverIndex if we're actually leaving the draggable area
     const rect = e.currentTarget.getBoundingClientRect();
     const x = e.clientX;
@@ -182,6 +257,8 @@ const Planner: React.FC<PlannerProps> = ({
   };
 
   const handleDrop = async (e: React.DragEvent, dropIndex: number) => {
+    if (!isAuthenticated) return;
+    
     e.preventDefault();
     
     const { draggedIndex } = dragState;
@@ -227,8 +304,10 @@ const Planner: React.FC<PlannerProps> = ({
     });
   };
 
+  // FIXED: Class management handlers - only work when authenticated
   const handleAddClass = async () => {
-    if (!newClassName.trim()) return;
+    if (!isAuthenticated || !newClassName.trim()) return;
+    
     const success = await createClass(newClassName.trim());
     if (success) {
       setNewClassName('');
@@ -237,6 +316,8 @@ const Planner: React.FC<PlannerProps> = ({
   };
 
   const handleRemoveClass = (classId: string, className: string) => {
+    if (!isAuthenticated) return;
+    
     setDeleteConfirmation({
       show: true,
       classId,
@@ -245,9 +326,9 @@ const Planner: React.FC<PlannerProps> = ({
   };
 
   const confirmDeleteClass = async () => {
-    if (deleteConfirmation.classId) {
-      await deleteClass(deleteConfirmation.classId);
-    }
+    if (!isAuthenticated || !deleteConfirmation.classId) return;
+    
+    await deleteClass(deleteConfirmation.classId);
     setDeleteConfirmation({
       show: false,
       classId: '',
@@ -264,17 +345,19 @@ const Planner: React.FC<PlannerProps> = ({
   };
 
   const startEditingClass = (classId: string, className: string) => {
+    if (!isAuthenticated) return;
+    
     setEditingClass(classId);
     setEditingClassValue(className);
   };
 
   const handleUpdateClass = async () => {
-    if (editingClass && editingClassValue.trim()) {
-      const success = await updateClass(editingClass, { name: editingClassValue.trim() });
-      if (success) {
-        setEditingClass(null);
-        setEditingClassValue('');
-      }
+    if (!isAuthenticated || !editingClass || !editingClassValue.trim()) return;
+    
+    const success = await updateClass(editingClass, { name: editingClassValue.trim() });
+    if (success) {
+      setEditingClass(null);
+      setEditingClassValue('');
     }
   };
 
@@ -283,12 +366,17 @@ const Planner: React.FC<PlannerProps> = ({
     setEditingClassValue('');
   };
 
+  // FIXED: Assignment management handlers - only work when authenticated
   const handleAddAssignment = (classId: string, dateString: string) => {
+    if (!isAuthenticated) return;
+    
     const inputKey = `${classId}-${dateString}`;
     setNewAssignmentInputs(prev => ({ ...prev, [inputKey]: '' }));
   };
 
-  const handleCreateAssignment = async (classId: string, dateString: string) => {
+const handleCreateAssignment = async (classId: string, dateString: string) => {
+    if (!isAuthenticated) return;
+    
     const inputKey = `${classId}-${dateString}`;
     const title = newAssignmentInputs[inputKey];
     
@@ -312,18 +400,34 @@ const Planner: React.FC<PlannerProps> = ({
     });
 
     if (success) {
+      // Remove the input field
       const updated = { ...newAssignmentInputs };
       delete updated[inputKey];
       setNewAssignmentInputs(updated);
+      
+      // If "no work" pattern is enabled for this cell, automatically turn it off
+      // since we just added work to this day
+      const cellKey = `${classId}-${dateString}`;
+      if (stripedCells.has(cellKey)) {
+        try {
+          await deleteNoWorkDay(classId, dateString);
+        } catch (error) {
+          console.error('Failed to remove no-work day after adding assignment:', error);
+        }
+      }
     }
   };
 
   const handleAssignmentInputChange = (classId: string, dateString: string, value: string) => {
+    if (!isAuthenticated) return;
+    
     const inputKey = `${classId}-${dateString}`;
     setNewAssignmentInputs(prev => ({ ...prev, [inputKey]: value }));
   };
 
   const cancelNewAssignment = (classId: string, dateString: string) => {
+    if (!isAuthenticated) return;
+    
     const inputKey = `${classId}-${dateString}`;
     const updated = { ...newAssignmentInputs };
     delete updated[inputKey];
@@ -331,16 +435,18 @@ const Planner: React.FC<PlannerProps> = ({
   };
 
   const handleUpdateAssignment = async () => {
-    if (editingAssignment && editingAssignmentValue.trim()) {
-      const success = await updateAssignment(editingAssignment, { title: editingAssignmentValue.trim() });
-      if (success) {
-        setEditingAssignment(null);
-        setEditingAssignmentValue('');
-      }
+    if (!isAuthenticated || !editingAssignment || !editingAssignmentValue.trim()) return;
+    
+    const success = await updateAssignment(editingAssignment, { title: editingAssignmentValue.trim() });
+    if (success) {
+      setEditingAssignment(null);
+      setEditingAssignmentValue('');
     }
   };
 
   const startEditingAssignment = (assignmentId: string, currentTitle: string) => {
+    if (!isAuthenticated) return;
+    
     setEditingAssignment(assignmentId);
     setEditingAssignmentValue(currentTitle);
   };
@@ -351,10 +457,14 @@ const Planner: React.FC<PlannerProps> = ({
   };
 
   const handleToggleAssignment = async (assignmentId: string, currentCompleted: boolean) => {
+    if (!isAuthenticated) return;
+    
     await updateAssignment(assignmentId, { completed: !currentCompleted });
   };
 
   const handleDeleteAssignment = async (assignmentId: string) => {
+    if (!isAuthenticated) return;
+    
     await deleteAssignment(assignmentId);
   };
 
@@ -369,6 +479,8 @@ const Planner: React.FC<PlannerProps> = ({
 
   // Enhanced getRowHeight function that accounts for text wrapping
   const getRowHeight = (classId: string) => {
+    if (!isAuthenticated) return 70; // Default height for fallback classes
+    
     let maxHeight = 0;
     
     fiveDays.forEach(day => {
@@ -422,7 +534,8 @@ const Planner: React.FC<PlannerProps> = ({
     }
   };
 
-  if (classes.length === 0) {
+  // FIXED: Better loading state handling
+  if (isAuthenticated && !initialized && isLoading) {
     return (
       <div className="planner-container">
         <CustomCalendarHeader 
@@ -435,21 +548,10 @@ const Planner: React.FC<PlannerProps> = ({
           activeAppView={activeAppView}
           onAppViewChange={onAppViewChange}
         />
-        <div className="planner-loading"></div>
+        <div className="planner-loading">Loading your classes...</div>
       </div>
     );
   }
-
-  // Show fallback classes if not authenticated, or if authenticated but no classes loaded yet
-  const showFallback = !isAuthenticated || (isAuthenticated && classes.length === 0);
-  const displayClasses = showFallback ? [
-    { id: 'temp-1', name: 'Class 1', order: 0 },
-    { id: 'temp-2', name: 'Class 2', order: 1 },
-    { id: 'temp-3', name: 'Class 3', order: 2 },
-    { id: 'temp-4', name: 'Class 4', order: 3 },
-    { id: 'temp-5', name: 'Class 5', order: 4 },
-    { id: 'temp-6', name: 'Class 6', order: 5 }
-  ] : [...classes].sort((a, b) => a.order - b.order);
 
   return (
     <div className="planner-container">
@@ -465,388 +567,69 @@ const Planner: React.FC<PlannerProps> = ({
         onAppViewChange={onAppViewChange}
       />
 
-      {error && (
-        <div className="planner-error">
-          Error: {error}
-        </div>
-      )}
 
-      {/* Delete Confirmation Modal */}
-      {deleteConfirmation.show && (
-        <div className="delete-confirmation-overlay">
-          <div className="delete-confirmation-modal">
-            <h3>Delete Class</h3>
-            <p>Are you sure you want to delete "{deleteConfirmation.className}"?</p>
-            <p className="delete-warning">This will also delete all assignments in this class.</p>
-            <div className="delete-confirmation-buttons">
-              <button 
-                onClick={cancelDeleteClass}
-                className="cancel-delete-btn"
-              >
-                Cancel
-              </button>
-              <button 
-                onClick={confirmDeleteClass}
-                className="confirm-delete-btn"
-              >
-                Delete
-              </button>
-            </div>
-          </div>
-        </div>
+
+      {/* Delete Confirmation Modal - only show when authenticated */}
+      {isAuthenticated && (
+        <DeleteConfirmationModal
+          show={deleteConfirmation.show}
+          className={deleteConfirmation.className}
+          onConfirm={confirmDeleteClass}
+          onCancel={cancelDeleteClass}
+        />
       )}
 
       <div className="planner-content">
-        <div className="sidebar">
-          <div className="sidebar-header">
-            <div className="classes-header">
-              {!showAddClass && <h2>Classes</h2>}
-              {!showAddClass && isAuthenticated ? (
-                <button onClick={() => setShowAddClass(true)} className="add-class-btn">+</button>
-              ) : isAuthenticated ? (
-                <div className="add-class-input">
-                  <input
-                    type="text"
-                    placeholder="Class name"
-                    value={newClassName}
-                    onChange={(e) => setNewClassName(e.target.value)}
-                    onKeyPress={(e) => handleKeyPress(e, handleAddClass)}
-                    onBlur={() => {
-                      if (newClassName.trim()) {
-                        handleAddClass();
-                      } else {
-                        setShowAddClass(false);
-                      }
-                    }}
-                    className="class-input"
-                    autoFocus
-                  />
-                </div>
-              ) : null}
-            </div>
-          </div>
-          <div className="classes-list">
-            {displayClasses.map((cls, index) => (
-              <div 
-                key={cls.id} 
-                className={`class-item ${
-                  dragState.isDragging && dragState.draggedIndex === index ? 'dragging' : ''
-                } ${
-                  dragState.dragOverIndex === index ? 'drag-over' : ''
-                }`}
-                style={{ height: `${getRowHeight(cls.id)}px` }}
-                draggable={isAuthenticated && !String(cls.id).startsWith('temp-')}
-                onDragStart={(e) => handleDragStart(e, index)}
-                onDragOver={(e) => handleDragOver(e, index)}
-                onDragLeave={handleDragLeave}
-                onDrop={(e) => handleDrop(e, index)}
-                onDragEnd={handleDragEnd}
-              >
-                {isAuthenticated && !String(cls.id).startsWith('temp-') && (
-                  <div className="drag-handle">
-                    <GripVertical size={14} />
-                  </div>
-                )}
-                
-                {editingClass === cls.id ? (
-                  <input
-                    type="text"
-                    value={editingClassValue}
-                    onChange={(e) => setEditingClassValue(e.target.value)}
-                    onKeyPress={(e) => handleKeyPress(e, handleUpdateClass)}
-                    onBlur={handleUpdateClass}
-                    className="class-name-edit-input"
-                    autoFocus
-                  />
-                ) : (
-                  <div className="class-name-container">
-                    <span className="class-name">
-                      {cls.name}
-                    </span>
-                    {isAuthenticated && !String(cls.id).startsWith('temp-') && (
-                      <button 
-                        onClick={() => startEditingClass(cls.id, cls.name)}
-                        className="edit-class-btn"
-                        title="Edit class name"
-                      >
-                        <Edit2 size={12} />
-                      </button>
-                    )}
-                  </div>
-                )}
-                {isAuthenticated && !String(cls.id).startsWith('temp-') && (
-                  <button 
-                    onClick={() => handleRemoveClass(cls.id, cls.name)}
-                    className="delete-class-btn"
-                    title="Delete class"
-                  >
-                    ×
-                  </button>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
+        <ClassesSidebar
+          classes={displayClasses}
+          isAuthenticated={isAuthenticated}
+          showAddClass={showAddClass}
+          newClassName={newClassName}
+          editingClass={editingClass}
+          editingClassValue={editingClassValue}
+          dragState={dragState}
+          getRowHeight={getRowHeight}
+          onToggleAddClass={setShowAddClass}
+          onNewClassNameChange={setNewClassName}
+          onCreateClass={handleAddClass}
+          onStartEditClass={startEditingClass}
+          onUpdateEditClass={setEditingClassValue}
+          onSaveEditClass={handleUpdateClass}
+          onCancelEditClass={cancelEditingClass}
+          onDeleteClass={handleRemoveClass}
+          onDragStart={handleDragStart}
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          onDrop={handleDrop}
+          onDragEnd={handleDragEnd}
+          onKeyPress={handleKeyPress}
+        />
 
-        <div className="main-grid">
-          <div className="grid-header">
-            {fiveDays.map((day) => (
-              <div key={day.dateString} className={`day-header ${day.isToday ? 'today' : ''}`}>
-                {day.displayName} {day.dayNumber}
-              </div>
-            ))}
-          </div>
-
-          <div className="grid-body">
-            {displayClasses.map((cls, index) => (
-              <div 
-                key={cls.id} 
-                className={`class-row ${
-                  dragState.isDragging && dragState.draggedIndex === index ? 'dragging-row' : ''
-                }`}
-                style={{ height: `${getRowHeight(cls.id)}px` }}
-              >
-                {fiveDays.map((day) => (
-                  <div 
-                    key={`${cls.id}-${day.dateString}`} 
-                    className={`assignment-cell ${day.isToday ? 'today-cell' : ''}`}
-                  >
-                    <div className="assignments-list">
-                      {/* Existing assignments */}
-                      {organizedAssignments[cls.id]?.[day.dateString]?.map((assignment) => (
-                        <div key={assignment.id} className="assignment-item">
-                          <input
-                            type="checkbox"
-                            checked={assignment.completed}
-                            onChange={() => handleToggleAssignment(assignment.id, assignment.completed)}
-                            className="assignment-checkbox"
-                          />
-                          {editingAssignment === assignment.id ? (
-                            <input
-                              type="text"
-                              value={editingAssignmentValue}
-                              onChange={(e) => setEditingAssignmentValue(e.target.value)}
-                              onKeyPress={(e) => handleKeyPress(e, handleUpdateAssignment)}
-                              onBlur={handleUpdateAssignment}
-                              className="assignment-edit-input"
-                              autoFocus
-                              placeholder="Assignment name"
-                            />
-                          ) : (
-                            <span 
-                              className={`assignment-title ${assignment.completed ? 'completed' : ''}`}
-                              onClick={() => startEditingAssignment(assignment.id, assignment.title)}
-                              style={{ cursor: 'pointer' }}
-                            >
-                              {assignment.title || 'Click to edit'}
-                            </span>
-                          )}
-                          <button
-                            onClick={() => handleDeleteAssignment(assignment.id)}
-                            className="delete-assignment-btn"
-                            title="Delete assignment"
-                          >
-                            ×
-                          </button>
-                        </div>
-                      ))}
-                      
-                      {/* New assignment input */}
-                      {newAssignmentInputs[`${cls.id}-${day.dateString}`] !== undefined && (
-                        <div className="assignment-item">
-                          <input
-                            type="checkbox"
-                            disabled
-                            className="assignment-checkbox"
-                          />
-                          <input
-                            type="text"
-                            value={newAssignmentInputs[`${cls.id}-${day.dateString}`] || ''}
-                            onChange={(e) => handleAssignmentInputChange(cls.id, day.dateString, e.target.value)}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter') {
-                                handleCreateAssignment(cls.id, day.dateString);
-                              } else if (e.key === 'Escape') {
-                                cancelNewAssignment(cls.id, day.dateString);
-                              }
-                            }}
-                            onBlur={() => handleCreateAssignment(cls.id, day.dateString)}
-                            className="assignment-edit-input"
-                            autoFocus
-                            placeholder="Assignment name"
-                          />
-                          <button
-                            onClick={() => cancelNewAssignment(cls.id, day.dateString)}
-                            className="delete-assignment-btn"
-                            title="Cancel"
-                          >
-                            ×
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                    
-                    {/* Only show add button for authenticated users and non-temp classes */}
-                    {isAuthenticated && !String(cls.id).startsWith('temp-') && (
-                      <button 
-                        onClick={() => handleAddAssignment(cls.id, day.dateString)}
-                        className="add-assignment-btn"
-                        title="Add assignment"
-                        disabled={newAssignmentInputs[`${cls.id}-${day.dateString}`] !== undefined}
-                      >
-                        +
-                      </button>
-                    )}
-                  </div>
-                ))}
-              </div>
-            ))}
-          </div>
-        </div>
+        <PlannerGrid
+          classes={displayClasses}
+          days={fiveDays}
+          organizedAssignments={organizedAssignments}
+          isAuthenticated={isAuthenticated}
+          dragState={dragState}
+          editingAssignment={editingAssignment}
+          editingAssignmentValue={editingAssignmentValue}
+          newAssignmentInputs={newAssignmentInputs}
+          stripedCells={stripedCells}
+          getRowHeight={getRowHeight}
+          onToggleAssignment={handleToggleAssignment}
+          onStartEditAssignment={startEditingAssignment}
+          onUpdateAssignmentEdit={setEditingAssignmentValue}
+          onSaveAssignmentEdit={handleUpdateAssignment}
+          onCancelAssignmentEdit={cancelEditingAssignment}
+          onDeleteAssignment={handleDeleteAssignment}
+          onAddAssignment={handleAddAssignment}
+          onNewAssignmentChange={handleAssignmentInputChange}
+          onCreateAssignment={handleCreateAssignment}
+          onCancelNewAssignment={cancelNewAssignment}
+          onKeyPress={handleKeyPress}
+          onToggleStripePattern={handleToggleStripePattern}
+        />
       </div>
-
-      <style jsx>{`
-        /* Drag and Drop Styles */
-        .class-item {
-          position: relative;
-          display: flex;
-          align-items: flex-start;
-          cursor: grab;
-          transition: all 0.2s ease;
-        }
-
-        .class-item[draggable="true"]:hover {
-          transform: translateY(-1px);
-          box-shadow: 0 2px 8px hsl(var(--muted) / 0.6);
-        }
-
-        .class-item.dragging {
-          opacity: 0.5;
-          transform: rotate(2deg);
-          cursor: grabbing;
-        }
-
-        .class-item.drag-over {
-          transform: translateY(2px);
-          box-shadow: 0 4px 12px hsl(var(--accent) / 0.3);
-        }
-
-        .class-row.dragging-row {
-          opacity: 0.5;
-        }
-
-        .drag-handle {
-          display: flex;
-          align-items: center;
-          padding: 4px;
-          color: hsl(var(--mutedForeground));
-          cursor: grab;
-          margin-right: 8px;
-        }
-
-        .drag-handle:hover {
-          color: hsl(var(--foreground));
-        }
-
-        .class-item.dragging .drag-handle {
-          cursor: grabbing;
-        }
-
-        /* Delete Confirmation Modal Styles */
-        .delete-confirmation-overlay {
-          position: fixed;
-          top: 0;
-          left: 0;
-          right: 0;
-          bottom: 0;
-          background-color: rgba(0, 0, 0, 0.5);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          z-index: 1000;
-        }
-
-        .delete-confirmation-modal {
-          background: hsl(var(--card));
-          border-radius: 8px;
-          padding: 24px;
-          max-width: 400px;
-          width: 90%;
-          box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
-        }
-
-        .delete-confirmation-modal h3 {
-          margin: 0 0 16px 0;
-          font-size: 18px;
-          font-weight: 600;
-          color: hsl(var(--foreground));
-        }
-
-        .delete-confirmation-modal p {
-          margin: 0 0 8px 0;
-          color: hsl(var(--mutedForeground));
-          line-height: 1.5;
-        }
-
-        .delete-warning {
-          color: hsl(var(--chart1)) !important;
-          font-size: 14px;
-          margin-bottom: 20px !important;
-        }
-
-        .delete-confirmation-buttons {
-          display: flex;
-          gap: 12px;
-          justify-content: flex-end;
-        }
-
-        .cancel-delete-btn {
-          padding: 8px 16px;
-          border: 1px solid hsl(var(--border));
-          background: hsl(var(--muted));
-          color: hsl(var(--mutedForeground));
-          border-radius: 6px;
-          font-size: 14px;
-          cursor: pointer;
-          transition: all 0.2s ease;
-        }
-
-        .cancel-delete-btn:hover {
-          background: hsl(var(--input));
-          border-color: hsl(var(--mutedForeground));
-        }
-
-        .confirm-delete-btn {
-          padding: 8px 16px;
-          border: none;
-          background: hsl(var(--chart1));
-          color: hsl(var(--foreground));
-          border-radius: 6px;
-          font-size: 14px;
-          cursor: pointer;
-          transition: all 0.2s ease;
-        }
-
-        .confirm-delete-btn:hover {
-          background: hsl(12 80% 50%);
-        }
-
-        /* Adjust class-name-container to account for drag handle */
-        .class-name-container {
-          flex: 1;
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-        }
-
-        /* Prevent text selection during drag */
-        .class-item.dragging * {
-          user-select: none;
-          -webkit-user-select: none;
-          -moz-user-select: none;
-          -ms-user-select: none;
-        }
-      `}</style>
     </div>
   );
 };

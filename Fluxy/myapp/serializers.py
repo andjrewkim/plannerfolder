@@ -300,3 +300,19 @@ class NoteTabSerializer(serializers.ModelSerializer):
     class Meta:
         model = NoteTab
         fields = ['id', 'title', 'content', 'order']
+        
+        
+        
+from .models import NoWorkDay
+
+class NoWorkDaySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = NoWorkDay
+        fields = ['id', 'planner_class', 'date']
+
+    def create(self, validated_data):
+        # Ensure the planner_class belongs to the authenticated user
+        planner_class = validated_data['planner_class']
+        if planner_class.user != self.context['request'].user:
+            raise serializers.ValidationError("You can only create no-work days for your own classes.")
+        return super().create(validated_data)
