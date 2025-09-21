@@ -9,6 +9,7 @@ import { ThemeProvider } from '../services/themeContext';
 import { useAppState } from '../hooks/useAppState';
 import { authAPI } from '../../lib/auth';
 import Notes from '../components/Notes';
+import Popup from '../components/Popup/Popup';
 
 // Define available views - Planner (your-new-view) is now the default/first
 type ViewType = 'your-new-view' | 'calendar';
@@ -318,6 +319,8 @@ const AppContent: React.FC<AppContentProps> = ({
   // Removed loading screen - content loads immediately with layout protection
   return (
     <div className="h-screen overflow-hidden">
+      <Popup />
+
       {/* Sidebar - Always render but with opacity control */}
       <div style={{ opacity: layoutReady ? 1 : 0, transition: 'opacity 0.1s ease-in' }}>
         <Sidebar 
