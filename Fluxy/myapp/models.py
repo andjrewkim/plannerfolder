@@ -85,7 +85,7 @@ class UserSettings(models.Model):
     default_calendar_view = models.CharField(max_length=10, choices=VIEW_CHOICES, default='month')
     week_starts_on = models.CharField(max_length=6, choices=WEEK_START_CHOICES, default='sunday')
     dark_mode = models.BooleanField(default=True)
-    theme = models.CharField(max_length=20, choices=THEME_CHOICES, default='classic')
+    theme = models.CharField(max_length=20, choices=THEME_CHOICES, default='coffee')
 
     def __str__(self):
         return f"Settings for {self.user.email}"

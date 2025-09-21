@@ -20,7 +20,7 @@ const themes = [
   { id: 'classic', name: 'Classic', colors: ['#3b82f6', '#1e40af'] },
   { id: 'emerald', name: 'Emerald', colors: ['#10b981', '#047857'] },
   { id: 'ocean', name: 'Ocean', colors: ['#0ea5e9', '#0284c7'] },
-  { id: 'sunset', name: 'Coffee', colors: ['#b1642dff', '#994011ff'] },
+  { id: 'coffee', name: 'Coffee', colors: ['#b1642dff', '#994011ff'] },
   { id: 'royal', name: 'Royal', colors: ['#8b5cf6', '#7c3aed'] },
   { id: 'monochrome', name: 'Ruby', colors: ['#B14A46', '#6E1E1B'
 ] },

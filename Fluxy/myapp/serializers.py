@@ -257,7 +257,7 @@ class UserSettingsSerializer(serializers.ModelSerializer):
         return value
     
     def validate_theme(self, value):
-        valid_choices = ['classic', 'emerald', 'ocean', 'sunset', 'royal', 'monochrome']
+        valid_choices = ['classic', 'emerald', 'ocean', 'coffee', 'royal', 'monochrome']
         if value not in valid_choices:
             raise serializers.ValidationError(f"Invalid choice. Must be one of: {valid_choices}")
         return value

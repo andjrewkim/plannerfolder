@@ -28,7 +28,7 @@ const DEFAULT_SETTINGS: UserSettings = {
   default_calendar_view: 'month',
   week_starts_on: 'sunday',
   dark_mode: true,
-  theme: 'classic'
+  theme: 'coffee'
 };
 
 // Singleton pattern to ensure only one instance manages settings

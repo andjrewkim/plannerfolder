@@ -240,8 +240,8 @@ export const themes: Theme[] = [
     }
   },
   {
-    id: 'sunset',
-    name: 'Sunset',
+    id: 'coffee',
+    name: 'Coffee',
     colors: ['#f97316', '#c2410c'],
     light: {
       primary: '15 15% 15%',

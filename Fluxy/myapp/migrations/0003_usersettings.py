@@ -19,7 +19,7 @@ class Migration(migrations.Migration):
                 ('default_calendar_view', models.CharField(choices=[('month', 'Month'), ('week', 'Week'), ('day', 'Day'), ('agenda', 'Agenda')], default='month', max_length=10)),
                 ('week_starts_on', models.CharField(choices=[('sunday', 'Sunday'), ('monday', 'Monday')], default='sunday', max_length=6)),
                 ('dark_mode', models.BooleanField(default=False)),
-                ('theme', models.CharField(choices=[('classic', 'Classic'), ('emerald', 'Emerald'), ('ocean', 'Ocean'), ('sunset', 'Sunset'), ('royal', 'Royal'), ('monochrome', 'Monochrome')], default='classic', max_length=20)),
+                ('theme', models.CharField(choices=[('classic', 'Classic'), ('emerald', 'Emerald'), ('ocean', 'Ocean'), ('coffee', 'Coffee'), ('royal', 'Royal'), ('monochrome', 'Monochrome')], default='classic', max_length=20)),
                 ('user', models.OneToOneField(on_delete=django.db.models.deletion.CASCADE, related_name='settings', to=settings.AUTH_USER_MODEL)),
             ],
         ),
