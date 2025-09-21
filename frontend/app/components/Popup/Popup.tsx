@@ -215,7 +215,7 @@ export default function Popup() {
               <button
                 onClick={handleShare}
                 disabled={isAnimating}
-                className="w-full py-2 px-4 bg-muted/15 hover:bg-button/50 text-foreground/80 hover:text-foreground/100 rounded text-sm transition-all duration-200 hover:scale-105 hover:shadow-md active:scale-95 disabled:opacity-50"
+                className="w-full py-2 px-4 bg-muted/30 hover:bg-button/50 text-foreground/80 hover:text-foreground/100 rounded text-sm transition-all duration-200 hover:scale-105 hover:shadow-md active:scale-95 disabled:opacity-50"
               >
                 {isAnimating ? (
                   <span className="flex items-center justify-center gap-2">
