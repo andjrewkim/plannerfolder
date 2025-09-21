@@ -44,7 +44,9 @@ const Planner: React.FC<PlannerProps> = ({
     // ADD: Assuming you have these functions in your usePlanner hook
     createNoWorkDay,
     deleteNoWorkDay,
-    noWorkDays
+    noWorkDays,
+    // ADD: We need a way to force refresh the assignments if needed
+    setError
   } = usePlanner();
 
   const [newClassName, setNewClassName] = useState('');
@@ -55,17 +57,35 @@ const Planner: React.FC<PlannerProps> = ({
   const [editingAssignmentValue, setEditingAssignmentValue] = useState('');
   const [newAssignmentInputs, setNewAssignmentInputs] = useState<Record<string, string>>({});
   
-  // CHANGED: Get striped cells from backend instead of local state
+  // ADD: Local state for optimistic updates
+  const [localAssignmentUpdates, setLocalAssignmentUpdates] = useState<Record<string, { completed?: boolean; deleted?: boolean }>>({});
+  const [localNoWorkUpdates, setLocalNoWorkUpdates] = useState<Record<string, boolean>>({});
+  
+  // CHANGED: Get striped cells from backend AND local optimistic updates
   const stripedCells = useMemo(() => {
-    if (!isAuthenticated || !noWorkDays) return new Set<string>();
+    if (!isAuthenticated) return new Set<string>();
     
     const cellSet = new Set<string>();
-    noWorkDays.forEach(noWorkDay => {
-      const cellKey = `${noWorkDay.planner_class}-${noWorkDay.date}`;
-      cellSet.add(cellKey);
+    
+    // Add cells from backend data
+    if (noWorkDays) {
+      noWorkDays.forEach(noWorkDay => {
+        const cellKey = `${noWorkDay.planner_class}-${noWorkDay.date}`;
+        cellSet.add(cellKey);
+      });
+    }
+    
+    // Apply local optimistic updates
+    Object.entries(localNoWorkUpdates).forEach(([cellKey, isNoWork]) => {
+      if (isNoWork) {
+        cellSet.add(cellKey);
+      } else {
+        cellSet.delete(cellKey);
+      }
     });
+    
     return cellSet;
-  }, [isAuthenticated, noWorkDays]);
+  }, [isAuthenticated, noWorkDays, localNoWorkUpdates]);
   
   // New state for date navigation
   const [currentDateOffset, setCurrentDateOffset] = useState(0); // 0 = today, -1 = yesterday, 1 = tomorrow
@@ -91,8 +111,34 @@ const Planner: React.FC<PlannerProps> = ({
   // Create a dummy ref for the header (not used in planner but required by header component)
   const dummyCalendarRef = useRef(null);
 
-  // Get organized assignments - only if authenticated
-  const organizedAssignments = isAuthenticated ? getAssignmentsByClassAndDate() : {};
+  // Get organized assignments - only if authenticated, with optimistic updates applied
+  const organizedAssignments = useMemo(() => {
+    if (!isAuthenticated) return {};
+    
+    const baseAssignments = getAssignmentsByClassAndDate();
+    
+    // Apply local optimistic updates
+    const updatedAssignments: typeof baseAssignments = {};
+    
+    for (const [classId, dateAssignments] of Object.entries(baseAssignments)) {
+      updatedAssignments[classId] = {};
+      for (const [dateString, assignments] of Object.entries(dateAssignments)) {
+        updatedAssignments[classId][dateString] = assignments
+          .map(assignment => {
+            const localUpdate = localAssignmentUpdates[assignment.id];
+            if (localUpdate?.deleted) return null; // Filter out deleted assignments
+            
+            return {
+              ...assignment,
+              ...(localUpdate?.completed !== undefined && { completed: localUpdate.completed })
+            };
+          })
+          .filter(Boolean) as typeof assignments; // Remove null entries
+      }
+    }
+    
+    return updatedAssignments;
+  }, [isAuthenticated, getAssignmentsByClassAndDate, localAssignmentUpdates]);
 
   // FIXED: Helper function to format date as YYYY-MM-DD for API (avoiding timezone issues)
   const formatDateForAPI = (date: Date): string => {
@@ -193,27 +239,75 @@ const Planner: React.FC<PlannerProps> = ({
     setCurrentDateOffset(0);
   };
 
-  // CHANGED: Save stripe pattern to backend
-  const handleToggleStripePattern = async (classId: string, dateString: string) => {
+  // CHANGED: Optimistic stripe pattern toggle
+  const handleToggleStripePattern = (classId: string, dateString: string) => {
     if (!isAuthenticated) return;
     
     const cellKey = `${classId}-${dateString}`;
     const isCurrentlyStriped = stripedCells.has(cellKey);
     
-    try {
-      if (isCurrentlyStriped) {
-        // Remove the no-work day from backend
-        await deleteNoWorkDay(classId, dateString);
-      } else {
-        // Add the no-work day to backend
-        await createNoWorkDay({
-          planner_class: classId,
-          date: dateString
+    // 1. Immediately update local state for instant UI response
+    setLocalNoWorkUpdates(prev => ({
+      ...prev,
+      [cellKey]: !isCurrentlyStriped
+    }));
+    
+    // 2. Make API call in background
+    (async () => {
+      try {
+        if (isCurrentlyStriped) {
+          // Remove the no-work day from backend
+          const success = await deleteNoWorkDay(classId, dateString);
+          if (success) {
+            // Success: remove local update since backend is now updated
+            setLocalNoWorkUpdates(prev => {
+              const updated = { ...prev };
+              delete updated[cellKey];
+              return updated;
+            });
+          } else {
+            // Failed: rollback local change
+            setLocalNoWorkUpdates(prev => {
+              const updated = { ...prev };
+              delete updated[cellKey];
+              return updated;
+            });
+            if (setError) setError('Failed to update no-work day');
+          }
+        } else {
+          // Add the no-work day to backend
+          const success = await createNoWorkDay({
+            planner_class: classId,
+            date: dateString
+          });
+          if (success) {
+            // Success: remove local update since backend is now updated
+            setLocalNoWorkUpdates(prev => {
+              const updated = { ...prev };
+              delete updated[cellKey];
+              return updated;
+            });
+          } else {
+            // Failed: rollback local change
+            setLocalNoWorkUpdates(prev => {
+              const updated = { ...prev };
+              delete updated[cellKey];
+              return updated;
+            });
+            if (setError) setError('Failed to update no-work day');
+          }
+        }
+      } catch (error) {
+        // Error: rollback local change
+        setLocalNoWorkUpdates(prev => {
+          const updated = { ...prev };
+          delete updated[cellKey];
+          return updated;
         });
+        console.error('Failed to toggle no-work day:', error);
+        if (setError) setError('Failed to update no-work day');
       }
-    } catch (error) {
-      console.error('Failed to toggle no-work day:', error);
-    }
+    })();
   };
 
   // FIXED: Only allow drag and drop for authenticated users with real classes
@@ -456,16 +550,88 @@ const handleCreateAssignment = async (classId: string, dateString: string) => {
     setEditingAssignmentValue('');
   };
 
-  const handleToggleAssignment = async (assignmentId: string, currentCompleted: boolean) => {
+  // CHANGED: Optimistic toggle assignment
+  const handleToggleAssignment = (assignmentId: string, currentCompleted: boolean) => {
     if (!isAuthenticated) return;
     
-    await updateAssignment(assignmentId, { completed: !currentCompleted });
+    // 1. Immediately update local state for instant UI response
+    setLocalAssignmentUpdates(prev => ({
+      ...prev,
+      [assignmentId]: { completed: !currentCompleted }
+    }));
+    
+    // 2. Make API call in background
+    updateAssignment(assignmentId, { completed: !currentCompleted })
+      .then(success => {
+        if (success) {
+          // Success: remove local update since backend is now updated
+          setLocalAssignmentUpdates(prev => {
+            const updated = { ...prev };
+            delete updated[assignmentId];
+            return updated;
+          });
+        } else {
+          // Failed: rollback local change
+          setLocalAssignmentUpdates(prev => {
+            const updated = { ...prev };
+            delete updated[assignmentId];
+            return updated;
+          });
+          if (setError) setError('Failed to update assignment');
+        }
+      })
+      .catch(error => {
+        // Error: rollback local change
+        setLocalAssignmentUpdates(prev => {
+          const updated = { ...prev };
+          delete updated[assignmentId];
+          return updated;
+        });
+        console.error('Error toggling assignment:', error);
+        if (setError) setError('Failed to update assignment');
+      });
   };
 
-  const handleDeleteAssignment = async (assignmentId: string) => {
+  // CHANGED: Optimistic delete assignment
+  const handleDeleteAssignment = (assignmentId: string) => {
     if (!isAuthenticated) return;
     
-    await deleteAssignment(assignmentId);
+    // 1. Immediately mark as deleted for instant UI response
+    setLocalAssignmentUpdates(prev => ({
+      ...prev,
+      [assignmentId]: { deleted: true }
+    }));
+    
+    // 2. Make API call in background
+    deleteAssignment(assignmentId)
+      .then(success => {
+        if (success) {
+          // Success: remove local update since backend is now updated
+          setLocalAssignmentUpdates(prev => {
+            const updated = { ...prev };
+            delete updated[assignmentId];
+            return updated;
+          });
+        } else {
+          // Failed: rollback local change (show assignment again)
+          setLocalAssignmentUpdates(prev => {
+            const updated = { ...prev };
+            delete updated[assignmentId];
+            return updated;
+          });
+          if (setError) setError('Failed to delete assignment');
+        }
+      })
+      .catch(error => {
+        // Error: rollback local change
+        setLocalAssignmentUpdates(prev => {
+          const updated = { ...prev };
+          delete updated[assignmentId];
+          return updated;
+        });
+        console.error('Error deleting assignment:', error);
+        if (setError) setError('Failed to delete assignment');
+      });
   };
 
   const handleKeyPress = (e: React.KeyboardEvent, action: () => void) => {
@@ -566,8 +732,6 @@ const handleCreateAssignment = async (classId: string, dateString: string) => {
         activeAppView={activeAppView}
         onAppViewChange={onAppViewChange}
       />
-
-
 
       {/* Delete Confirmation Modal - only show when authenticated */}
       {isAuthenticated && (
