@@ -32,6 +32,9 @@ const AppContent: React.FC<AppContentProps> = ({
   // Add layout ready state to prevent layout shifts
   const [layoutReady, setLayoutReady] = useState(false);
 
+  // Client-side hydration state
+  const [isClient, setIsClient] = useState(false);
+
   // Onboarding state
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [onboardingCompleted, setOnboardingCompleted] = useState(false);
@@ -52,17 +55,8 @@ const AppContent: React.FC<AppContentProps> = ({
   } = useAppState();
 
   
-  // View management state - Changed default to 'your-new-view' (planner)
-  const [activeView, setActiveView] = useState<ViewType>(() => {
-    // Initialize from localStorage if available
-    if (typeof window !== 'undefined') {
-      const savedView = localStorage.getItem('lastActiveView') as ViewType;
-      if (savedView && (savedView === 'calendar' || savedView === 'your-new-view')) {
-        return savedView;
-      }
-    }
-    return 'your-new-view'; // Default view changed to planner
-  });
+  // View management state - Default to 'your-new-view' (planner)
+  const [activeView, setActiveView] = useState<ViewType>('your-new-view');
   const [view, setView] = useState<string>('dayGridMonth');
   const [refreshEvents, setRefreshEvents] = useState(0);
   const [navbarVisible, setNavbarVisible] = useState(false);
@@ -70,8 +64,19 @@ const AppContent: React.FC<AppContentProps> = ({
   // Set this to true for dev, false for production
   const DEV_MODE = false; // <-- toggle here
 
+  // Initialize client-side state
   useEffect(() => {
-    if (typeof window === 'undefined') return;
+    setIsClient(true);
+    
+    // Only access localStorage after client-side hydration
+    const savedView = localStorage.getItem('lastActiveView') as ViewType;
+    if (savedView && (savedView === 'calendar' || savedView === 'your-new-view')) {
+      setActiveView(savedView);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!isClient) return;
 
     const hasSeenOnboarding = localStorage.getItem('hasSeenOnboarding');
     const completed = localStorage.getItem('onboardingCompleted');
@@ -85,8 +90,7 @@ const AppContent: React.FC<AppContentProps> = ({
     } else {
       setOnboardingCompleted(!!completed);
     }
-  }, []);
-
+  }, [isClient]);
 
   // Ensure layout is ready before showing content
   useEffect(() => {
@@ -100,13 +104,15 @@ const AppContent: React.FC<AppContentProps> = ({
 
   // Check authentication status - runs in background without blocking UI
   useEffect(() => {
+    if (!isClient) return;
+
     const checkAuth = async () => {
       try {
         const isAuth = await authAPI.checkAuthStatus();
         setIsAuthenticated(isAuth);
         
         // For new users (first time authentication), ensure planner is the default
-        if (isAuth && typeof window !== 'undefined') {
+        if (isAuth) {
           const hasViewPreference = localStorage.getItem('lastActiveView');
           if (!hasViewPreference) {
             localStorage.setItem('lastActiveView', 'your-new-view');
@@ -120,37 +126,39 @@ const AppContent: React.FC<AppContentProps> = ({
     };
 
     checkAuth();
-  }, []);
-
-  
+  }, [isClient]);
 
   // Log the initial view loaded from localStorage
   useEffect(() => {
-    console.log('Initial view loaded from localStorage:', activeView);
-  }, []);
+    if (isClient) {
+      console.log('Initial view loaded from localStorage:', activeView);
+    }
+  }, [activeView, isClient]);
 
   // Track view changes
   useEffect(() => {
-    if (posthog) {
+    if (posthog && isClient) {
       posthog.capture('app_view_changed', {
         view: activeView,
         timestamp: new Date().toISOString()
       });
     }
-  }, [posthog, activeView]);
+  }, [posthog, activeView, isClient]);
 
   // Track calendar view changes (only when in calendar view)
   useEffect(() => {
-    if (posthog && activeView === 'calendar') {
+    if (posthog && activeView === 'calendar' && isClient) {
       posthog.capture('calendar_view_changed', {
         view: view,
         timestamp: new Date().toISOString()
       });
     }
-  }, [posthog, view, activeView]);
+  }, [posthog, view, activeView, isClient]);
 
   // Don't disable scrolling at all - let everything scroll
   useEffect(() => {
+    if (!isClient) return;
+
     // Remove any scroll blocking
     document.body.style.overflow = 'auto';
     document.documentElement.style.overflow = 'auto';
@@ -164,10 +172,12 @@ const AppContent: React.FC<AppContentProps> = ({
         });
       }
     };
-  }, [posthog]);
+  }, [posthog, isClient]);
 
   // Listen for navbar visibility changes
   useEffect(() => {
+    if (!isClient) return;
+
     const handleMouseMove = (e: MouseEvent) => {
       if (e.clientY <= 25) {
         setNavbarVisible(true);
@@ -181,7 +191,7 @@ const AppContent: React.FC<AppContentProps> = ({
     return () => {
       window.removeEventListener('mousemove', handleMouseMove);
     };
-  }, []);
+  }, [isClient]);
 
   const handleEventChange = async () => {
     await initializeData();
@@ -196,8 +206,8 @@ const AppContent: React.FC<AppContentProps> = ({
     // Update the active view immediately
     setActiveView(newView);
     
-    // Save the view preference to localStorage
-    if (typeof window !== 'undefined') {
+    // Save the view preference to localStorage (only on client)
+    if (isClient) {
       localStorage.setItem('lastActiveView', newView);
       console.log('Saved view preference to localStorage:', newView);
     }
@@ -206,7 +216,7 @@ const AppContent: React.FC<AppContentProps> = ({
   const handleRightSidebarToggle = () => {
     setRightSidebarOpen(!rightSidebarOpen);
     
-    if (posthog) {
+    if (posthog && isClient) {
       posthog.capture('sidebar_toggled', {
         isOpen: !rightSidebarOpen,
         timestamp: new Date().toISOString()
@@ -219,13 +229,13 @@ const AppContent: React.FC<AppContentProps> = ({
     setShowOnboarding(false);
     setOnboardingCompleted(true);
     
-    if (typeof window !== 'undefined') {
+    if (isClient) {
       localStorage.setItem('onboardingCompleted', 'true');
       localStorage.setItem('hasSeenOnboarding', 'true');
     }
 
     // Track completion
-    if (posthog) {
+    if (posthog && isClient) {
       posthog.capture('onboarding_completed', {
         timestamp: new Date().toISOString()
       });
@@ -235,13 +245,13 @@ const AppContent: React.FC<AppContentProps> = ({
   const handleOnboardingSkip = () => {
     setShowOnboarding(false);
     
-    if (typeof window !== 'undefined') {
+    if (isClient) {
       localStorage.setItem('hasSeenOnboarding', 'true');
       localStorage.setItem('onboardingSkipped', 'true');
     }
 
     // Track skip
-    if (posthog) {
+    if (posthog && isClient) {
       posthog.capture('onboarding_skipped', {
         timestamp: new Date().toISOString()
       });
@@ -254,7 +264,7 @@ const AppContent: React.FC<AppContentProps> = ({
     if (newTask) {
       console.log('Task created:', newTask);
       
-      if (posthog) {
+      if (posthog && isClient) {
         posthog.capture('task_created', {
           task_id: newTask.id,
           task_type: taskData.type || 'general',
@@ -270,7 +280,7 @@ const AppContent: React.FC<AppContentProps> = ({
       if (success) {
         console.log('Task deleted successfully');
         
-        if (posthog) {
+        if (posthog && isClient) {
           posthog.capture('task_deleted', {
             task_id: taskId,
             timestamp: new Date().toISOString()
@@ -292,7 +302,7 @@ const AppContent: React.FC<AppContentProps> = ({
       console.log('Event created:', newEvent);
       handleEventChange();
       
-      if (posthog) {
+      if (posthog && isClient) {
         posthog.capture('calendar_event_created', {
           event_id: newEvent.id,
           event_title: eventData.title || 'Untitled',
@@ -310,7 +320,7 @@ const AppContent: React.FC<AppContentProps> = ({
       console.log('Event updated:', updatedEvent);
       handleEventChange();
       
-      if (posthog) {
+      if (posthog && isClient) {
         posthog.capture('calendar_event_updated', {
           event_id: eventId,
           updated_fields: Object.keys(updates),
@@ -327,7 +337,7 @@ const AppContent: React.FC<AppContentProps> = ({
         console.log('Event deleted successfully');
         handleEventChange();
         
-        if (posthog) {
+        if (posthog && isClient) {
           posthog.capture('calendar_event_deleted', {
             event_id: eventId,
             timestamp: new Date().toISOString()
@@ -375,6 +385,23 @@ const AppContent: React.FC<AppContentProps> = ({
       </div>
     );
   };
+
+  // Show a simple loading state during SSR/hydration
+  if (!isClient) {
+    return (
+      <div className="h-screen overflow-hidden">
+        <div style={{ 
+          position: 'absolute', 
+          top: '50%', 
+          left: '50%', 
+          transform: 'translate(-50%, -50%)',
+          textAlign: 'center'
+        }}>
+          Loading...
+        </div>
+      </div>
+    );
+  }
 
   // Removed loading screen - content loads immediately with layout protection
   return (
