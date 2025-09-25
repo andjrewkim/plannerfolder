@@ -28,6 +28,7 @@ export default function Popup() {
       const hasSeen = localStorage.getItem("popup_seen");
       const reminderTime = localStorage.getItem("popup_reminder_time");
       
+      // Handle reminder logic first
       if (reminderTime) {
         const now = new Date().getTime();
         const reminderTimestamp = parseInt(reminderTime);
@@ -40,7 +41,21 @@ export default function Popup() {
         }
       }
       
-      if (hasSeen !== "permanent") {
+      // If popup has been permanently dismissed, don't show
+      if (hasSeen === "permanent") {
+        return;
+      }
+      
+      // Track visit count
+      const visitCountKey = "popup_visit_count";
+      let visitCount = parseInt(localStorage.getItem(visitCountKey) || "0");
+      
+      // Increment visit count
+      visitCount++;
+      localStorage.setItem(visitCountKey, visitCount.toString());
+      
+      // Only show popup on the third visit
+      if (visitCount >= 3) {
         setShow(true);
       }
     }, 1000);

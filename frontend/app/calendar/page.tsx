@@ -4,6 +4,7 @@ import { usePostHog } from 'posthog-js/react';
 import Calendar from '../components/Calendar/Calendar';
 import Sidebar from '../components/Sidebar';
 import Planner from '../components/Planner/Planner';
+import Onboarding from '../components/Onboarding/Onboarding'; // Import the onboarding component
 import '../globals.css';
 import { ThemeProvider } from '../services/themeContext';
 import { useAppState } from '../hooks/useAppState';
@@ -30,6 +31,10 @@ const AppContent: React.FC<AppContentProps> = ({
   
   // Add layout ready state to prevent layout shifts
   const [layoutReady, setLayoutReady] = useState(false);
+
+  // Onboarding state
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  const [onboardingCompleted, setOnboardingCompleted] = useState(false);
   
   // Use the centralized state hook
   const {
@@ -61,6 +66,27 @@ const AppContent: React.FC<AppContentProps> = ({
   const [view, setView] = useState<string>('dayGridMonth');
   const [refreshEvents, setRefreshEvents] = useState(0);
   const [navbarVisible, setNavbarVisible] = useState(false);
+
+  // Set this to true for dev, false for production
+  const DEV_MODE = false; // <-- toggle here
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const hasSeenOnboarding = localStorage.getItem('hasSeenOnboarding');
+    const completed = localStorage.getItem('onboardingCompleted');
+
+    if (DEV_MODE || (!hasSeenOnboarding && !completed)) {
+      // Show onboarding after a short delay
+      const timer = setTimeout(() => {
+        setShowOnboarding(true);
+      }, 1000);
+      return () => clearTimeout(timer);
+    } else {
+      setOnboardingCompleted(!!completed);
+    }
+  }, []);
+
 
   // Ensure layout is ready before showing content
   useEffect(() => {
@@ -183,6 +209,40 @@ const AppContent: React.FC<AppContentProps> = ({
     if (posthog) {
       posthog.capture('sidebar_toggled', {
         isOpen: !rightSidebarOpen,
+        timestamp: new Date().toISOString()
+      });
+    }
+  };
+
+  // Onboarding handlers
+  const handleOnboardingComplete = () => {
+    setShowOnboarding(false);
+    setOnboardingCompleted(true);
+    
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('onboardingCompleted', 'true');
+      localStorage.setItem('hasSeenOnboarding', 'true');
+    }
+
+    // Track completion
+    if (posthog) {
+      posthog.capture('onboarding_completed', {
+        timestamp: new Date().toISOString()
+      });
+    }
+  };
+
+  const handleOnboardingSkip = () => {
+    setShowOnboarding(false);
+    
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('hasSeenOnboarding', 'true');
+      localStorage.setItem('onboardingSkipped', 'true');
+    }
+
+    // Track skip
+    if (posthog) {
+      posthog.capture('onboarding_skipped', {
         timestamp: new Date().toISOString()
       });
     }
@@ -320,6 +380,15 @@ const AppContent: React.FC<AppContentProps> = ({
   return (
     <div className="h-screen overflow-hidden">
       <Popup />
+
+      {/* Onboarding Component */}
+      <Onboarding
+        isVisible={showOnboarding}
+        onComplete={handleOnboardingComplete}
+        onSkip={handleOnboardingSkip}
+        currentView={activeView}
+        onViewChange={handleAppViewChange}
+      />
 
       {/* Sidebar - Always render but with opacity control */}
       <div style={{ opacity: layoutReady ? 1 : 0, transition: 'opacity 0.1s ease-in' }}>

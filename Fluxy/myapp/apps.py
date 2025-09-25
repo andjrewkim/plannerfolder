@@ -3,11 +3,13 @@ from django.apps import AppConfig
 from django.conf import settings
 import posthog
 
+
 class YourAppConfig(AppConfig):
     default_auto_field = 'django.db.models.BigAutoField'
     name = 'myapp'  # Update if your app name is different
 
     def ready(self):
+        import myapp.signals
         # Initialize PostHog configuration (no database access)
         posthog.api_key = 'phc_pAf2ERGqruJ2pmDOTZZFzADQ1nGxoHsSdm3Q9HI9MVi'
         posthog.host = 'https://us.i.posthog.com'

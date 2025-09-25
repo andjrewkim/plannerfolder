@@ -263,15 +263,14 @@ export const usePlanner = () => {
     debugLog('initializeData: Authentication passed, starting data fetch');
 
     try {
-      const [classesResult, assignmentsResult, noWorkDaysResult] = await Promise.allSettled([
-        fetchClasses(),
-        fetchAssignments(),
-        fetchNoWorkDays()
-      ]);
-
-      const classes = classesResult.status === 'fulfilled' ? classesResult.value : [];
-      const assignments = assignmentsResult.status === 'fulfilled' ? assignmentsResult.value : [];
-      const noWorkDays = noWorkDaysResult.status === 'fulfilled' ? noWorkDaysResult.value : [];
+      // First fetch classes (which creates default assignment if needed)
+      const classes = await fetchClasses();
+      
+      // Then fetch assignments (now the default assignment will be there)
+      const assignments = await fetchAssignments();
+      
+      // Finally fetch no work days
+      const noWorkDays = await fetchNoWorkDays();
 
       globalPlannerState = {
         classes,

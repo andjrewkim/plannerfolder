@@ -41,11 +41,9 @@ const Planner: React.FC<PlannerProps> = ({
     updateAssignment,
     deleteAssignment,
     getAssignmentsByClassAndDate,
-    // ADD: Assuming you have these functions in your usePlanner hook
     createNoWorkDay,
     deleteNoWorkDay,
     noWorkDays,
-    // ADD: We need a way to force refresh the assignments if needed
     setError
   } = usePlanner();
 

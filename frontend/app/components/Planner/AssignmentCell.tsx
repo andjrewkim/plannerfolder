@@ -183,8 +183,8 @@ const AssignmentCell: React.FC<AssignmentCellProps> = ({
     -45deg,
     transparent,
     transparent 8px,
-    hsl(var(--accent) / 0.025) 8px,
-    hsl(var(--accent) / 0.025) 16px
+    hsl(var(--accent) / 0.035) 8px,
+    hsl(var(--accent) / 0.035) 16px
   );
 }
 
@@ -193,8 +193,8 @@ const AssignmentCell: React.FC<AssignmentCellProps> = ({
     -45deg,
     transparent,
     transparent 8px,
-    hsl(var(--accent) / 0.035) 8px,
-    hsl(var(--accent) / 0.035) 16px
+    hsl(var(--accent) / 0.045) 8px,
+    hsl(var(--accent) / 0.045) 16px
   );
 }
 
