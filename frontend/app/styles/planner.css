@@ -482,9 +482,9 @@
 .today-cell .assignment-item {
   background: linear-gradient(
     135deg,
-    hsl(var(--muted) / 0.65) 0%,
-    hsl(var(--accent) / 0.05) 50%,
-    hsl(var(--muted) / 0.5) 100%
+    hsl(var(--muted) / 0.7) 0%,
+    hsl(var(--accent) / 0.075) 50%,
+    hsl(var(--muted) / 0.7) 100%
   );
   border: 1px solid hsl(var(--accent) / 0.1);
   box-shadow: 
@@ -517,6 +517,10 @@
 
 .today-cell .assignment-title {
   color: hsl(var(--foreground));
+}
+
+.assignment-item.completed {
+  opacity: 0.7;
 }
 
 .assignment-title.completed {

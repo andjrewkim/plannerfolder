@@ -575,10 +575,7 @@ export const usePlanner = () => {
         { method: 'DELETE' }
       );
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Failed to delete assignment: ${response.status} - ${errorText}`);
-      }
+
 
       updateGlobalAndLocalState(prev => ({
         ...prev,
@@ -588,7 +585,6 @@ export const usePlanner = () => {
       
       return true;
     } catch (error) {
-      setError(error instanceof Error ? error.message : 'Failed to delete assignment');
       return false;
     }
   }, [setError, updateGlobalAndLocalState]);

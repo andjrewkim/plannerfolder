@@ -37,7 +37,7 @@ const AssignmentItem: React.FC<AssignmentItemProps> = ({
   onKeyPress
 }) => {
   return (
-    <div className="assignment-item">
+    <div className={`assignment-item${assignment.completed ? ' completed' : ''}`}>
       <input
         type="checkbox"
         checked={assignment.completed}

@@ -97,7 +97,6 @@ const AssignmentCell: React.FC<AssignmentCellProps> = ({
       if (!success) {
         // Rollback by re-adding the assignment (you'll need to implement this in your parent)
         // This would require a new prop like onRestoreAssignment
-        setError('Failed to delete assignment');
         console.error('Failed to delete assignment');
         
         // For now, we can only show error - full rollback requires parent component changes
@@ -106,7 +105,6 @@ const AssignmentCell: React.FC<AssignmentCellProps> = ({
     } catch (error) {
       // Same rollback strategy as above
       console.error('Error deleting assignment:', error);
-      setError('Failed to delete assignment');
     }
   };
 
