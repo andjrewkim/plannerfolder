@@ -160,3 +160,23 @@ textarea::-webkit-scrollbar {
     left: 0 !important;
   }
 }
+
+
+
+html {
+  -webkit-text-size-adjust: 100%;
+  -ms-text-size-adjust: 100%;
+  touch-action: manipulation;
+}
+
+* {
+  touch-action: manipulation;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Force everything to 16px minimum to stop Safari's zoom BS */
+input, textarea, select, button {
+  font-size: 16px !important;
+}
