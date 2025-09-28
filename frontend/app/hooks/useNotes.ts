@@ -56,12 +56,13 @@ export const useNotes = (): UseNotesReturn => {
   // Refs for debouncing and preventing multiple fetches
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const pendingContentRef = useRef<string | null>(null);
-  const hasInitializedRef = useRef(false); // Add this to prevent multiple initial fetches
-  const fetchInProgressRef = useRef(false); // Prevent concurrent fetches
+  const hasInitializedRef = useRef(false);
+  const fetchInProgressRef = useRef(false);
+  const lastSavedContentRef = useRef<string | null>(null); // Track last saved content
 
   const activeNote = notes.find(note => note.id === activeNoteId) || null;
 
-  // Debounced save function
+  // Debounced save function - FIXED to not overwrite local state
   const debouncedSave = useCallback(async (noteId: number, content: string) => {
     try {
       setSaveStatus('saving');
@@ -82,11 +83,22 @@ export const useNotes = (): UseNotesReturn => {
       }
 
       const updatedNote = await response.json();
+      
+      // CRITICAL FIX: Only update the server response fields, not the content
+      // This prevents overwriting the user's local content during typing
       setNotes(prev => 
         prev.map(note => 
-          note.id === noteId ? updatedNote : note
+          note.id === noteId ? {
+            ...note,
+            // Only update non-content fields from server response
+            updated_at: updatedNote.updated_at,
+            // Keep the local content unless it matches what we just saved
+          } : note
         )
       );
+      
+      // Store the content we just saved successfully
+      lastSavedContentRef.current = content;
       
       setSaveStatus('saved');
       setLastSaved(new Date());
@@ -114,9 +126,8 @@ export const useNotes = (): UseNotesReturn => {
     setError(err?.message || defaultMessage);
   };
 
-  // Fetch all notes - REMOVED activeNoteId dependency
+  // Fetch all notes
   const fetchNotes = useCallback(async () => {
-    // Prevent concurrent fetches
     if (fetchInProgressRef.current) {
       console.log('Fetch already in progress, skipping...');
       return;
@@ -140,7 +151,7 @@ export const useNotes = (): UseNotesReturn => {
       const sortedNotes = data.sort((a: NoteTab, b: NoteTab) => a.order - b.order);
       setNotes(sortedNotes);
 
-      // Only set first note as active on initial load, not on every fetch
+      // Only set first note as active on initial load
       if (!hasInitializedRef.current && sortedNotes.length > 0) {
         setActiveNoteId(sortedNotes[0].id);
         hasInitializedRef.current = true;
@@ -151,7 +162,7 @@ export const useNotes = (): UseNotesReturn => {
       setLoading(false);
       fetchInProgressRef.current = false;
     }
-  }, []); // Empty dependency array - no dependencies needed
+  }, []);
 
   // Create a new note
   const createNote = useCallback(async (data: CreateNoteData): Promise<NoteTab | null> => {
@@ -209,10 +220,21 @@ export const useNotes = (): UseNotesReturn => {
       }
 
       const updatedNote = await response.json();
+      
+      // For non-content updates (like title), we can safely update from server
       setNotes(prev => 
-        prev.map(note => 
-          note.id === id ? updatedNote : note
-        ).sort((a, b) => a.order - b.order)
+        prev.map(note => {
+          if (note.id === id) {
+            // If updating content, preserve local content unless it's a title-only update
+            if ('content' in data) {
+              return updatedNote;
+            } else {
+              // Title or other field update - preserve local content
+              return { ...note, ...updatedNote, content: note.content };
+            }
+          }
+          return note;
+        }).sort((a, b) => a.order - b.order)
       );
       
       return updatedNote;
@@ -253,21 +275,26 @@ export const useNotes = (): UseNotesReturn => {
 
   // Set active note
   const setActiveNote = useCallback((id: number | null) => {
+    // Save pending content before switching
+    if (saveTimeoutRef.current && activeNoteId && pendingContentRef.current !== null) {
+      clearTimeout(saveTimeoutRef.current);
+      debouncedSave(activeNoteId, pendingContentRef.current);
+      pendingContentRef.current = null;
+    }
+    
     setActiveNoteId(id);
-  }, []);
+  }, [activeNoteId, debouncedSave]);
 
-  // Reorder notes (batch update)
+  // Reorder notes
   const reorderNotes = useCallback(async (reorderedNotes: NoteTab[]) => {
     try {
       clearError();
       
-      // Update order values
       const notesWithNewOrder = reorderedNotes.map((note, index) => ({
         ...note,
         order: index
       }));
 
-      // Send batch update requests (you might want to implement a batch endpoint)
       const updatePromises = notesWithNewOrder.map(note =>
         authAPI.authenticatedFetch(
           `${process.env.NEXT_PUBLIC_API_URL}/api/notes/${note.id}/`,
@@ -285,16 +312,15 @@ export const useNotes = (): UseNotesReturn => {
       setNotes(notesWithNewOrder);
     } catch (err) {
       handleError(err, 'Failed to reorder notes');
-      // Revert to original order by refetching
       fetchNotes();
     }
   }, [fetchNotes]);
 
-  // Convenience method to update active note content with debouncing
+  // FIXED: Convenience method to update active note content with debouncing
   const updateActiveNoteContent = useCallback((content: string) => {
     if (!activeNoteId) return;
     
-    // Immediate optimistic update
+    // Immediate optimistic update - this is what the user sees
     setNotes(prev =>
       prev.map(note =>
         note.id === activeNoteId ? { ...note, content } : note
@@ -309,14 +335,19 @@ export const useNotes = (): UseNotesReturn => {
       clearTimeout(saveTimeoutRef.current);
     }
 
-    // Set new timeout for saving (1 second delay)
+    // Reset save status when user starts typing again
+    if (saveStatus === 'saved') {
+      setSaveStatus('idle');
+    }
+
+    // Set new timeout for saving (1.5 second delay)
     saveTimeoutRef.current = setTimeout(() => {
       if (pendingContentRef.current !== null) {
         debouncedSave(activeNoteId, pendingContentRef.current);
         pendingContentRef.current = null;
       }
     }, 1500);
-  }, [activeNoteId, debouncedSave]);
+  }, [activeNoteId, debouncedSave, saveStatus]);
 
   // Convenience method to update active note title
   const updateActiveNoteTitle = useCallback(async (title: string) => {
@@ -325,12 +356,12 @@ export const useNotes = (): UseNotesReturn => {
     await updateNote(activeNoteId, { title });
   }, [activeNoteId, updateNote]);
 
-  // Fetch notes on mount - ONLY ONCE
+  // Fetch notes on mount
   useEffect(() => {
     if (!hasInitializedRef.current && !fetchInProgressRef.current) {
       fetchNotes();
     }
-  }, []); // Empty dependency array
+  }, []);
 
   return {
     notes,
