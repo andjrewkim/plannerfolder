@@ -201,8 +201,8 @@ const Planner: React.FC<PlannerProps> = ({
         startOffset = currentDateOffset - 1; // Start from yesterday + offset
         break;
       default: // desktop
-        daysCount = 5; // Full week view
-        startOffset = currentDateOffset - 2; // Start from 2 days before today + offset
+        daysCount = 5; // Original: Yesterday + Today + 3 future days
+        startOffset = currentDateOffset - 1; // Start from yesterday + offset (not -2)
         break;
     }
 

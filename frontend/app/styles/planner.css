@@ -635,7 +635,7 @@
 @media (min-width: 1025px) {
   :root {
     --grid-columns: 5;
-    --today-column-index: 1; /* Adjust based on which column is today */
+    --today-column-index: 1; /* Today is 2nd column (yesterday, TODAY, +1, +2, +3) */
   }
 }
 
