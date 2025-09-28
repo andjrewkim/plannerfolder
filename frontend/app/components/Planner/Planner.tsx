@@ -1,4 +1,4 @@
-import React, { useState, useRef, useMemo } from 'react';
+import React, { useState, useRef, useMemo, useEffect } from 'react';
 import CustomCalendarHeader from '../CustomCalHeader';
 import { usePlanner } from '../../hooks/usePlanner';
 import DeleteConfirmationModal from './DeleteConfirmationModal';
@@ -22,12 +22,38 @@ interface DragState {
   dragOverIndex: number | null;
 }
 
+// Hook to detect screen size
+const useScreenSize = () => {
+  const [screenSize, setScreenSize] = useState<'mobile' | 'tablet' | 'desktop'>('desktop');
+
+  useEffect(() => {
+    const checkScreenSize = () => {
+      const width = window.innerWidth;
+      if (width <= 768) {
+        setScreenSize('mobile');
+      } else if (width <= 1024) {
+        setScreenSize('tablet');
+      } else {
+        setScreenSize('desktop');
+      }
+    };
+
+    checkScreenSize();
+    window.addEventListener('resize', checkScreenSize);
+    return () => window.removeEventListener('resize', checkScreenSize);
+  }, []);
+
+  return screenSize;
+};
+
 const Planner: React.FC<PlannerProps> = ({
   rightSidebarOpen = false,
   activeAppView = 'your-new-view',
   onAppViewChange,
   isAuthenticated = false
 }) => {
+  const screenSize = useScreenSize();
+  
   const {
     classes,
     assignments,
@@ -55,11 +81,11 @@ const Planner: React.FC<PlannerProps> = ({
   const [editingAssignmentValue, setEditingAssignmentValue] = useState('');
   const [newAssignmentInputs, setNewAssignmentInputs] = useState<Record<string, string>>({});
   
-  // ADD: Local state for optimistic updates
+  // Local state for optimistic updates
   const [localAssignmentUpdates, setLocalAssignmentUpdates] = useState<Record<string, { completed?: boolean; deleted?: boolean }>>({});
   const [localNoWorkUpdates, setLocalNoWorkUpdates] = useState<Record<string, boolean>>({});
   
-  // CHANGED: Get striped cells from backend AND local optimistic updates
+  // Get striped cells from backend AND local optimistic updates
   const stripedCells = useMemo(() => {
     if (!isAuthenticated) return new Set<string>();
     
@@ -138,7 +164,7 @@ const Planner: React.FC<PlannerProps> = ({
     return updatedAssignments;
   }, [isAuthenticated, getAssignmentsByClassAndDate, localAssignmentUpdates]);
 
-  // FIXED: Helper function to format date as YYYY-MM-DD for API (avoiding timezone issues)
+  // Helper function to format date as YYYY-MM-DD for API (avoiding timezone issues)
   const formatDateForAPI = (date: Date): string => {
     const year = date.getFullYear();
     const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -146,7 +172,7 @@ const Planner: React.FC<PlannerProps> = ({
     return `${year}-${month}-${day}`;
   };
 
-  // FIXED: Helper function to create date from API date string (avoiding timezone conversion)
+  // Helper function to create date from API date string (avoiding timezone conversion)
   const createDateFromAPIString = (dateString: string): Date => {
     const [year, month, day] = dateString.split('-').map(Number);
     return new Date(year, month - 1, day); // month is 0-indexed in JavaScript Date
@@ -157,17 +183,34 @@ const Planner: React.FC<PlannerProps> = ({
     return date.toLocaleDateString('en-US', { weekday: 'long' }).toUpperCase();
   };
 
-  // FIXED: Get the 5 days to show based on current offset (using local date construction)
-  const getFiveDaysToShow = () => {
+  // RESPONSIVE: Get the appropriate number of days based on screen size
+  const getDaysToShow = () => {
     const today = new Date();
-    // Reset time to avoid any time-based issues
     today.setHours(0, 0, 0, 0);
     
+    let daysCount: number;
+    let startOffset: number;
+    
+    switch (screenSize) {
+      case 'mobile':
+        daysCount = 2; // Today + Tomorrow
+        startOffset = currentDateOffset; // Start from today + offset
+        break;
+      case 'tablet':
+        daysCount = 3; // Yesterday + Today + Tomorrow
+        startOffset = currentDateOffset - 1; // Start from yesterday + offset
+        break;
+      default: // desktop
+        daysCount = 5; // Full week view
+        startOffset = currentDateOffset - 2; // Start from 2 days before today + offset
+        break;
+    }
+
     const startDate = new Date(today);
-    startDate.setDate(today.getDate() + currentDateOffset - 1);
+    startDate.setDate(today.getDate() + startOffset);
 
     const days = [];
-    for (let i = 0; i < 5; i++) {
+    for (let i = 0; i < daysCount; i++) {
       const date = new Date(startDate);
       date.setDate(startDate.getDate() + i);
       
@@ -194,9 +237,19 @@ const Planner: React.FC<PlannerProps> = ({
     });
   };
 
-  const fiveDays = getFiveDaysToShow();
+  const daysToShow = getDaysToShow();
 
-  // FIXED: Create fallback classes with proper structure
+  // Update CSS custom properties when screen size or days change
+  useEffect(() => {
+    const root = document.documentElement;
+    const columnsCount = daysToShow.length;
+    const todayColumnIndex = daysToShow.findIndex(day => day.isToday);
+    
+    root.style.setProperty('--grid-columns', columnsCount.toString());
+    root.style.setProperty('--today-column-index', todayColumnIndex.toString());
+  }, [daysToShow]);
+
+  // Create fallback classes with proper structure
   const fallbackClasses = [
     { id: 'temp-1', name: 'Class 1', order: 0, created_at: '', updated_at: '', user: '' },
     { id: 'temp-2', name: 'Class 2', order: 1, created_at: '', updated_at: '', user: '' },
@@ -206,7 +259,7 @@ const Planner: React.FC<PlannerProps> = ({
     { id: 'temp-6', name: 'Class 6', order: 5, created_at: '', updated_at: '', user: '' }
   ];
 
-  // FIXED: Improved display classes logic
+  // Improved display classes logic
   const displayClasses = useMemo(() => {
     if (!isAuthenticated) {
       return fallbackClasses;
@@ -237,7 +290,7 @@ const Planner: React.FC<PlannerProps> = ({
     setCurrentDateOffset(0);
   };
 
-  // CHANGED: Optimistic stripe pattern toggle
+  // Optimistic stripe pattern toggle
   const handleToggleStripePattern = (classId: string, dateString: string) => {
     if (!isAuthenticated) return;
     
@@ -254,17 +307,14 @@ const Planner: React.FC<PlannerProps> = ({
     (async () => {
       try {
         if (isCurrentlyStriped) {
-          // Remove the no-work day from backend
           const success = await deleteNoWorkDay(classId, dateString);
           if (success) {
-            // Success: remove local update since backend is now updated
             setLocalNoWorkUpdates(prev => {
               const updated = { ...prev };
               delete updated[cellKey];
               return updated;
             });
           } else {
-            // Failed: rollback local change
             setLocalNoWorkUpdates(prev => {
               const updated = { ...prev };
               delete updated[cellKey];
@@ -273,20 +323,17 @@ const Planner: React.FC<PlannerProps> = ({
             if (setError) setError('Failed to update no-work day');
           }
         } else {
-          // Add the no-work day to backend
           const success = await createNoWorkDay({
             planner_class: classId,
             date: dateString
           });
           if (success) {
-            // Success: remove local update since backend is now updated
             setLocalNoWorkUpdates(prev => {
               const updated = { ...prev };
               delete updated[cellKey];
               return updated;
             });
           } else {
-            // Failed: rollback local change
             setLocalNoWorkUpdates(prev => {
               const updated = { ...prev };
               delete updated[cellKey];
@@ -296,7 +343,6 @@ const Planner: React.FC<PlannerProps> = ({
           }
         }
       } catch (error) {
-        // Error: rollback local change
         setLocalNoWorkUpdates(prev => {
           const updated = { ...prev };
           delete updated[cellKey];
@@ -308,7 +354,7 @@ const Planner: React.FC<PlannerProps> = ({
     })();
   };
 
-  // FIXED: Only allow drag and drop for authenticated users with real classes
+  // Only allow drag and drop for authenticated users with real classes
   const handleDragStart = (e: React.DragEvent, index: number) => {
     if (!isAuthenticated) return;
     
@@ -335,7 +381,6 @@ const Planner: React.FC<PlannerProps> = ({
   const handleDragLeave = (e: React.DragEvent) => {
     if (!isAuthenticated) return;
     
-    // Only clear dragOverIndex if we're actually leaving the draggable area
     const rect = e.currentTarget.getBoundingClientRect();
     const x = e.clientX;
     const y = e.clientY;
@@ -364,13 +409,11 @@ const Planner: React.FC<PlannerProps> = ({
       return;
     }
 
-    // Create new order for classes
     const sortedClasses = [...classes].sort((a, b) => a.order - b.order);
     const reorderedClasses = [...sortedClasses];
     const draggedClass = reorderedClasses.splice(draggedIndex, 1)[0];
     reorderedClasses.splice(dropIndex, 0, draggedClass);
 
-    // Update order property for each class
     const updatePromises = reorderedClasses.map((cls, index) => 
       updateClass(cls.id, { order: index })
     );
@@ -396,7 +439,7 @@ const Planner: React.FC<PlannerProps> = ({
     });
   };
 
-  // FIXED: Class management handlers - only work when authenticated
+  // Class management handlers - only work when authenticated
   const handleAddClass = async () => {
     if (!isAuthenticated || !newClassName.trim()) return;
     
@@ -458,7 +501,7 @@ const Planner: React.FC<PlannerProps> = ({
     setEditingClassValue('');
   };
 
-  // FIXED: Assignment management handlers - only work when authenticated
+  // Assignment management handlers - only work when authenticated
   const handleAddAssignment = (classId: string, dateString: string) => {
     if (!isAuthenticated) return;
     
@@ -466,21 +509,19 @@ const Planner: React.FC<PlannerProps> = ({
     setNewAssignmentInputs(prev => ({ ...prev, [inputKey]: '' }));
   };
 
-const handleCreateAssignment = async (classId: string, dateString: string) => {
+  const handleCreateAssignment = async (classId: string, dateString: string) => {
     if (!isAuthenticated) return;
     
     const inputKey = `${classId}-${dateString}`;
     const title = newAssignmentInputs[inputKey];
     
     if (!title || !title.trim()) {
-      // Remove the input without creating assignment
       const updated = { ...newAssignmentInputs };
       delete updated[inputKey];
       setNewAssignmentInputs(updated);
       return;
     }
 
-    // Get the count of existing assignments for this class/date to set order
     const existingAssignments = organizedAssignments[classId]?.[dateString] || [];
     
     const success = await createAssignment({
@@ -492,13 +533,10 @@ const handleCreateAssignment = async (classId: string, dateString: string) => {
     });
 
     if (success) {
-      // Remove the input field
       const updated = { ...newAssignmentInputs };
       delete updated[inputKey];
       setNewAssignmentInputs(updated);
       
-      // If "no work" pattern is enabled for this cell, automatically turn it off
-      // since we just added work to this day
       const cellKey = `${classId}-${dateString}`;
       if (stripedCells.has(cellKey)) {
         try {
@@ -548,28 +586,24 @@ const handleCreateAssignment = async (classId: string, dateString: string) => {
     setEditingAssignmentValue('');
   };
 
-  // CHANGED: Optimistic toggle assignment
+  // Optimistic toggle assignment
   const handleToggleAssignment = (assignmentId: string, currentCompleted: boolean) => {
     if (!isAuthenticated) return;
     
-    // 1. Immediately update local state for instant UI response
     setLocalAssignmentUpdates(prev => ({
       ...prev,
       [assignmentId]: { completed: !currentCompleted }
     }));
     
-    // 2. Make API call in background
     updateAssignment(assignmentId, { completed: !currentCompleted })
       .then(success => {
         if (success) {
-          // Success: remove local update since backend is now updated
           setLocalAssignmentUpdates(prev => {
             const updated = { ...prev };
             delete updated[assignmentId];
             return updated;
           });
         } else {
-          // Failed: rollback local change
           setLocalAssignmentUpdates(prev => {
             const updated = { ...prev };
             delete updated[assignmentId];
@@ -579,7 +613,6 @@ const handleCreateAssignment = async (classId: string, dateString: string) => {
         }
       })
       .catch(error => {
-        // Error: rollback local change
         setLocalAssignmentUpdates(prev => {
           const updated = { ...prev };
           delete updated[assignmentId];
@@ -590,28 +623,24 @@ const handleCreateAssignment = async (classId: string, dateString: string) => {
       });
   };
 
-  // CHANGED: Optimistic delete assignment
+  // Optimistic delete assignment
   const handleDeleteAssignment = (assignmentId: string) => {
     if (!isAuthenticated) return;
     
-    // 1. Immediately mark as deleted for instant UI response
     setLocalAssignmentUpdates(prev => ({
       ...prev,
       [assignmentId]: { deleted: true }
     }));
     
-    // 2. Make API call in background
     deleteAssignment(assignmentId)
       .then(success => {
         if (success) {
-          // Success: remove local update since backend is now updated
           setLocalAssignmentUpdates(prev => {
             const updated = { ...prev };
             delete updated[assignmentId];
             return updated;
           });
         } else {
-          // Failed: rollback local change (show assignment again)
           setLocalAssignmentUpdates(prev => {
             const updated = { ...prev };
             delete updated[assignmentId];
@@ -621,7 +650,6 @@ const handleCreateAssignment = async (classId: string, dateString: string) => {
         }
       })
       .catch(error => {
-        // Error: rollback local change
         setLocalAssignmentUpdates(prev => {
           const updated = { ...prev };
           delete updated[assignmentId];
@@ -643,36 +671,32 @@ const handleCreateAssignment = async (classId: string, dateString: string) => {
 
   // Enhanced getRowHeight function that accounts for text wrapping
   const getRowHeight = (classId: string) => {
-    if (!isAuthenticated) return 70; // Default height for fallback classes
+    if (!isAuthenticated) return 70;
     
     let maxHeight = 0;
     
-    fiveDays.forEach(day => {
+    daysToShow.forEach(day => {
       const dayAssignments = organizedAssignments[classId]?.[day.dateString] || [];
       const hasNewInput = newAssignmentInputs[`${classId}-${day.dateString}`] !== undefined ? 1 : 0;
       
-      // Calculate height for this day's column
       let columnHeight = 0;
       
-      // Height for existing assignments
       dayAssignments.forEach(assignment => {
-        // Estimate height based on text length
         const titleLength = assignment.title?.length || 0;
         
         if (titleLength <= 30) {
-          columnHeight += 28; // Single line
+          columnHeight += 28;
         } else if (titleLength <= 60) {
-          columnHeight += 40; // Two lines
+          columnHeight += 40;
         } else if (titleLength <= 90) {
-          columnHeight += 56; // Three lines
+          columnHeight += 56;
         } else {
-          columnHeight += 70; // Four lines or more
+          columnHeight += 70;
         }
       });
       
-      // Height for new input if present
       if (hasNewInput) {
-        columnHeight += 28; // Default height for input
+        columnHeight += 28;
       }
       
       if (columnHeight > maxHeight) {
@@ -680,7 +704,6 @@ const handleCreateAssignment = async (classId: string, dateString: string) => {
       }
     });
     
-    // Minimum height + padding
     return Math.max(70, maxHeight + 40);
   };
 
@@ -689,7 +712,7 @@ const handleCreateAssignment = async (classId: string, dateString: string) => {
     prev: handlePrevious,
     next: handleNext,
     today: handleToday,
-    changeView: () => {} // Not used in planner
+    changeView: () => {}
   };
 
   const mockCalendarRef = {
@@ -698,7 +721,6 @@ const handleCreateAssignment = async (classId: string, dateString: string) => {
     }
   };
 
-  // FIXED: Better loading state handling
   if (isAuthenticated && !initialized && isLoading) {
     return (
       <div className="planner-container">
@@ -712,14 +734,12 @@ const handleCreateAssignment = async (classId: string, dateString: string) => {
           activeAppView={activeAppView}
           onAppViewChange={onAppViewChange}
         />
-        <div className="planner-loading">Loading your classes...</div>
       </div>
     );
   }
 
   return (
     <div className="planner-container">
-      {/* Use the same header as Calendar with navigation functionality */}
       <CustomCalendarHeader 
         calendarRef={mockCalendarRef}
         currentTitle={getCurrentTitle()} 
@@ -731,7 +751,6 @@ const handleCreateAssignment = async (classId: string, dateString: string) => {
         onAppViewChange={onAppViewChange}
       />
 
-      {/* Delete Confirmation Modal - only show when authenticated */}
       {isAuthenticated && (
         <DeleteConfirmationModal
           show={deleteConfirmation.show}
@@ -769,7 +788,7 @@ const handleCreateAssignment = async (classId: string, dateString: string) => {
 
         <PlannerGrid
           classes={displayClasses}
-          days={fiveDays}
+          days={daysToShow}
           organizedAssignments={organizedAssignments}
           isAuthenticated={isAuthenticated}
           dragState={dragState}

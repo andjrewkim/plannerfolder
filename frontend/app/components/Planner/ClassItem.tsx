@@ -48,6 +48,13 @@ const ClassItem: React.FC<ClassItemProps> = ({
 }) => {
   const showTempClass = String(classId).startsWith('temp-');
   const canDrag = isAuthenticated && !showTempClass;
+  const canEdit = isAuthenticated && !showTempClass;
+
+  const handleDoubleClick = () => {
+    if (canEdit && !isEditing) {
+      onStartEdit(classId, className);
+    }
+  };
 
   return (
     <div 
@@ -82,10 +89,13 @@ const ClassItem: React.FC<ClassItemProps> = ({
         />
       ) : (
         <div className="class-name-container">
-          <span className="class-name">
+          <span 
+            className={`class-name ${canEdit ? 'editable' : ''}`}
+            onDoubleClick={handleDoubleClick}
+          >
             {className}
           </span>
-          {isAuthenticated && !showTempClass && (
+          {canEdit && (
             <button 
               onClick={() => onStartEdit(classId, className)}
               className="edit-class-btn"
@@ -96,7 +106,7 @@ const ClassItem: React.FC<ClassItemProps> = ({
           )}
         </div>
       )}
-      {isAuthenticated && !showTempClass && (
+      {canEdit && (
         <button 
           onClick={() => onDelete(classId, className)}
           className="delete-class-btn"
@@ -153,6 +163,15 @@ const ClassItem: React.FC<ClassItemProps> = ({
           display: flex;
           align-items: center;
           justify-content: space-between;
+        }
+
+        .class-name {
+          font-size: 15px;
+        }
+
+        .class-name.editable {
+          cursor: pointer;
+          user-select: none;
         }
 
         /* Prevent text selection during drag */

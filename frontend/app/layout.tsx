@@ -29,6 +29,10 @@ const RootLayout: React.FC<RootLayoutProps> = ({ children }) => {
     <html lang="en">
       <head>
         <title>Planner</title>
+        <meta 
+          name="viewport" 
+          content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" 
+        />
         <link rel="icon" href="/favicon.ico" />
       </head>
       <body className={`${inter.variable} ${geistMono.variable} antialiased`}>
@@ -36,7 +40,6 @@ const RootLayout: React.FC<RootLayoutProps> = ({ children }) => {
           <main style={{ flex: 1 }}>
             {children}
           </main>
-
           <footer>
             <p></p>
           </footer>

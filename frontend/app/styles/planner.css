@@ -1,5 +1,4 @@
-/* Planner.css */
-/* Remove the Google Fonts import - now handled by Next.js */
+/* Planner.css - Mobile Responsive with 2-column mobile layout */
 
 :root {
   /* CSS custom properties for HSL colors - matching calendar exactly */
@@ -25,6 +24,9 @@
   --sidebar: 220 12% 16%;
   --header: 220 12% 18%;
   --real-sidebar: 220 12% 16%;
+  
+  /* Dynamic column count - overridden by media queries */
+  --grid-columns: 5;
 }
 
 * {
@@ -80,7 +82,7 @@
   border-top: 1px solid hsl(var(--border) / 0.35);
 }
 
-/* Sidebar - Fixed borders to align with grid */
+/* Sidebar - Responsive width */
 .sidebar {
   width: clamp(120px, 15vw, 160px);
   background: hsl(var(--calendar-background));
@@ -114,7 +116,6 @@
   margin: 0;
   color: hsl(var(--foreground));
 }
-
 
 .add-class-input {
   flex: 1;
@@ -208,8 +209,8 @@
 }
 
 .class-name {
-  flex: 1;
-  min-width: 0; /* Allows text to truncate if needed */
+  font-size: 15px;
+  min-width: 0;
 }
 
 .edit-class-btn {
@@ -228,6 +229,7 @@
 .edit-class-btn:hover {
   color: #a2a2a2;
 }
+
 .class-name-edit-input {
   flex: 1;
   border: none;
@@ -268,7 +270,7 @@
   color: hsl(var(--destructive-foreground));
 }
 
-/* Main Grid */
+/* Main Grid - Responsive column count */
 .main-grid {
   flex: 1;
   display: flex;
@@ -278,14 +280,14 @@
   position: relative;
 }
 
-/* Today column highlight overlay */
+/* Today column highlight overlay - responsive positioning */
 .main-grid::before {
   content: '';
   position: absolute;
   top: 0;
   bottom: 0;
-  left: 20%; /* Position for second column (today) */
-  width: 20%; /* Width of one column */
+  left: calc(100% / var(--grid-columns) * var(--today-column-index, 1));
+  width: calc(100% / var(--grid-columns));
   background: linear-gradient(
     to bottom,
     hsl(var(--accent) / 0.04) 0%,
@@ -300,7 +302,7 @@
 
 .grid-header {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(var(--grid-columns), 1fr);
   background: hsl(var(--calendar-background));
   border-bottom: 1px solid hsl(var(--border) / 0.35);
   flex-shrink: 0;
@@ -326,6 +328,9 @@
   transition: all 0.3s ease;
 }
 
+.day-header:last-child {
+  border-right: none;
+}
 
 /* Enhanced today highlighting */
 .day-header.today {
@@ -344,7 +349,6 @@
     0 2px 8px hsl(var(--accent) / 0.1);
 }
 
-/* Enhanced today indicator circle */
 .day-header.today::after {
   content: '';
   position: absolute;
@@ -417,10 +421,9 @@
 
 .class-row {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(var(--grid-columns), 1fr);
   border-bottom: 1px solid hsl(var(--border) / 0.35);
 }
-
 
 .assignment-cell {
   background: hsl(var(--calendar-background));
@@ -435,16 +438,14 @@
   transition: all 0.3s ease;
 }
 
+.assignment-cell:last-child {
+  border-right: none;
+}
 
-
-/* Enhanced today cell highlighting with subtle glow */
 .assignment-cell.today-cell {
-  background:
-    hsl(var(--sidebar));
-
+  background: hsl(var(--sidebar));
   border-left: 1px solid hsl(var(--accent) / 0.12);
   border-right: 1px solid hsl(var(--border) / 0.35);
-  
   box-shadow: inset 0 0 15px hsl(var(--accent) / 0.015);
 }
 
@@ -455,7 +456,7 @@
   flex: 1;
   overflow: hidden;
   width: 100%;
-  z-index: 1;src: 0;
+  z-index: 1;
   position: relative;
   align-items: center;
   margin-top: 2px;
@@ -478,7 +479,6 @@
   margin-bottom: 1px;
 }
 
-/* Enhanced assignment items in today column */
 .today-cell .assignment-item {
   background: linear-gradient(
     135deg,
@@ -515,7 +515,6 @@
   padding-right: 12px;
 }
 
-/* Enhanced text in today column */
 .today-cell .assignment-title {
   color: hsl(var(--foreground));
 }
@@ -541,7 +540,7 @@
 .assignment-edit-input {
   flex: 1;
   background: none;
-  font-size: clamp(13px, 1.4vw, 1px);
+  font-size: clamp(13px, 1.4vw, 13px);
   color: hsl(var(--foreground));
   padding: 0;
   outline: none;
@@ -589,11 +588,10 @@
   color: hsl(var(--destructive-foreground));
 }
 
-/* Fixed add assignment button positioning */
 .add-assignment-btn {
   width: 20px;
   height: 20px;
-  border: 1px solid hsl(var(--border)/0.);
+  border: 1px solid hsl(var(--border)/0.3);
   background: hsl(var(--calendar-background));
   border-radius: 4px;
   display: flex;
@@ -605,15 +603,11 @@
   font-weight: 400;
   transition: all 0.2s ease;
   z-index: 2;
-  /* Default: absolute positioning for standalone button */
   position: absolute;
   bottom: 2px;
   right: 2px;
 }
 
-
-
-/* Cell buttons container - positioned absolutely */
 .cell-buttons {
   display: flex;
   gap: 8px;
@@ -624,178 +618,208 @@
   z-index: 2;
 }
 
-/* Remove absolute positioning when button is inside flex container */
 .cell-buttons .add-assignment-btn {
   position: static;
   bottom: auto;
   right: auto;
 }
 
-/* Subtle today column add button - maintains focus but less visual contrast */
 .today-cell .add-assignment-btn {
   background: hsl(var(--calendar-background));
   color: hsl(var(--accent));
 }
 
+/* Responsive breakpoints */
 
-/* Responsive Design - Enhanced for better scaling */
-@media (max-width: 1400px) {
+/* Large screens (desktop) - 5 columns */
+@media (min-width: 1025px) {
+  :root {
+    --grid-columns: 5;
+    --today-column-index: 1; /* Adjust based on which column is today */
+  }
+}
+
+/* Tablet - 3 columns (yesterday, today, tomorrow) */
+@media (max-width: 1024px) and (min-width: 769px) {
+  :root {
+    --grid-columns: 3;
+    --today-column-index: 1;
+  }
+  
   .sidebar {
-    width: clamp(110px, 14vw, 140px);
+    width: clamp(100px, 13vw, 130px);
+  }
+  
+  .assignment-item {
+    padding: 2px 3px;
+    min-height: 22px;
+    gap: 3px;
+  }
+  
+  /* Adjust today highlight for 3 columns */
+  .main-grid::before {
+    left: 33.333%; /* Second column of 3 */
+    width: 33.333%;
+  }
+}
+
+/* Mobile - 2 columns (today, tomorrow) */
+@media (max-width: 768px) {
+  :root {
+    --grid-columns: 2;
+    --today-column-index: 0;
+  }
+  
+  .sidebar {
+    width: clamp(80px, 25vw, 120px);
+  }
+  
+  .planner-header {
+    padding: 6px 10px;
+  }
+  
+  .sidebar-header {
+    padding: 6px 8px;
+    height: 38px;
+  }
+  
+  .grid-header {
+    height: 38px;
+  }
+  
+  .day-header {
+    padding: 6px 4px;
+    font-size: 12px;
+  }
+  
+  .assignment-cell {
+    padding: 3px;
+  }
+  
+  .assignments-list {
+    gap: 2px;
+  }
+  
+  .assignment-item {
+    padding: 3px 4px;
+    min-height: 26px;
+    gap: 4px;
+  }
+  
+  .assignment-title {
+    font-size: 14px;
+    line-height: 1.3;
+  }
+  
+  .assignment-checkbox {
+    width: 14px;
+    height: 14px;
+  }
+  
+  .delete-assignment-btn {
+    width: 18px;
+    height: 18px;
+    font-size: 10px;
+  }
+  
+  .add-assignment-btn {
+    width: 24px;
+    height: 24px;
+    font-size: 18px;
+  }
+  
+  .class-item {
+    padding: 8px 6px;
+  }
+  
+  .class-name {
+    font-size: 13px;
+  }
+  
+  /* Adjust today highlight for 2 columns */
+  .main-grid::before {
+    left: 0%; /* First column of 2 */
+    width: 50%;
+  }
+  
+  /* Larger today indicator for mobile */
+  .day-header.today::after {
+    width: 8px;
+    height: 8px;
+    right: 6px;
+  }
+}
+
+/* Very small mobile screens */
+@media (max-width: 480px) {
+  .sidebar {
+    width: clamp(70px, 30vw, 100px);
+  }
+  
+  .planner-header {
+    padding: 4px 8px;
+  }
+  
+  .day-header {
+    padding: 6px 2px;
+    font-size: 11px;
   }
   
   .assignment-cell {
     padding: 2px;
   }
-
+  
   .assignment-item {
     padding: 2px 3px;
-    min-height: 22px;
-    gap:3px;
-  }
-}
-
-@media (max-width: 1200px) {
-  .sidebar {
-    width: clamp(100px, 13vw, 130px);
+    min-height: 24px;
+    gap: 3px;
   }
   
-  .planner-header {
-    padding: 10px 14px;
+  .assignment-title {
+    font-size: 13px;
   }
-
-  .assignment-item {
-    padding: 1px 3px;
-    min-height: 20px;
-  }
-}
-
-@media (max-width: 900px) {
-  .sidebar {
-    width: clamp(90px, 12vw, 120px);
+  
+  .assignment-checkbox {
+    width: 12px;
+    height: 12px;
   }
   
   .class-item {
-    padding: 6px 8px;
+    padding: 6px 4px;
   }
   
-  .assignment-cell {
-    padding: 1px;
+  .class-name {
+    font-size: 12px;
   }
-
-  .assignments-list {
-    gap: 1px;
-  }
-
-  .assignment-item {
-    padding: 1px 2px;
-    min-height: 18px;
-    gap: 2px;
-  }
-
-  .assignment-checkbox {
-    width: 10px;
-    height: 10px;
-  }
-
-  .delete-assignment-btn {
-    width: 8px;
-    height: 8px;
-    font-size: 7px;
-  }
-
+  
   .add-assignment-btn {
-    width: 14px;
-    height: 14px;
-    font-size: 10px;
-  }
-
-  /* Adjust today indicator for smaller screens */
-  .day-header.today::after {
-    width: 5px;
-    height: 5px;
-    right: 6px;
-  }
-}
-
-@media (max-width: 640px) {
-  .sidebar {
-    width: clamp(80px, 20vw, 100px);
+    width: 20px;
+    height: 20px;
+    font-size: 16px;
   }
   
-  .planner-header {
-    padding: 8px 12px;
-  }
-  
-  .day-header {
-    padding: 4px 2px;
-  }
-
-  .assignment-cell {
-    padding: 1px;
-  }
-
-  .assignment-item {
-    padding: 1px 2px;
-    min-height: 16px;
-    gap: 2px;
-  }
-
-  .assignments-list {
-    gap: 1px;
-  }
-
-  .class-item {
-    padding: 5px 6px;
-  }
-
-  .sidebar-header {
-    padding: 6px 8px;
-    height: 40px;
-  }
-
-  .grid-header {
-    height: 40px;
-  }
-
-  /* Further adjust today indicator for mobile */
-  .day-header.today::after {
-    width: 4px;
-    height: 4px;
-    right: 4px;
-  }
-
-  /* Disable shimmer on mobile for performance - removed shimmer entirely */
-}
-
-/* High DPI / Zoom adjustments */
-@media (min-resolution: 144dpi), (min-resolution: 1.5dppx) {
-  .assignment-item {
-    min-height: 23px;
-  }
-
-  .assignment-checkbox {
-    width: 13px;
-    height: 13px;
+  .delete-assignment-btn {
+    width: 16px;
+    height: 16px;
+    font-size: 9px;
   }
 }
 
-/* Zoom level adjustments for better usability */
+/* Large screens adjustments */
 @media (min-width: 1600px) {
   .sidebar {
     width: clamp(140px, 16vw, 180px);
   }
 
   .assignment-item {
-    min-height: 23px;
-    padding: 3px 5px;
+    min-height: 26px;
+    padding: 4px 6px;
   }
 
   .class-item {
     padding: 10px 12px;
   }
 
-  /* Larger today indicator for big screens */
   .day-header.today::after {
     width: 7px;
     height: 7px;
@@ -803,23 +827,19 @@
   }
 }
 
-/* Very large screens */
 @media (min-width: 2000px) {
   .sidebar {
     width: clamp(160px, 18vw, 200px);
   }
 
   .assignment-item {
-    min-height: 27px;
-    padding: 4px 6px;
+    min-height: 28px;
+    padding: 5px 7px;
   }
 
-  /* Even larger today indicator for very large screens */
   .day-header.today::after {
     width: 8px;
     height: 8px;
     right: 12px;
   }
 }
-
-
