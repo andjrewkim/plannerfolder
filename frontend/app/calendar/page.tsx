@@ -332,7 +332,7 @@ const AppContent: React.FC<AppContentProps> = ({
   const renderActiveView = () => {
     return (
       <div className="scaled-view-container">
-        {/* Planner View with Notes - Always visible when active */}
+        {/* Planner View - Always rendered, visibility controlled by CSS */}
         <div className={`view-component ${activeView === 'your-new-view' ? 'active' : 'hidden'}`}>
           <Planner 
             rightSidebarOpen={false}
@@ -340,26 +340,26 @@ const AppContent: React.FC<AppContentProps> = ({
             onAppViewChange={handleAppViewChange}
             isAuthenticated={isAuthenticated}
           />
-          <div style={{ height: '100%', background: '#f9fafb' }}>
-            <Notes />
-          </div>
         </div>
         
-        {/* Calendar View - Load only when needed */}
-        {activeView === 'calendar' && (
-          <div className="view-component active">
-            <Calendar 
-              refreshTrigger={refreshEvents}
-              onEventChange={handleEventChange} 
-              onViewChange={handleViewChange}
-              rightSidebarOpen={false}
-              activeAppView={activeView}
-              onAppViewChange={handleAppViewChange}
-              currentView={view}
-              isAuthenticated={isAuthenticated}
-            />
-          </div>
-        )}
+        {/* Notes - Separate component, always rendered alongside planner */}
+        <div className={`view-component notes-view ${activeView === 'your-new-view' ? 'active' : 'hidden'}`} style={{ height: '100%', background: '#f9fafb' }}>
+          <Notes />
+        </div>
+        
+        {/* Calendar View - Always rendered, visibility controlled by CSS */}
+        <div className={`view-component ${activeView === 'calendar' ? 'active' : 'hidden'}`}>
+          <Calendar 
+            refreshTrigger={refreshEvents}
+            onEventChange={handleEventChange} 
+            onViewChange={handleViewChange}
+            rightSidebarOpen={false}
+            activeAppView={activeView}
+            onAppViewChange={handleAppViewChange}
+            currentView={view}
+            isAuthenticated={isAuthenticated}
+          />
+        </div>
       </div>
     );
   };
@@ -456,6 +456,12 @@ const AppContent: React.FC<AppContentProps> = ({
 
         .view-component.hidden {
           display: none;
+        }
+
+        .notes-view.active {
+          position: relative;
+          width: 100%;
+          height: 100%;
         }
 
         @media (max-width: 768px) {
