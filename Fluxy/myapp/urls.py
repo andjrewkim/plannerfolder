@@ -51,4 +51,6 @@ urlpatterns = [
     
     path('api/planner/no-work-days/', no_work_days_list_create, name='no-work-days-list-create'),
     path('api/planner/no-work-days/<int:pk>/', delete_no_work_day, name='delete-no-work-day'),
+    
+    
 ]

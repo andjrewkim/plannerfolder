@@ -1,4 +1,4 @@
-// lib/auth.ts - PRODUCTION READY WITH MINIMAL LOGGING
+// lib/auth.ts - PRODUCTION READY WITH PERSISTENT LOGIN (NEVER EXPIRES)
 import { User, LoginCredentials, RegisterData, AuthResponse } from '../types/auth';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
@@ -225,29 +225,24 @@ class AuthService {
     if (typeof window === 'undefined') return;
     localStorage.setItem('authToken', token);
     localStorage.setItem('user', JSON.stringify(user));
+    // Set a timestamp for when the login occurred (optional, for analytics)
+    localStorage.setItem('authLoginTime', Date.now().toString());
   }
 
   clearAuthData(): void {
     if (typeof window === 'undefined') return;
     localStorage.removeItem('authToken');
     localStorage.removeItem('user');
+    localStorage.removeItem('authLoginTime');
   }
 
   isAuthenticated(): boolean {
     return !!this.getToken();
   }
 
+  // Remove token expiry check since tokens never expire
   isTokenExpired(): boolean {
-    const token = this.getToken();
-    if (!token) return true;
-    
-    try {
-      const payload = JSON.parse(atob(token.split('.')[1]));
-      const currentTime = Date.now() / 1000;
-      return payload.exp < currentTime;
-    } catch {
-      return false;
-    }
+    return false; // Tokens never expire
   }
 
   async authenticatedFetch(url: string, options: RequestInit = {}): Promise<Response> {
@@ -325,6 +320,16 @@ class AuthService {
       const updatedUser = { ...currentUser, ...userData };
       this.setAuthData(this.getToken()!, updatedUser);
     }
+  }
+
+  /**
+   * Get how long the user has been logged in (optional utility)
+   */
+  public getLoginDuration(): number | null {
+    if (typeof window === 'undefined') return null;
+    const loginTime = localStorage.getItem('authLoginTime');
+    if (!loginTime) return null;
+    return Date.now() - parseInt(loginTime, 10);
   }
 }
 
