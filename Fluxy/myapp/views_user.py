@@ -1,5 +1,5 @@
 # views_user.py
-from django.contrib.auth import get_user_model
+from django.contrib.auth import get_user_model, login as django_login
 User = get_user_model()
 
 from rest_framework.decorators import api_view, permission_classes
@@ -18,7 +18,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 @api_view(['POST'])
-@permission_classes([AllowAny])  # Fixed: Allow unauthenticated users to register
+@permission_classes([AllowAny])
 def register_user(request):
     try:
         # Get data from request
@@ -54,6 +54,10 @@ def register_user(request):
             last_name=last_name
         )
         
+        # Create Django session for persistent login
+        django_login(request, user)
+        request.session.set_expiry(31536000)  # 1 year
+        
         # Create or get token for the user
         token, created = Token.objects.get_or_create(user=user)
         
@@ -67,6 +71,7 @@ def register_user(request):
                 'email': user.email,
                 'first_name': user.first_name,
                 'last_name': user.last_name,
+                'has_seen_onboarding': user.has_seen_onboarding,  # ADD THIS
             }
         }, status=status.HTTP_201_CREATED)
         
@@ -77,7 +82,7 @@ def register_user(request):
 
 
 @api_view(['POST'])
-@permission_classes([AllowAny])  # Fixed: Allow unauthenticated users to login
+@permission_classes([AllowAny])
 def login_user(request):
     try:
         print(f"DEBUG: Login attempt - Session key: {request.session.session_key}")
@@ -118,12 +123,15 @@ def login_user(request):
                 'error': 'Account is deactivated'
             }, status=status.HTTP_401_UNAUTHORIZED)
         
+        # Create Django session for persistent login
+        django_login(request, user)
+        request.session.set_expiry(31536000)  # 1 year - never expires
+        
         # DELETE OLD TOKENS AND CREATE NEW ONE
         Token.objects.filter(user=user).delete()  # Delete any existing tokens
         token = Token.objects.create(user=user)   # Create a fresh token
         
         print(f"DEBUG: New token created: {token.key}")
-        
         print(f"DEBUG: Login successful - User ID: {user.id}")
         print(f"DEBUG: Session after login: {request.session.session_key}")
         
@@ -136,6 +144,7 @@ def login_user(request):
                 'email': user.email,
                 'first_name': user.first_name,
                 'last_name': user.last_name,
+                'has_seen_onboarding': user.has_seen_onboarding,  # ADD THIS
             }
         }, status=status.HTTP_200_OK)
         
@@ -207,6 +216,10 @@ def google_auth(request):
             if updated:
                 user.save()
         
+        # Create Django session for persistent login
+        django_login(request, user)
+        request.session.set_expiry(31536000)  # 1 year - never expires
+        
         # Use the SAME token system as your existing login
         Token.objects.filter(user=user).delete()  # Delete any existing tokens
         token = Token.objects.create(user=user)   # Create a fresh token
@@ -224,6 +237,7 @@ def google_auth(request):
                 'email': user.email,
                 'first_name': user.first_name,
                 'last_name': user.last_name,
+                'has_seen_onboarding': user.has_seen_onboarding,  # ADD THIS
             }
         }, status=status.HTTP_200_OK)
         
@@ -231,4 +245,30 @@ def google_auth(request):
         logger.error(f"Google auth error: {e}")
         return Response({
             'error': f'Google authentication failed: {str(e)}'
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+# NEW ENDPOINT: Mark onboarding as seen
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def mark_onboarding_seen(request):
+    """
+    Mark that the user has seen the onboarding
+    """
+    try:
+        user = request.user
+        user.has_seen_onboarding = True
+        user.save(update_fields=['has_seen_onboarding'])
+        
+        print(f"DEBUG: Onboarding marked as seen for user {user.id}")
+        
+        return Response({
+            'success': True,
+            'message': 'Onboarding status updated'
+        }, status=status.HTTP_200_OK)
+        
+    except Exception as e:
+        logger.error(f"Error marking onboarding as seen: {e}")
+        return Response({
+            'error': f'Failed to update onboarding status: {str(e)}'
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

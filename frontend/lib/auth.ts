@@ -24,6 +24,54 @@ class AuthService {
       ...(token && { 'Authorization': `Token ${token}` }),
     };
   }
+  async getOnboardingStatus() {
+    try {
+      const response = await fetch('/api/user/onboarding/', {
+        method: 'GET',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch onboarding status');
+      }
+      
+      const data = await response.json();
+      return {
+        hasSeenOnboarding: data.has_seen_onboarding || false,
+      };
+    } catch (error) {
+      console.error('Error fetching onboarding status:', error);
+      return { hasSeenOnboarding: false };
+    }
+  }
+  
+  // Mark onboarding as seen
+  async markOnboardingSeen() {
+    try {
+      const response = await fetch('/api/user/onboarding/seen/', {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to update onboarding status');
+      }
+      
+      return true;
+    } catch (error) {
+      console.error('Error updating onboarding status:', error);
+      return false;
+    }
+  }
+
+
+
 
   async login(credentials: LoginCredentials): Promise<AuthResponse> {
     try {
@@ -244,7 +292,7 @@ class AuthService {
   isTokenExpired(): boolean {
     return false; // Tokens never expire
   }
-
+  
   async authenticatedFetch(url: string, options: RequestInit = {}): Promise<Response> {
     const token = this.getToken();
     if (!token) {

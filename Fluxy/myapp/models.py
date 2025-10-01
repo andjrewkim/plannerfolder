@@ -11,6 +11,8 @@ import pytz
 class CustomUser(AbstractUser):
     email = models.EmailField(unique=True)
     created_at = models.DateTimeField(auto_now_add=True)
+    has_seen_onboarding = models.BooleanField(default=False)
+
     
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = []

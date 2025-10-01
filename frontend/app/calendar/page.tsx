@@ -31,6 +31,7 @@ const AppContent: React.FC<AppContentProps> = ({
   
   // Remove layout ready state - no longer needed
   const [isClient, setIsClient] = useState(true); // Start as true for SSR
+  const [userData, setUserData] = useState<any>(null);
 
   // Onboarding state
   const [showOnboarding, setShowOnboarding] = useState(false);
@@ -72,22 +73,66 @@ const AppContent: React.FC<AppContentProps> = ({
     }
   }, []); // Run only once on mount
 
-  // Handle onboarding check - run in background without blocking
+  useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        const isAuth = await authAPI.checkAuthStatus();
+        setIsAuthenticated(isAuth);
+        
+        if (isAuth) {
+          // Get user data (which includes has_seen_onboarding)
+          // This assumes you have a method to get current user
+          // If you don't, the user data is already in localStorage from login!
+          const storedUser = localStorage.getItem('user');
+          if (storedUser) {
+            setUserData(JSON.parse(storedUser));
+          }
+          
+          if (typeof window !== 'undefined') {
+            const hasViewPreference = localStorage.getItem('lastActiveView');
+            if (!hasViewPreference) {
+              localStorage.setItem('lastActiveView', 'your-new-view');
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Error checking auth status:', error);
+      }
+    };
+
+    setTimeout(checkAuth, 500);
+  }, []);
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
+    // Wait until we have user data
+    if (!userData) return;
+
     // Use setTimeout to avoid blocking initial render
     setTimeout(() => {
-      const hasSeenOnboarding = localStorage.getItem('hasSeenOnboarding');
-      const completed = localStorage.getItem('onboardingCompleted');
+      const serverHasSeen = userData.has_seen_onboarding;
+      const localHasSeen = localStorage.getItem('hasSeenOnboarding');
+      const localCompleted = localStorage.getItem('onboardingCompleted');
 
-      if (DEV_MODE || (!hasSeenOnboarding && !completed)) {
+      if (DEV_MODE) {
+        // In dev mode, always show onboarding
         setShowOnboarding(true);
+      } else if (serverHasSeen) {
+        // User has seen it before (on any device)
+        setShowOnboarding(false);
+        localStorage.setItem('hasSeenOnboarding', 'true');
+      } else if (localHasSeen) {
+        // Seen locally but not on server (sync it)
+        setShowOnboarding(false);
+        authAPI.markOnboardingSeen().catch(console.error);
       } else {
-        setOnboardingCompleted(!!completed);
+        // Never seen - show onboarding
+        setShowOnboarding(true);
       }
-    }, 100); // Very short delay to avoid blocking
-  }, []);
+
+      setOnboardingCompleted(!!localCompleted || serverHasSeen);
+    }, 100);
+  }, [userData]); 
 
   // Check authentication status in background - don't block UI
   useEffect(() => {
@@ -202,13 +247,21 @@ const AppContent: React.FC<AppContentProps> = ({
   };
 
   // Onboarding handlers
-  const handleOnboardingComplete = () => {
+  const handleOnboardingComplete = async () => {
     setShowOnboarding(false);
     setOnboardingCompleted(true);
     
+    // Save to localStorage immediately
     if (typeof window !== 'undefined') {
-      localStorage.setItem('onboardingCompleted', 'true');
       localStorage.setItem('hasSeenOnboarding', 'true');
+      localStorage.setItem('onboardingCompleted', 'true');
+    }
+
+    // Save to server (don't block UI if this fails)
+    try {
+      await authAPI.markOnboardingSeen();
+    } catch (error) {
+      console.error('Failed to save onboarding status to server:', error);
     }
 
     if (posthog) {
@@ -220,12 +273,20 @@ const AppContent: React.FC<AppContentProps> = ({
     }
   };
 
-  const handleOnboardingSkip = () => {
+  const handleOnboardingSkip = async () => {
     setShowOnboarding(false);
     
+    // Save to localStorage immediately
     if (typeof window !== 'undefined') {
       localStorage.setItem('hasSeenOnboarding', 'true');
       localStorage.setItem('onboardingSkipped', 'true');
+    }
+
+    // Save to server (don't block UI if this fails)
+    try {
+      await authAPI.markOnboardingSeen();
+    } catch (error) {
+      console.error('Failed to save onboarding status to server:', error);
     }
 
     if (posthog) {

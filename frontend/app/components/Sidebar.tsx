@@ -506,8 +506,8 @@ const Sidebar: React.FC<SidebarProps> = ({
             {plannerLoading ? (
               <div className="loading-message"></div>
             ) : plannerError ? (
-              <div className="error-message" style={{ color: 'red' }}>
-                Error loading classes: {plannerError}
+              <div>
+
               </div>
             ) : !plannerInitialized ? (
               <div className="loading-message"></div>

@@ -4,8 +4,7 @@ from . import views
 from . import views_settings
 from .views_api import CalendarEventCreate  # Import your view for handling events
 from .views_todo import TodoTaskCreate
-from myapp.views_user import register_user
-from myapp.views_user import login_user
+from myapp.views_user import register_user, login_user
 from myapp.views_logout import logout_view
 from myapp.views_check_login import check_login
 from .view_dispatcher import ScheduleInputDispatcher, ScheduleInputParser  # Import the missing views
@@ -51,6 +50,8 @@ urlpatterns = [
     
     path('api/planner/no-work-days/', no_work_days_list_create, name='no-work-days-list-create'),
     path('api/planner/no-work-days/<int:pk>/', delete_no_work_day, name='delete-no-work-day'),
-    
+    path('api/user/onboarding/seen/', views_user.mark_onboarding_seen, name='mark_onboarding_seen'),
+
+
     
 ]
