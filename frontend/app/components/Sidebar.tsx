@@ -115,7 +115,7 @@ const Sidebar: React.FC<SidebarProps> = ({
       
       refreshInProgressRef.current = true;
       try {
-        await initializeData(true);
+        await initializeData();
         // REMOVED: onEventChange() call - don't trigger parent refresh
       } finally {
         refreshInProgressRef.current = false;
