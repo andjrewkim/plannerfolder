@@ -592,7 +592,9 @@ const EventForm: React.FC<EventFormProps> = ({ setResult, setError, onEventResul
                 style={{
                   flex: 1,
                   padding: '2px 4px',
-                  border: '1px solid hsl(var(--border))',
+                  border: '1px solid hsl(var(--border) / 0.5)',
+
+
                   borderRadius: '6px',
                   fontSize: '13px',
                   minHeight: '20px',
@@ -624,7 +626,8 @@ const EventForm: React.FC<EventFormProps> = ({ setResult, setError, onEventResul
                   style={{
                     flex: 1,
                     padding: '2px 4px',
-                    border: '1px solid hsl(var(--border))',
+                    border: '1px solid hsl(var(--border) / 0.5)',
+
                     borderRadius: '6px',
                     fontSize: '13px',
                     minHeight: '20px',
@@ -692,7 +695,8 @@ const EventForm: React.FC<EventFormProps> = ({ setResult, setError, onEventResul
                       className="time-input"
                       style={{
                         padding: '2px 4px',
-                        border: '1px solid hsl(var(--border))',
+                        border: '1px solid hsl(var(--border) / 0.5)',
+
                         borderRadius: '6px',
                         fontSize: '13px',
                         flex: 1,
@@ -711,7 +715,7 @@ const EventForm: React.FC<EventFormProps> = ({ setResult, setError, onEventResul
                       className="time-input"
                       style={{
                         padding: '2px 4px',
-                        border: '1px solid hsl(var(--border))',
+                        border: '1px solid hsl(var(--border) / 0.5)',
                         borderRadius: '6px',
                         fontSize: '13px',
                         flex: 1,
@@ -731,6 +735,7 @@ const EventForm: React.FC<EventFormProps> = ({ setResult, setError, onEventResul
                   alignItems: 'center', 
                   gap: '4px', 
                   padding: '4px'
+                  
                 }}>
                   <Repeat size={14} color="hsl(var(--border))" />
                   <select
@@ -740,9 +745,9 @@ const EventForm: React.FC<EventFormProps> = ({ setResult, setError, onEventResul
                     style={{
                       flex: 1,
                       padding: '2px 4px',
-                      border: '1px solid hsl(var(--border))',
                       borderRadius: '6px',
                       fontSize: '13px',
+                      border: '1px solid hsl(var(--border) / 0.5) !important',
                     }}
                   >
                     <option value="none">Doesn't repeat</option>

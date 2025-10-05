@@ -673,7 +673,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                       style={{
                         width: '100%',
                         padding: '8px',
-                        border: '1px solid #ccc',
+                        border: '1px solid hsl(var(--border)/0.5)',
                         borderRadius: '4px',
                         fontSize: '14px'
                       }}
