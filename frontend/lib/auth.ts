@@ -51,25 +51,32 @@ class AuthService {
   // Mark onboarding as seen
   async markOnboardingSeen() {
     try {
-      const response = await fetch('/api/user/onboarding/seen/', {
+      const token = this.getToken();
+      
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+
+      const response = await fetch(`${API_BASE_URL}/api/user/onboarding/seen/`, {
         method: 'POST',
         credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Token ${token}`,
         },
       });
       
       if (!response.ok) {
-        throw new Error('Failed to update onboarding status');
+        const data = await response.json();
+        throw new Error(data.error || `Server returned ${response.status}`);
       }
       
       return true;
     } catch (error) {
       console.error('Error updating onboarding status:', error);
-      return false;
+      throw error;
     }
   }
-
 
 
 

@@ -238,7 +238,7 @@
   border-radius: 50%;
   background: hsl(var(--primary));
   color: hsl(var(--primary-foreground));
-  font-size: 18px;
+  font-size: 14px !important;
   border: none;
   display: flex;
   align-items: center;
@@ -270,7 +270,7 @@
   padding: var(--spacing-sm) var(--spacing-md);
   border: 1px solid hsl(var(--darker-border));
   border-radius: 6px;
-  font-size: 0.875rem;
+  font-size: 14px !important;
   color: var(--text-primary);
   background: var(--surface);
   transition: border-color 0.15s ease;
@@ -290,9 +290,10 @@
 
 /* Clean buttons */
 .btn {
+  margin-top: -px;
   padding: var(--spacing-sm) var(--spacing-md);
   border-radius: 6px;
-  font-size: 0.75rem;
+  font-size: 14px !important;
   font-weight: 500;
   border: none;
   cursor: pointer;
@@ -382,4 +383,8 @@
 .sidebar-section .event-form-container {
   width: 100% !important;
   margin: 0 !important;
+}
+
+.text {
+  font-size: 120px !important;
 }

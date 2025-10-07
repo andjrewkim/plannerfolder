@@ -102,84 +102,22 @@ const AppContent: React.FC<AppContentProps> = ({
 
     setTimeout(checkAuth, 500);
   }, []);
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
+// In page.tsx - Replace the onboarding useEffect with this:
 
-    // Wait until we have user data
+
+  useEffect(() => {
     if (!userData) return;
 
-    // Use setTimeout to avoid blocking initial render
-    setTimeout(() => {
-      const serverHasSeen = userData.has_seen_onboarding;
-      const localHasSeen = localStorage.getItem('hasSeenOnboarding');
-      const localCompleted = localStorage.getItem('onboardingCompleted');
-
-      if (DEV_MODE) {
-        // In dev mode, always show onboarding
-        setShowOnboarding(true);
-      } else if (serverHasSeen) {
-        // User has seen it before (on any device)
-        setShowOnboarding(false);
-        localStorage.setItem('hasSeenOnboarding', 'true');
-      } else if (localHasSeen) {
-        // Seen locally but not on server (sync it)
-        setShowOnboarding(false);
-        authAPI.markOnboardingSeen().catch(console.error);
-      } else {
-        // Never seen - show onboarding
-        setShowOnboarding(true);
-      }
-
-      setOnboardingCompleted(!!localCompleted || serverHasSeen);
-    }, 100);
-  }, [userData]); 
-
-  // Check authentication status in background - don't block UI
-  useEffect(() => {
-    const checkAuth = async () => {
-      try {
-        const isAuth = await authAPI.checkAuthStatus();
-        setIsAuthenticated(isAuth);
-        
-        if (isAuth && typeof window !== 'undefined') {
-          const hasViewPreference = localStorage.getItem('lastActiveView');
-          if (!hasViewPreference) {
-            localStorage.setItem('lastActiveView', 'your-new-view');
-          }
-        }
-      } catch (error) {
-        console.error('Error checking auth status:', error);
-        // Don't set to false immediately - keep showing content
-      }
-    };
-
-    // Run auth check after a delay to avoid blocking initial render
-    setTimeout(checkAuth, 500);
-  }, []);
-
-  // Track view changes - run in background
-  useEffect(() => {
-    if (posthog) {
-      setTimeout(() => {
-        posthog.capture('app_view_changed', {
-          view: activeView,
-          timestamp: new Date().toISOString()
-        });
-      }, 0);
+    if (DEV_MODE) {
+      setShowOnboarding(true);
+    } else {
+      // Just check the user data we already have from login
+      setShowOnboarding(!userData.has_seen_onboarding);
     }
-  }, [posthog, activeView]);
+  }, [userData]);
 
-  // Track calendar view changes - run in background
-  useEffect(() => {
-    if (posthog && activeView === 'calendar') {
-      setTimeout(() => {
-        posthog.capture('calendar_view_changed', {
-          view: view,
-          timestamp: new Date().toISOString()
-        });
-      }, 0);
-    }
-  }, [posthog, view, activeView]);
+
+
 
   // Cleanup and scroll management
   useEffect(() => {
@@ -246,58 +184,60 @@ const AppContent: React.FC<AppContentProps> = ({
     }
   };
 
-  // Onboarding handlers
-  const handleOnboardingComplete = async () => {
-    setShowOnboarding(false);
-    setOnboardingCompleted(true);
-    
-    // Save to localStorage immediately
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('hasSeenOnboarding', 'true');
-      localStorage.setItem('onboardingCompleted', 'true');
-    }
-
-    // Save to server (don't block UI if this fails)
-    try {
-      await authAPI.markOnboardingSeen();
-    } catch (error) {
-      console.error('Failed to save onboarding status to server:', error);
-    }
-
-    if (posthog) {
-      setTimeout(() => {
-        posthog.capture('onboarding_completed', {
-          timestamp: new Date().toISOString()
-        });
-      }, 0);
-    }
-  };
-
+  // Simplify the complete handler:
   const handleOnboardingSkip = async () => {
+    console.log('Skip button clicked!');
     setShowOnboarding(false);
     
-    // Save to localStorage immediately
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('hasSeenOnboarding', 'true');
-      localStorage.setItem('onboardingSkipped', 'true');
-    }
-
-    // Save to server (don't block UI if this fails)
     try {
       await authAPI.markOnboardingSeen();
-    } catch (error) {
-      console.error('Failed to save onboarding status to server:', error);
+      console.log('Onboarding status saved!');
+      
+      // Update userData state
+      const updatedUser = { ...userData, has_seen_onboarding: true };
+      setUserData(updatedUser);
+      
+      // CRITICAL: Update localStorage so it persists
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('user', JSON.stringify(updatedUser));
+      }
+    } catch (err) {
+      console.error('Failed to save onboarding:', err);
     }
 
     if (posthog) {
-      setTimeout(() => {
-        posthog.capture('onboarding_skipped', {
-          timestamp: new Date().toISOString()
-        });
-      }, 0);
+      posthog.capture('onboarding_skipped', {
+        timestamp: new Date().toISOString()
+      });
     }
   };
 
+  const handleOnboardingComplete = async () => {
+    console.log('Complete button clicked!');
+    setShowOnboarding(false);
+    
+    try {
+      await authAPI.markOnboardingSeen();
+      console.log('Onboarding status saved!');
+      
+      // Update userData state
+      const updatedUser = { ...userData, has_seen_onboarding: true };
+      setUserData(updatedUser);
+      
+      // CRITICAL: Update localStorage so it persists
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('user', JSON.stringify(updatedUser));
+      }
+    } catch (err) {
+      console.error('Failed to save onboarding:', err);
+    }
+
+    if (posthog) {
+      posthog.capture('onboarding_completed', {
+        timestamp: new Date().toISOString()
+      });
+    }
+  };
   // Task handlers with PostHog tracking
   const handleSidebarTaskCreate = async (taskData: any): Promise<void> => {
     const newTask = await createTask(taskData);
