@@ -6,17 +6,28 @@ from django.utils import timezone
 from datetime import timedelta
 import pytz
 
+class FriendRequest(models.Model):
+    sender = models.ForeignKey('CustomUser', on_delete=models.CASCADE, related_name='sent_requests')
+    receiver = models.ForeignKey('CustomUser', on_delete=models.CASCADE, related_name='received_requests')
+    accepted = models.BooleanField(default=False)
 
+    def accept(self):
+        self.accepted = True
+        self.save()
+        self.sender.friends.add(self.receiver)
+        self.receiver.friends.add(self.sender)
+
+    def decline(self):
+        self.delete()
 
 class CustomUser(AbstractUser):
     email = models.EmailField(unique=True)
     created_at = models.DateTimeField(auto_now_add=True)
     has_seen_onboarding = models.BooleanField(default=False)
+    friends = models.ManyToManyField('self', symmetrical=True, blank=True)
 
-    
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = []
-
 
 
 

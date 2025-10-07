@@ -55,13 +55,7 @@ const onboardingSteps: OnboardingStep[] = [
     target: '.today-cell .no-work-toggle, .assignment-cell.today .no-work-toggle, [data-today="true"] .no-work-toggle',
     position: 'right'
   },
-  {
-    id: 'assignment-item',
-    title: 'Managing Assignments',
-    description: 'You can check off assignments as you complete them.',
-    target: '.assignment-item',
-    position: 'left'
-  },
+
   {
     id: 'completion',
     title: 'You\'re All Set!',

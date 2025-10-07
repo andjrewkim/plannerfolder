@@ -50,8 +50,29 @@ urlpatterns = [
     
     path('api/planner/no-work-days/', no_work_days_list_create, name='no-work-days-list-create'),
     path('api/planner/no-work-days/<int:pk>/', delete_no_work_day, name='delete-no-work-day'),
-    path('api/user/onboarding/seen/', views_user.mark_onboarding_seen, name='mark_onboarding_seen'),
-
-
+    path('api/user/onboarding/seen/', views_user.mark_onboarding_seen, name='mark_onboarding_seen')
     
+]
+
+
+from .views_friends import (
+    SendFriendRequestView,
+    AcceptFriendRequestView,
+    DeclineFriendRequestView,
+    PendingFriendRequestsView,
+    UserProfileView,
+    MyFriendsView,
+    RemoveFriendView
+)
+
+# Friend system URLs
+urlpatterns += [
+    # Friend request actions
+    path('api/friends/send/', SendFriendRequestView.as_view(), name='send-friend-request'),
+    path('api/friends/accept/<int:request_id>/', AcceptFriendRequestView.as_view(), name='accept-friend-request'),
+    path('api/friends/decline/<int:request_id>/', DeclineFriendRequestView.as_view(), name='decline-friend-request'),
+    path('api/friends/pending/', PendingFriendRequestsView.as_view(), name='pending-friend-requests'),
+    path('api/friends/list/', MyFriendsView.as_view(), name='my-friends'),
+    path('api/friends/remove/<int:friend_id>/', RemoveFriendView.as_view(), name='remove-friend'),
+    path('api/profile/<int:user_id>/', UserProfileView.as_view(), name='user-profile'),
 ]

@@ -316,3 +316,150 @@ class NoWorkDaySerializer(serializers.ModelSerializer):
         if planner_class.user != self.context['request'].user:
             raise serializers.ValidationError("You can only create no-work days for your own classes.")
         return super().create(validated_data)
+
+
+
+
+
+
+from .models import CustomUser, FriendRequest, Assignment
+from django.db.models import Count, Q
+
+class UserBasicSerializer(serializers.ModelSerializer):
+    """Basic user info for friend lists and requests"""
+    class Meta:
+        model = CustomUser
+        fields = ['id', 'username', 'email']
+        read_only_fields = ['id', 'username', 'email']
+
+
+class FriendRequestSerializer(serializers.ModelSerializer):
+    """Serializer for friend requests with sender/receiver details"""
+    sender = UserBasicSerializer(read_only=True)
+    receiver = UserBasicSerializer(read_only=True)
+    
+    class Meta:
+        model = FriendRequest
+        fields = ['id', 'sender', 'receiver', 'accepted']
+        read_only_fields = ['id', 'sender', 'receiver', 'accepted']
+
+
+class SendFriendRequestSerializer(serializers.Serializer):
+    """Serializer for sending friend request by email"""
+    email = serializers.EmailField(required=True)
+    
+    def validate_email(self, value):
+        # Check if user exists
+        try:
+            receiver = CustomUser.objects.get(email=value)
+        except CustomUser.DoesNotExist:
+            raise serializers.ValidationError("User with this email does not exist")
+        
+        # Check if trying to add self
+        request_user = self.context['request'].user
+        if receiver == request_user:
+            raise serializers.ValidationError("Cannot send friend request to yourself")
+        
+        # Check if already friends
+        if receiver in request_user.friends.all():
+            raise serializers.ValidationError("Already friends with this user")
+        
+        # Check if request already exists (in either direction)
+        if FriendRequest.objects.filter(
+            Q(sender=request_user, receiver=receiver) | Q(sender=receiver, receiver=request_user),
+            accepted=False
+        ).exists():
+            raise serializers.ValidationError("Friend request already exists")
+        
+        return value
+    
+    def create(self, validated_data):
+        email = validated_data['email']
+        receiver = CustomUser.objects.get(email=email)
+        sender = self.context['request'].user
+        
+        friend_request = FriendRequest.objects.create(
+            sender=sender,
+            receiver=receiver
+        )
+        return friend_request
+
+
+class UserProfileSerializer(serializers.ModelSerializer):
+    """Detailed user profile with assignment stats and friends"""
+    friends = UserBasicSerializer(many=True, read_only=True)
+    today_completion_percentage = serializers.SerializerMethodField()
+    overall_completion_percentage = serializers.SerializerMethodField()
+    total_assignments_today = serializers.SerializerMethodField()
+    completed_assignments_today = serializers.SerializerMethodField()
+    total_assignments_overall = serializers.SerializerMethodField()
+    completed_assignments_overall = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = CustomUser
+        fields = [
+            'id', 'username', 'email', 'created_at',
+            'today_completion_percentage', 'overall_completion_percentage',
+            'total_assignments_today', 'completed_assignments_today',
+            'total_assignments_overall', 'completed_assignments_overall',
+            'friends'
+        ]
+        read_only_fields = fields
+    
+    def get_assignment_stats(self, user):
+        """Helper method to calculate assignment stats"""
+        today = timezone.now().date()
+        
+        today_stats = Assignment.objects.filter(
+            planner_class__user=user, 
+            date=today
+        ).aggregate(
+            total=Count('id'), 
+            completed=Count('id', filter=Q(completed=True))
+        )
+        
+        overall_stats = Assignment.objects.filter(
+            planner_class__user=user
+        ).aggregate(
+            total=Count('id'), 
+            completed=Count('id', filter=Q(completed=True))
+        )
+        
+        return {
+            'today': today_stats,
+            'overall': overall_stats
+        }
+    
+    def get_today_completion_percentage(self, obj):
+        stats = self.get_assignment_stats(obj)
+        total = stats['today']['total']
+        completed = stats['today']['completed']
+        return int((completed / total) * 100) if total else 0
+    
+    def get_overall_completion_percentage(self, obj):
+        stats = self.get_assignment_stats(obj)
+        total = stats['overall']['total']
+        completed = stats['overall']['completed']
+        return int((completed / total) * 100) if total else 0
+    
+    def get_total_assignments_today(self, obj):
+        stats = self.get_assignment_stats(obj)
+        return stats['today']['total']
+    
+    def get_completed_assignments_today(self, obj):
+        stats = self.get_assignment_stats(obj)
+        return stats['today']['completed']
+    
+    def get_total_assignments_overall(self, obj):
+        stats = self.get_assignment_stats(obj)
+        return stats['overall']['total']
+    
+    def get_completed_assignments_overall(self, obj):
+        stats = self.get_assignment_stats(obj)
+        return stats['overall']['completed']
+
+
+class PendingFriendRequestsSerializer(serializers.Serializer):
+    """Serializer for listing pending friend requests"""
+    received = FriendRequestSerializer(many=True, read_only=True)
+    sent = FriendRequestSerializer(many=True, read_only=True)
