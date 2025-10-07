@@ -426,7 +426,7 @@
 }
 
 .assignment-cell {
-  background: hsl(var(--calendar-background));
+  background: hsl(var(--sidebar));
   padding: 2px;
   display: flex;
   flex-direction: column;
@@ -443,7 +443,7 @@
 }
 
 .assignment-cell.today-cell {
-  background: hsl(var(--sidebar));
+  background: hsl(var(--calendar-background));
   border-left: 1px solid hsl(var(--accent) / 0.12);
   border-right: 1px solid hsl(var(--border) / 0.35);
   box-shadow: inset 0 0 15px hsl(var(--accent) / 0.015);
