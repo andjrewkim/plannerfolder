@@ -661,7 +661,7 @@ const FriendList: React.FC = () => {
               fontSize: '13px',
               marginBottom: '8px',
             }}>
-              No friends yet
+              No friends yet. Invite your classmates to join you!
             </div>
             <button
               onClick={() => setIsAddingFriend(true)}
