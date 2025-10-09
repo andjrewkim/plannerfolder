@@ -150,61 +150,61 @@ const FriendItem = memo<FriendItemProps>(({ friend, profile, onRemove }) => {
             {displayName}
           </div>
           
-          {profile && !loadingProfile && (
-            <div style={{ marginTop: '2px' }}>
-              <div style={{
-                fontSize: '10px',
-                color: percentage === 100 
-                  ? 'hsl(142, 76%, 36%)' 
-                  : percentage >= 50 
-                    ? 'hsl(var(--muted-foreground))' 
-                    : 'hsl(var(--muted-foreground) / 0.7)',
-                fontWeight: '500',
-                marginBottom: '3px',
-                letterSpacing: '0.01em',
-              }}>
-                {percentage === 100 
-                  ? 'Finished today' 
-                  : completed === 0 
-                    ? "Hasn't started today"
-                    : `${completed} of ${total} assignments done`}
-              </div>
+{profile && !loadingProfile && (
+            <div style={{ marginTop: '4px' }}>
               <div style={{
                 display: 'flex',
+                justifyContent: 'space-between',
                 alignItems: 'center',
-                gap: '6px',
+                marginBottom: '5px',
               }}>
                 <div style={{
-                  flex: 1,
-                  height: '5px',
-                  backgroundColor: 'hsl(var(--muted) / 0.3)',
-                  borderRadius: '3px',
-                  overflow: 'hidden',
-                  position: 'relative',
-                  boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.05)',
+                  fontSize: '10px',
+                  color: 'hsl(var(--muted-foreground))',
+                  fontWeight: '500',
+                  letterSpacing: '0.01em',
                 }}>
-                  <div style={{
-                    position: 'absolute',
-                    left: 0,
-                    top: 0,
-                    height: '100%',
-                    width: `${percentage}%`,
-                    backgroundColor: color,
-                    borderRadius: '3px',
-                    transition: 'width 0.3s ease, background-color 0.3s ease',
-                    boxShadow: percentage > 0 ? '0 0 4px rgba(0,0,0,0.1)' : 'none',
-                  }} />
+                  {completed} of {total} {total === 1 ? 'assignment' : 'assignments'}
                 </div>
                 <span style={{
                   fontSize: '11px',
-                  color: percentage === 100 ? color : 'hsl(var(--muted-foreground))',
+                  color: 'hsl(var(--muted-foreground))',
                   fontWeight: '600',
-                  minWidth: '35px',
-                  textAlign: 'right',
                 }}>
                   {Math.round(percentage)}%
                 </span>
               </div>
+              
+              <div style={{
+                display: 'flex',
+                gap: '2px',
+                marginBottom: '6px',
+              }}>
+                {Array.from({ length: total }).map((_, idx) => (
+                  <div
+                    key={idx}
+                    style={{
+                      flex: 1,
+                      height: '6px',
+                      borderRadius: '3px',
+                      background: idx < completed ? color : 'hsl(var(--muted) / 0.25)',
+                      transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                    }}
+                  />
+                ))}
+              </div>
+
+              {percentage === 100 && (
+                <div style={{
+                  fontSize: '10px',
+                  fontWeight: '500',
+                  color: '#22c55e',
+                  letterSpacing: '0.01em',
+                  marginTop: '2px',
+                }}>
+                  Finished assignments for today
+                </div>
+              )}
             </div>
           )}
           
