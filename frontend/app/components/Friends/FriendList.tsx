@@ -138,7 +138,7 @@ const FriendItem = memo<FriendItemProps>(({ friend, profile, onRemove }) => {
           {displayName.charAt(0).toUpperCase()}
         </div>
         
-        <div style={{ flex: 1, minWidth: 0 }}>
+<div style={{ flex: 1, minWidth: 0 }}>
           <div style={{
             fontSize: '14px',
             fontWeight: '500',
@@ -151,7 +151,24 @@ const FriendItem = memo<FriendItemProps>(({ friend, profile, onRemove }) => {
           </div>
           
           {profile && !loadingProfile && (
-            <div style={{ marginTop: '4px' }}>
+            <div style={{ marginTop: '2px' }}>
+              <div style={{
+                fontSize: '10px',
+                color: percentage === 100 
+                  ? 'hsl(142, 76%, 36%)' 
+                  : percentage >= 50 
+                    ? 'hsl(var(--muted-foreground))' 
+                    : 'hsl(var(--muted-foreground) / 0.7)',
+                fontWeight: '500',
+                marginBottom: '3px',
+                letterSpacing: '0.01em',
+              }}>
+                {percentage === 100 
+                  ? 'Finished today' 
+                  : completed === 0 
+                    ? "Hasn't started today"
+                    : `${completed} of ${total} assignments done`}
+              </div>
               <div style={{
                 display: 'flex',
                 alignItems: 'center',
@@ -159,11 +176,12 @@ const FriendItem = memo<FriendItemProps>(({ friend, profile, onRemove }) => {
               }}>
                 <div style={{
                   flex: 1,
-                  height: '4px',
+                  height: '5px',
                   backgroundColor: 'hsl(var(--muted) / 0.3)',
-                  borderRadius: '2px',
+                  borderRadius: '3px',
                   overflow: 'hidden',
                   position: 'relative',
+                  boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.05)',
                 }}>
                   <div style={{
                     position: 'absolute',
@@ -172,18 +190,19 @@ const FriendItem = memo<FriendItemProps>(({ friend, profile, onRemove }) => {
                     height: '100%',
                     width: `${percentage}%`,
                     backgroundColor: color,
-                    borderRadius: '2px',
+                    borderRadius: '3px',
                     transition: 'width 0.3s ease, background-color 0.3s ease',
+                    boxShadow: percentage > 0 ? '0 0 4px rgba(0,0,0,0.1)' : 'none',
                   }} />
                 </div>
                 <span style={{
                   fontSize: '11px',
-                  color: 'hsl(var(--muted-foreground))',
-                  fontWeight: '500',
-                  minWidth: '45px',
+                  color: percentage === 100 ? color : 'hsl(var(--muted-foreground))',
+                  fontWeight: '600',
+                  minWidth: '35px',
                   textAlign: 'right',
                 }}>
-                  {completed}/{total}
+                  {Math.round(percentage)}%
                 </span>
               </div>
             </div>
@@ -366,7 +385,7 @@ const FriendList: React.FC = () => {
     removeFriend,
     clearError,
     refreshFriendProfiles,
-  } = useFriends(15000);
+  } = useFriends(45000);
 
   const [isAddingFriend, setIsAddingFriend] = useState(false);
   const [newFriendInput, setNewFriendInput] = useState('');
@@ -401,7 +420,7 @@ const FriendList: React.FC = () => {
           color: 'hsl(var(--muted-foreground))',
           lineHeight: '1.4',
         }}>
-          Progress bars track your friend's daily assignment progress. Auto-refreshes every 15s.
+          Progress bars track your friend's daily assignment progress. Auto-refreshes every minute.
         </p>
       </div>
       

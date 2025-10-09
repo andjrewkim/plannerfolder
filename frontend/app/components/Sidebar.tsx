@@ -1,6 +1,5 @@
-// Sidebar.tsx - Modified to display tasks instead of today's schedule
+// Sidebar.tsx - Fixed date handling
 import React, { useEffect, useState, useRef, useCallback } from 'react';
-// import EventForm from './EventForm'; // COMMENTED OUT
 import FriendList from '../components/Friends/FriendList';
 import '../styles/container.css';
 import { authAPI } from '../../lib/auth';
@@ -28,6 +27,15 @@ interface SidebarProps {
 }
 
 const LAST_RESET_KEY = 'tasks_last_reset_date';
+
+// Helper function to get today's date in local timezone (YYYY-MM-DD)
+const getTodayLocal = (): string => {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
 
 // Debounce utility function
 const debounce = <T extends (...args: any[]) => void>(
@@ -249,15 +257,15 @@ const Sidebar: React.FC<SidebarProps> = ({
     }, 400);
   }, [deleteTask, deletingTasks]);
 
-  // Reset timer effect with proper cleanup
+  // Reset timer effect with proper cleanup and FIXED DATE HANDLING
   useEffect(() => {
     if (!authAPI.isAuthenticated() || !initialized) return;
 
     const performCheck = async () => {
       if (isResettingTasks || !isMountedRef.current) return;
       
-      const today = new Date();
-      const todayFormatted = today.toISOString().split('T')[0];
+      // ✅ FIXED: Use local timezone instead of UTC
+      const todayFormatted = getTodayLocal();
       const lastResetDate = localStorage.getItem(LAST_RESET_KEY);
 
       console.log('Checking reset - Today:', todayFormatted, 'Last reset:', lastResetDate);
@@ -333,7 +341,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         resetTimerRef.current = null;
       }
     };
-  }, [initialized]);
+  }, [initialized, tasks, createTask, deleteTask, isResettingTasks]);
 
   // Filter regular tasks
   const regularTasks = tasks.filter((task: TaskData) => 
@@ -349,22 +357,6 @@ const Sidebar: React.FC<SidebarProps> = ({
         className="app-sidebar bg-[hsl(var(--background))] text-[hsl(var(--foreground))]"
         style={{ display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden' }}
       >
-
-        {/* ===== EVENT FORM SECTION - COMMENTED OUT ===== */}
-        {/*
-        <section style={{ flex: '0 0 auto' }}>
-          <h3 className="section-title">Create Event</h3>
-          <div className="section-content">
-            <EventForm 
-              setResult={setEventResults} 
-              setError={setEventError}
-              onEventResult={handleEventResult}
-            />
-          </div>
-        </section>
-        */}
-        {/* ===== END EVENT FORM SECTION ===== */}
-
         {/* ===== FRIENDS SECTION ===== */}
         <section style={{ flex: '2', minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden', marginTop: '8px' }}>
           <h3 className="section-title">Friends</h3>
@@ -372,7 +364,6 @@ const Sidebar: React.FC<SidebarProps> = ({
             <FriendList />
           </div>
         </section>
-        {/* ===== END FRIENDS SECTION ===== */}
 
         {/* ===== TASKS SECTION ===== */}
         <section style={{ flex: '1', minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
@@ -479,37 +470,6 @@ const Sidebar: React.FC<SidebarProps> = ({
             )}
           </div>
         </section>
-        {/* ===== END TASKS SECTION ===== */}
-
-        {/* ===== CLASSES SECTION - COMMENTED OUT ===== */}
-        {/*
-        <section style={{ flex: '1', minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-          <h3 className="section-title">My Classes</h3>
-          <div className="section-content" style={{ flex: 1, overflow: 'auto' }}>
-            {plannerLoading ? (
-              <div className="loading-message"></div>
-            ) : plannerError ? (
-              <div></div>
-            ) : !plannerInitialized ? (
-              <div className="loading-message"></div>
-            ) : classes && classes.length > 0 ? (
-              <div className="classes-list">
-                {classes
-                  .sort((a, b) => a.order - b.order)
-                  .map((plannerClass: PlannerClass, index) => (
-                    <div key={plannerClass.id} className="class-item">
-                      <span className="class-number">{index + 1}</span>
-                      <span className="class-name">{plannerClass.name}</span>
-                    </div>
-                  ))}
-              </div>
-            ) : (
-              <div className="empty-state">No classes</div>
-            )}
-          </div>
-        </section>
-        */}
-        {/* ===== END CLASSES SECTION ===== */}
       </aside>
 
       <main className="app-content">

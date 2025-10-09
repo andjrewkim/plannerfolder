@@ -1,4 +1,4 @@
-// lib/auth.ts - PRODUCTION READY WITH PERSISTENT LOGIN (NEVER EXPIRES)
+// lib/auth.ts - FIXED VERSION with proper header merging
 import { User, LoginCredentials, RegisterData, AuthResponse } from '../types/auth';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
@@ -17,13 +17,14 @@ class AuthService {
   private authCheckCacheTime: number = 30000; // 30 seconds cache
   private cachedAuthStatus: boolean | null = null;
 
+  // ✅ FIXED: Only return Authorization header, let callers set Content-Type when needed
   private getAuthHeaders(): Record<string, string> {
     const token = this.getToken();
     return {
-      'Content-Type': 'application/json',
       ...(token && { 'Authorization': `Token ${token}` }),
     };
   }
+
   async getOnboardingStatus() {
     try {
       const response = await fetch('/api/user/onboarding/', {
@@ -48,7 +49,6 @@ class AuthService {
     }
   }
   
-  // Mark onboarding as seen
   async markOnboardingSeen() {
     try {
       const token = this.getToken();
@@ -77,8 +77,6 @@ class AuthService {
       throw error;
     }
   }
-
-
 
   async login(credentials: LoginCredentials): Promise<AuthResponse> {
     try {
@@ -130,7 +128,6 @@ class AuthService {
 
   async googleAuth(credential: string): Promise<AuthResponse> {
     try {
-      // Basic validation
       if (!credential || credential === 'null' || credential === 'undefined') {
         throw new Error('Invalid credential provided to Google OAuth');
       }
@@ -159,7 +156,6 @@ class AuthService {
       return data;
     } catch (error) {
       const handledError = handleError(error);
-      // Only log errors in development or for critical issues
       if (process.env.NODE_ENV === 'development') {
         console.error('Google OAuth error:', handledError.message);
       }
@@ -171,7 +167,10 @@ class AuthService {
     try {
       const response = await fetch(`${API_BASE_URL}/api/logout/`, {
         method: 'POST',
-        headers: this.getAuthHeaders(),
+        headers: {
+          ...this.getAuthHeaders(),
+          'Content-Type': 'application/json',
+        },
         credentials: 'include',
       });
       
@@ -179,7 +178,6 @@ class AuthService {
       this.invalidateAuthCache();
       this.cachedAuthStatus = false;
       
-      // Dynamic import to avoid circular dependency
       import('../app/hooks/useAppState').then(({ resetGlobalAppState }) => {
         resetGlobalAppState();
       }).catch(() => {
@@ -188,7 +186,6 @@ class AuthService {
       
       return response.ok;
     } catch (error) {
-      // Always clear auth data on logout, regardless of network errors
       this.clearAuthData();
       this.invalidateAuthCache();
       this.cachedAuthStatus = false;
@@ -199,17 +196,14 @@ class AuthService {
   async checkAuthStatus(): Promise<boolean> {
     const now = Date.now();
     
-    // Return cached result if still valid
     if (now - this.lastAuthCheck < this.authCheckCacheTime && this.cachedAuthStatus !== null) {
       return this.cachedAuthStatus;
     }
 
-    // If check in progress, wait for it
     if (this.authCheckPromise) {
       return this.authCheckPromise;
     }
 
-    // Start new check
     this.authCheckPromise = this.performAuthCheck();
     this.lastAuthCheck = now;
 
@@ -251,7 +245,6 @@ class AuthService {
       
       return isAuthenticated;
     } catch (error) {
-      // Only log auth check errors in development
       if (process.env.NODE_ENV === 'development') {
         console.error('Auth check failed:', handleError(error).message);
       }
@@ -280,7 +273,6 @@ class AuthService {
     if (typeof window === 'undefined') return;
     localStorage.setItem('authToken', token);
     localStorage.setItem('user', JSON.stringify(user));
-    // Set a timestamp for when the login occurred (optional, for analytics)
     localStorage.setItem('authLoginTime', Date.now().toString());
   }
 
@@ -295,11 +287,11 @@ class AuthService {
     return !!this.getToken();
   }
 
-  // Remove token expiry check since tokens never expire
   isTokenExpired(): boolean {
-    return false; // Tokens never expire
+    return false;
   }
   
+  // ✅ FIXED: Proper header merging - user's custom headers always take precedence
   async authenticatedFetch(url: string, options: RequestInit = {}): Promise<Response> {
     const token = this.getToken();
     if (!token) {
@@ -311,13 +303,28 @@ class AuthService {
     }
 
     try {
+      // Start with Authorization header from getAuthHeaders()
+      const baseHeaders: Record<string, string> = this.getAuthHeaders();
+      
+      // Convert user's headers to a plain object
+      const userHeaders: Record<string, string> = {};
+      if (options.headers) {
+        const headersObj = new Headers(options.headers);
+        headersObj.forEach((value, key) => {
+          userHeaders[key] = value;
+        });
+      }
+      
+      // Merge: User headers override base headers (including Content-Type)
+      const finalHeaders = {
+        ...baseHeaders,
+        ...userHeaders,
+      };
+
       const response = await fetch(url, {
         ...options,
         credentials: 'include',
-        headers: {
-          ...this.getAuthHeaders(),
-          ...options.headers,
-        },
+        headers: finalHeaders,
       });
       
       if (response.status === 401) {
@@ -336,28 +343,17 @@ class AuthService {
     }
   }
 
-  /**
-   * Handle successful authentication from any source (email/password or Google OAuth)
-   * Centralized logic for post-authentication setup
-   */
   private handleAuthSuccess(token: string, user: User): void {
     this.setAuthData(token, user);
     this.invalidateAuthCache();
     this.cachedAuthStatus = true;
   }
 
-  /**
-   * Force refresh auth status (useful after login/logout)
-   */
   public forceAuthRefresh(): Promise<boolean> {
     this.invalidateAuthCache();
     return this.checkAuthStatus();
   }
 
-  /**
-   * Get cached auth status without making API call
-   * Useful for immediate UI decisions
-   */
   public getCachedAuthStatus(): boolean | null {
     const now = Date.now();
     if (now - this.lastAuthCheck < this.authCheckCacheTime) {
@@ -366,9 +362,6 @@ class AuthService {
     return null;
   }
 
-  /**
-   * Update user profile data in cache
-   */
   public updateUserData(userData: Partial<User>): void {
     const currentUser = this.getUser();
     if (currentUser) {
@@ -377,9 +370,6 @@ class AuthService {
     }
   }
 
-  /**
-   * Get how long the user has been logged in (optional utility)
-   */
   public getLoginDuration(): number | null {
     if (typeof window === 'undefined') return null;
     const loginTime = localStorage.getItem('authLoginTime');

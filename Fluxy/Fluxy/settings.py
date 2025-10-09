@@ -135,6 +135,8 @@ CORS_ALLOW_HEADERS = [
     'user-agent',
     'x-csrftoken',
     'x-requested-with',
+    'x-timezone',
+    'x-user-timezone'
 ]
 
 CORS_EXPOSE_HEADERS = [

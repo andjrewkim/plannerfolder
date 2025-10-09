@@ -54,7 +54,6 @@ interface UseFriendsReturn {
   loading: boolean;
   error: string | null;
   
-  // Actions
   fetchFriends: () => Promise<void>;
   fetchPendingRequests: () => Promise<void>;
   fetchAllFriendProfiles: () => Promise<void>;
@@ -64,10 +63,22 @@ interface UseFriendsReturn {
   declineFriendRequest: (requestId: number) => Promise<boolean>;
   removeFriend: (friendId: number) => Promise<boolean>;
   getUserProfile: (userId: number) => Promise<UserProfile | null>;
-  
-  // Utility
   clearError: () => void;
 }
+
+const getUserTimezone = (): string => {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone;
+  } catch (error) {
+    return 'UTC';
+  }
+};
+
+const getTimezoneHeaders = (): Record<string, string> => {
+  return {
+    'X-User-Timezone': getUserTimezone(),
+  };
+};
 
 export const useFriends = (autoRefreshInterval: number = 30000): UseFriendsReturn => {
   const [friends, setFriends] = useState<Friend[]>([]);
@@ -77,7 +88,6 @@ export const useFriends = (autoRefreshInterval: number = 30000): UseFriendsRetur
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Refs for preventing multiple fetches
   const hasInitializedRef = useRef(false);
   const fetchInProgressRef = useRef(false);
   const profileFetchInProgressRef = useRef(false);
@@ -87,12 +97,10 @@ export const useFriends = (autoRefreshInterval: number = 30000): UseFriendsRetur
   const clearError = () => setError(null);
 
   const handleError = (err: any, defaultMessage: string) => {
-    console.error(defaultMessage, err);
     const errorMessage = err?.response?.data?.error || err?.message || defaultMessage;
     setError(errorMessage);
   };
 
-  // Fetch friends list
   const fetchFriends = useCallback(async () => {
     if (fetchInProgressRef.current) return;
 
@@ -103,7 +111,10 @@ export const useFriends = (autoRefreshInterval: number = 30000): UseFriendsRetur
       
       const response = await authAPI.authenticatedFetch(
         `${process.env.NEXT_PUBLIC_API_URL}/api/friends/list/`,
-        { method: 'GET' }
+        { 
+          method: 'GET',
+          headers: getTimezoneHeaders(),
+        }
       );
 
       if (!response.ok) {
@@ -120,7 +131,6 @@ export const useFriends = (autoRefreshInterval: number = 30000): UseFriendsRetur
     }
   }, []);
 
-  // Fetch all friend profiles in a single batch call
   const fetchAllFriendProfiles = useCallback(async () => {
     if (profileFetchInProgressRef.current || friends.length === 0) return;
 
@@ -130,9 +140,13 @@ export const useFriends = (autoRefreshInterval: number = 30000): UseFriendsRetur
       clearError();
       
       const userIds = friends.map(f => f.id).join(',');
+      
       const response = await authAPI.authenticatedFetch(
         `${process.env.NEXT_PUBLIC_API_URL}/api/profiles/batch/?user_ids=${userIds}`,
-        { method: 'GET' }
+        { 
+          method: 'GET',
+          headers: getTimezoneHeaders(),
+        }
       );
 
       if (!response.ok) {
@@ -140,6 +154,7 @@ export const useFriends = (autoRefreshInterval: number = 30000): UseFriendsRetur
       }
 
       const profiles: UserProfile[] = await response.json();
+      
       const profileMap = new Map<number, UserProfile>();
       profiles.forEach(profile => {
         profileMap.set(profile.id, profile);
@@ -154,7 +169,6 @@ export const useFriends = (autoRefreshInterval: number = 30000): UseFriendsRetur
     }
   }, [friends]);
 
-  // Refresh profiles without blocking (useful for auto-refresh)
   const refreshFriendProfiles = useCallback(async () => {
     if (friends.length === 0 || profileFetchInProgressRef.current) return;
 
@@ -164,7 +178,10 @@ export const useFriends = (autoRefreshInterval: number = 30000): UseFriendsRetur
       const userIds = friends.map(f => f.id).join(',');
       const response = await authAPI.authenticatedFetch(
         `${process.env.NEXT_PUBLIC_API_URL}/api/profiles/batch/?user_ids=${userIds}`,
-        { method: 'GET' }
+        { 
+          method: 'GET',
+          headers: getTimezoneHeaders(),
+        }
       );
 
       if (!response.ok) return;
@@ -183,7 +200,6 @@ export const useFriends = (autoRefreshInterval: number = 30000): UseFriendsRetur
     }
   }, [friends]);
 
-  // Fetch pending friend requests (both received and sent)
   const fetchPendingRequests = useCallback(async () => {
     try {
       setLoading(true);
@@ -191,7 +207,10 @@ export const useFriends = (autoRefreshInterval: number = 30000): UseFriendsRetur
       
       const response = await authAPI.authenticatedFetch(
         `${process.env.NEXT_PUBLIC_API_URL}/api/friends/pending/`,
-        { method: 'GET' }
+        { 
+          method: 'GET',
+          headers: getTimezoneHeaders(),
+        }
       );
 
       if (!response.ok) {
@@ -208,7 +227,6 @@ export const useFriends = (autoRefreshInterval: number = 30000): UseFriendsRetur
     }
   }, []);
 
-  // Send friend request by email
   const sendFriendRequest = useCallback(async (email: string): Promise<boolean> => {
     try {
       setLoading(true);
@@ -219,6 +237,7 @@ export const useFriends = (autoRefreshInterval: number = 30000): UseFriendsRetur
         {
           method: 'POST',
           headers: {
+            ...getTimezoneHeaders(),
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({ email }),
@@ -240,7 +259,6 @@ export const useFriends = (autoRefreshInterval: number = 30000): UseFriendsRetur
     }
   }, [fetchPendingRequests]);
 
-  // Accept friend request
   const acceptFriendRequest = useCallback(async (requestId: number): Promise<boolean> => {
     try {
       setLoading(true);
@@ -251,6 +269,7 @@ export const useFriends = (autoRefreshInterval: number = 30000): UseFriendsRetur
         {
           method: 'POST',
           headers: {
+            ...getTimezoneHeaders(),
             'Content-Type': 'application/json',
           },
         }
@@ -275,7 +294,6 @@ export const useFriends = (autoRefreshInterval: number = 30000): UseFriendsRetur
     }
   }, [fetchFriends, fetchPendingRequests]);
 
-  // Decline friend request
   const declineFriendRequest = useCallback(async (requestId: number): Promise<boolean> => {
     try {
       setLoading(true);
@@ -286,6 +304,7 @@ export const useFriends = (autoRefreshInterval: number = 30000): UseFriendsRetur
         {
           method: 'POST',
           headers: {
+            ...getTimezoneHeaders(),
             'Content-Type': 'application/json',
           },
         }
@@ -306,7 +325,6 @@ export const useFriends = (autoRefreshInterval: number = 30000): UseFriendsRetur
     }
   }, [fetchPendingRequests]);
 
-  // Remove friend
   const removeFriend = useCallback(async (friendId: number): Promise<boolean> => {
     try {
       setLoading(true);
@@ -316,6 +334,7 @@ export const useFriends = (autoRefreshInterval: number = 30000): UseFriendsRetur
         `${process.env.NEXT_PUBLIC_API_URL}/api/friends/remove/${friendId}/`,
         {
           method: 'DELETE',
+          headers: getTimezoneHeaders(),
         }
       );
 
@@ -341,7 +360,6 @@ export const useFriends = (autoRefreshInterval: number = 30000): UseFriendsRetur
     }
   }, [fetchFriends]);
 
-  // Get user profile with stats (for individual lookups if needed)
   const getUserProfile = useCallback(async (userId: number): Promise<UserProfile | null> => {
     try {
       setLoading(true);
@@ -349,7 +367,10 @@ export const useFriends = (autoRefreshInterval: number = 30000): UseFriendsRetur
       
       const response = await authAPI.authenticatedFetch(
         `${process.env.NEXT_PUBLIC_API_URL}/api/profile/${userId}/`,
-        { method: 'GET' }
+        { 
+          method: 'GET',
+          headers: getTimezoneHeaders(),
+        }
       );
 
       if (!response.ok) {
@@ -366,13 +387,11 @@ export const useFriends = (autoRefreshInterval: number = 30000): UseFriendsRetur
     }
   }, []);
 
-  // Memoize friend IDs to prevent unnecessary effect triggers
   const friendIds = useMemo(() => 
     friends.map(f => f.id).sort().join(','),
     [friends]
   );
 
-  // Initial fetch on mount
   useEffect(() => {
     if (!hasInitializedRef.current) {
       hasInitializedRef.current = true;
@@ -381,7 +400,6 @@ export const useFriends = (autoRefreshInterval: number = 30000): UseFriendsRetur
     }
   }, [fetchFriends, fetchPendingRequests]);
 
-  // Fetch friend profiles when friends list changes
   useEffect(() => {
     if (friendIds && friendIds !== lastFriendIdsRef.current) {
       lastFriendIdsRef.current = friendIds;
@@ -393,7 +411,6 @@ export const useFriends = (autoRefreshInterval: number = 30000): UseFriendsRetur
     }
   }, [friendIds, friends.length, fetchAllFriendProfiles]);
 
-  // Auto-refresh friend profiles at regular intervals
   useEffect(() => {
     if (autoRefreshInterval > 0 && friends.length > 0) {
       if (autoRefreshTimerRef.current) {

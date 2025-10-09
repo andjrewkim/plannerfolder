@@ -100,6 +100,7 @@ class PendingFriendRequestsView(APIView):
 
 
 class UserProfileView(APIView):
+    """Fetch a single user profile with stats - TIMEZONE SAFE"""
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request, user_id):
@@ -111,12 +112,13 @@ class UserProfileView(APIView):
                 status=status.HTTP_404_NOT_FOUND
             )
         
-        serializer = UserProfileSerializer(user)
+        # CRITICAL FIX: Pass request context to serializer for timezone handling
+        serializer = UserProfileSerializer(user, context={'request': request})
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 
 class BatchUserProfileView(APIView):
-    """Fetch multiple user profiles in a single request"""
+    """Fetch multiple user profiles in a single request - TIMEZONE SAFE"""
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
@@ -150,8 +152,9 @@ class BatchUserProfileView(APIView):
         # Fetch users efficiently with prefetch
         users = CustomUser.objects.filter(id__in=user_ids).prefetch_related('friends')
         
-        # Serialize all users
-        serializer = UserProfileSerializer(users, many=True)
+        # CRITICAL FIX: Pass request context to serializer for timezone handling
+        # This ensures all friend profiles are calculated using the requesting user's timezone
+        serializer = UserProfileSerializer(users, many=True, context={'request': request})
         
         return Response(serializer.data, status=status.HTTP_200_OK)
 

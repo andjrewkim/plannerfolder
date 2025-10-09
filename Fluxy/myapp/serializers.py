@@ -16,58 +16,12 @@ from django.utils import timezone
 from datetime import datetime, date, time
 import pytz
 import json
+from .timezone_utils import (
+    get_user_timezone,
+    get_user_local_date,
+    parse_date_in_user_timezone
+)
 
-
-def get_user_timezone(request=None):
-    """
-    Centralized function to get user's timezone from request.
-    Fallback chain: HTTP header -> query param -> UTC
-    """
-    user_timezone_str = None
-    
-    if request:
-        # Check HTTP header first (sent by frontend)
-        user_timezone_str = request.META.get('HTTP_X_USER_TIMEZONE')
-        
-        # Fallback to query params
-        if not user_timezone_str:
-            user_timezone_str = request.GET.get('timezone')
-    
-    # Default to UTC if no timezone provided
-    if not user_timezone_str:
-        user_timezone_str = 'UTC'
-    
-    try:
-        return pytz.timezone(user_timezone_str)
-    except pytz.exceptions.UnknownTimeZoneError:
-        return pytz.UTC
-
-
-def get_user_local_date(request=None):
-    """
-    Get current date in user's timezone.
-    Returns a date object in the user's local timezone.
-    """
-    user_tz = get_user_timezone(request)
-    user_local_time = timezone.now().astimezone(user_tz)
-    return user_local_time.date()
-
-
-def naive_date_to_user_aware_datetime(date_obj, user_tz, time_obj=None):
-    """
-    Convert a naive date (and optional time) to an aware datetime in user's timezone.
-    If no time is provided, uses midnight (start of day).
-    """
-    if time_obj is None:
-        time_obj = time.min
-    
-    # Combine date and time
-    naive_dt = datetime.combine(date_obj, time_obj)
-    
-    # Localize to user's timezone
-    aware_dt = user_tz.localize(naive_dt)
-    
-    return aware_dt
 
 
 class CalendarEventSerializer(serializers.ModelSerializer):
@@ -289,6 +243,10 @@ class PlannerClassSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         validated_data['user'] = self.context['request'].user
         return super().create(validated_data)
+from rest_framework import serializers
+from django.db.models import Q, Count
+from .models import Assignment, PlannerClass, NoteTab, NoWorkDay, CustomUser, FriendRequest
+from .timezone_utils import parse_date_in_user_timezone, get_user_local_date
 
 
 class AssignmentSerializer(serializers.ModelSerializer):
@@ -299,7 +257,11 @@ class AssignmentSerializer(serializers.ModelSerializer):
 
     def validate_planner_class(self, value):
         """Ensure the planner_class belongs to the current user"""
-        if value.user != self.context['request'].user:
+        request = self.context.get('request')
+        if not request or not hasattr(request, 'user'):
+            raise serializers.ValidationError("Authentication required.")
+        
+        if value.user != request.user:
             raise serializers.ValidationError("You can only create assignments for your own classes.")
         return value
 
@@ -308,6 +270,33 @@ class AssignmentSerializer(serializers.ModelSerializer):
         if not value or not value.strip():
             raise serializers.ValidationError("Assignment title cannot be empty.")
         return value.strip()
+    
+    def validate_date(self, value):
+        """
+        Ensure date is parsed correctly in user's timezone.
+        This is CRITICAL for "today's assignments" queries to work correctly.
+        """
+        if value is None:
+            raise serializers.ValidationError("Date is required.")
+        
+        # Parse the date in user's timezone context
+        request = self.context.get('request')
+        if not request:
+            # If no request in context, log warning but continue with the value as-is
+            print("⚠️ WARNING: No request in AssignmentSerializer.validate_date context")
+            return value
+            
+        return parse_date_in_user_timezone(value, request)
+    
+    def to_representation(self, instance):
+        """
+        Override to ensure date is always returned in consistent ISO format
+        """
+        data = super().to_representation(instance)
+        # Ensure date is in YYYY-MM-DD format
+        if instance.date:
+            data['date'] = instance.date.isoformat()
+        return data
 
 
 class NoteTabSerializer(serializers.ModelSerializer):
@@ -322,8 +311,12 @@ class NoWorkDaySerializer(serializers.ModelSerializer):
         fields = ['id', 'planner_class', 'date']
 
     def create(self, validated_data):
+        request = self.context.get('request')
+        if not request or not hasattr(request, 'user'):
+            raise serializers.ValidationError("Authentication required.")
+            
         planner_class = validated_data['planner_class']
-        if planner_class.user != self.context['request'].user:
+        if planner_class.user != request.user:
             raise serializers.ValidationError("You can only create no-work days for your own classes.")
         return super().create(validated_data)
 
@@ -365,12 +358,16 @@ class SendFriendRequestSerializer(serializers.Serializer):
     email = serializers.EmailField(required=True)
     
     def validate_email(self, value):
+        request = self.context.get('request')
+        if not request or not hasattr(request, 'user'):
+            raise serializers.ValidationError("Authentication required.")
+        
         try:
             receiver = CustomUser.objects.get(email=value)
         except CustomUser.DoesNotExist:
             raise serializers.ValidationError("User with this email does not exist")
         
-        request_user = self.context['request'].user
+        request_user = request.user
         if receiver == request_user:
             raise serializers.ValidationError("Cannot send friend request to yourself")
         
@@ -398,9 +395,9 @@ class SendFriendRequestSerializer(serializers.Serializer):
 
 
 class UserProfileSerializer(serializers.ModelSerializer):
-    """Detailed user profile with assignment stats and friends - TIMEZONE SAFE"""
+    """Detailed user profile with assignment stats - TIMEZONE SAFE"""
+    
     name = serializers.SerializerMethodField()
-    friends = UserBasicSerializer(many=True, read_only=True)
     today_completion_percentage = serializers.SerializerMethodField()
     overall_completion_percentage = serializers.SerializerMethodField()
     total_assignments_today = serializers.SerializerMethodField()
@@ -415,13 +412,13 @@ class UserProfileSerializer(serializers.ModelSerializer):
             'today_completion_percentage', 'overall_completion_percentage',
             'total_assignments_today', 'completed_assignments_today',
             'total_assignments_overall', 'completed_assignments_overall',
-            'friends'
         ]
         read_only_fields = fields
     
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._stats_cache = {}
+        self._today_cache = None
     
     def get_name(self, obj):
         """Return full name if available, otherwise email username"""
@@ -432,22 +429,46 @@ class UserProfileSerializer(serializers.ModelSerializer):
         elif obj.last_name:
             return obj.last_name
         else:
-            return obj.email.split('@')[0]
+            return obj.email.split('@')[0] if obj.email else obj.username
+    
+    def _get_today(self):
+        """
+        Cache the user's local date to avoid recalculating.
+        CRITICAL FIX: Check if request exists before using it.
+        """
+        if self._today_cache is None:
+            request = self.context.get('request')
+            
+            if not request:
+                # IMPORTANT: Log this and provide detailed debugging info
+                print("=" * 80)
+                print("🚨 CRITICAL: UserProfileSerializer._get_today() called without request!")
+                print(f"   Context keys: {list(self.context.keys())}")
+                print(f"   Instance: {self.instance}")
+                print("   This will cause timezone calculations to default to UTC!")
+                print("=" * 80)
+                
+            self._today_cache = get_user_local_date(request)
+            
+        return self._today_cache
     
     def get_assignment_stats(self, user):
         """
-        Helper method to calculate assignment stats with caching.
+        Calculate assignment stats with caching.
         TIMEZONE SAFE: Uses user's local date from request timezone.
+        
+        The key is that we're comparing Assignment.date (naive date field) 
+        with today's date calculated in the user's timezone.
         """
         user_id = user.id
         if user_id in self._stats_cache:
             return self._stats_cache[user_id]
         
         # Get user's local date based on timezone from request
-        request = self.context.get('request')
-        today = get_user_local_date(request)
+        today = self._get_today()
         
-        # Query today's assignments (using date field, which is timezone-naive)
+        # Query today's assignments
+        # Assignment.date is a DateField (timezone-naive), so direct comparison works
         today_stats = Assignment.objects.filter(
             planner_class__user=user, 
             date=today
