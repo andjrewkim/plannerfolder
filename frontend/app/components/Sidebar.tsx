@@ -1,6 +1,6 @@
 // Sidebar.tsx - Modified to display tasks instead of today's schedule
 import React, { useEffect, useState, useRef, useCallback } from 'react';
-import EventForm from './EventForm';
+// import EventForm from './EventForm'; // COMMENTED OUT
 import FriendList from '../components/Friends/FriendList';
 import '../styles/container.css';
 import { authAPI } from '../../lib/auth';
@@ -25,13 +25,6 @@ interface EventData {
 interface SidebarProps {
   onEventChange?: () => void;
   refreshTrigger?: number;
-}
-
-interface SectionHeights {
-  eventForm: number;
-  friends: number;
-  tasks: number;
-  // classes: number; // COMMENTED OUT
 }
 
 const LAST_RESET_KEY = 'tasks_last_reset_date';
@@ -86,20 +79,6 @@ const Sidebar: React.FC<SidebarProps> = ({
   const isMountedRef = useRef<boolean>(true);
   const resetTimerRef = useRef<NodeJS.Timeout | null>(null);
   const refreshInProgressRef = useRef<boolean>(false);
-
-  // Section heights for resizing - Dynamic based on EventForm state
-  const [sectionHeights, setSectionHeights] = useState<SectionHeights>({
-    eventForm: 80, // Small initial height for just the textbox
-    friends: 400, // Takes most of the space initially
-    tasks: 200,
-    // classes: 300 // COMMENTED OUT
-  });
-  
-  const [activeSection, setActiveSection] = useState<string | null>(null);
-  const [isResizing, setIsResizing] = useState<boolean>(false);
-  const heightsRef = useRef<SectionHeights>(sectionHeights);
-  const startYRef = useRef<number>(0);
-  const startHeightRef = useRef<number>(0);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -270,88 +249,6 @@ const Sidebar: React.FC<SidebarProps> = ({
     }, 400);
   }, [deleteTask, deletingTasks]);
 
-  // Resize handlers
-  const startResize = useCallback((section: string) => (e: React.MouseEvent<HTMLDivElement>): void => {
-    e.preventDefault();
-    
-    setActiveSection(section);
-    setIsResizing(true);
-    
-    startYRef.current = e.clientY;
-    startHeightRef.current = heightsRef.current[section as keyof SectionHeights];
-    
-    const sections = ['eventForm', 'friends', 'tasks'];
-    const sectionIndex = sections.indexOf(section);
-    const nextSectionIndex = sectionIndex + 1;
-    const nextSection = nextSectionIndex < sections.length ? sections[nextSectionIndex] : null;
-    
-    document.body.classList.add('resizing');
-    
-    const handleMouseMove = (moveEvent: MouseEvent): void => {
-      const delta = moveEvent.clientY - startYRef.current;
-      let newSectionHeight = Math.max(120, startHeightRef.current + delta);
-      
-      if (nextSection) {
-        const nextSectionStartHeight = heightsRef.current[nextSection as keyof SectionHeights];
-        const nextSectionNewHeight = Math.max(120, nextSectionStartHeight - delta);
-        
-        if (nextSectionNewHeight < 120) {
-          newSectionHeight = startHeightRef.current + (nextSectionStartHeight - 120);
-        }
-        
-        const newHeights = {
-          ...heightsRef.current,
-          [section]: newSectionHeight,
-          [nextSection]: heightsRef.current[nextSection as keyof SectionHeights] - 
-                        (newSectionHeight - heightsRef.current[section as keyof SectionHeights])
-        };
-        
-        heightsRef.current = newHeights;
-        
-        const currentSection = document.querySelector(`.sidebar-section[data-section="${section}"]`) as HTMLElement;
-        const nextSectionEl = document.querySelector(`.sidebar-section[data-section="${nextSection}"]`) as HTMLElement;
-        
-        if (currentSection && nextSectionEl) {
-          currentSection.setAttribute('style', `height: ${newSectionHeight}px; min-height: 120px;`);
-          nextSectionEl.setAttribute('style', `height: ${newHeights[nextSection as keyof typeof newHeights]}px; min-height: 120px;`);
-        }
-      }
-    };
-    
-    const handleMouseUp = (): void => {
-      setActiveSection(null);
-      setIsResizing(false);
-      document.body.classList.remove('resizing');
-      setSectionHeights({...heightsRef.current});
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
-    };
-    
-    document.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('mouseup', handleMouseUp);
-  }, []);
-
-  // Calculate dynamic sizing to fit all classes without scrolling
-  const calculateClassDimensions = useCallback((containerHeight: number, classCount: number) => {
-    if (classCount === 0) return { padding: '4px 6px', fontSize: '14px' };
-    
-    const availableHeight = containerHeight - 8;
-    const heightPerClass = availableHeight / classCount;
-    const minContentHeight = 16;
-    const availablePaddingHeight = Math.max(0, heightPerClass - minContentHeight);
-    const verticalPadding = Math.max(1, Math.floor(availablePaddingHeight / 2));
-    
-    let fontSize = 14;
-    if (heightPerClass < 20) fontSize = 12;
-    else if (heightPerClass < 24) fontSize = 13;
-    else if (heightPerClass > 40) fontSize = 15;
-    
-    return {
-      padding: `${verticalPadding}px 6px`,
-      fontSize: `${fontSize}px`
-    };
-  }, []);
-
   // Reset timer effect with proper cleanup
   useEffect(() => {
     if (!authAPI.isAuthenticated() || !initialized) return;
@@ -438,18 +335,6 @@ const Sidebar: React.FC<SidebarProps> = ({
     };
   }, [initialized]);
 
-  // Cleanup resize effect
-  useEffect(() => {
-    return () => {
-      document.body.classList.remove('resizing');
-    };
-  }, []);
-
-  // Update heights ref
-  useEffect(() => {
-    heightsRef.current = sectionHeights;
-  }, [sectionHeights]);
-
   // Filter regular tasks
   const regularTasks = tasks.filter((task: TaskData) => 
     !task.date || task.date !== "longterm"
@@ -462,75 +347,35 @@ const Sidebar: React.FC<SidebarProps> = ({
     <div className="app-layout">
       <aside
         className="app-sidebar bg-[hsl(var(--background))] text-[hsl(var(--foreground))]"
-        style={{ overflowY: 'auto', maxHeight: '100vh' }}
+        style={{ display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden' }}
       >
 
-        {/* ===== EVENT FORM SECTION ===== */}
-        <section 
-          className={`sidebar-section ${activeSection === 'eventForm' ? 'resizing' : ''}`}
-          data-section="eventForm"
-          style={{ 
-            marginTop: '10px', 
-            height: `${sectionHeights.eventForm}px`,
-            minHeight: '80px',
-            flex: 'none',
-            transition: isResizing ? 'none' : 'height 0.2s ease-out'
-          }}
-        >
+        {/* ===== EVENT FORM SECTION - COMMENTED OUT ===== */}
+        {/*
+        <section style={{ flex: '0 0 auto' }}>
           <h3 className="section-title">Create Event</h3>
-          <div className="section-content" style={{ overflow: 'hidden' }}>
+          <div className="section-content">
             <EventForm 
               setResult={setEventResults} 
               setError={setEventError}
               onEventResult={handleEventResult}
             />
           </div>
-          <div 
-            className={`resize-handle ${activeSection === 'eventForm' ? 'active' : ''}`}
-            onMouseDown={startResize('eventForm')}
-          />
         </section>
+        */}
         {/* ===== END EVENT FORM SECTION ===== */}
 
         {/* ===== FRIENDS SECTION ===== */}
-        <section 
-          className={`sidebar-section ${activeSection === 'friends' ? 'resizing' : ''}`}
-          data-section="friends"
-          style={{ 
-            height: `${sectionHeights.friends}px`,
-            minHeight: '120px',
-            flex: 'none',
-            transition: isResizing ? 'none' : 'height 0.2s ease-out'
-          }}
-        >
+        <section style={{ flex: '2', minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden', marginTop: '8px' }}>
           <h3 className="section-title">Friends</h3>
-          <div 
-            className="section-content" 
-            style={{ 
-              height: `${sectionHeights.friends - 60}px`,
-              overflow: 'hidden'
-            }}
-          >
+          <div className="section-content" style={{ flex: 1, overflow: 'auto' }}>
             <FriendList />
           </div>
-          <div 
-            className={`resize-handle ${activeSection === 'friends' ? 'active' : ''}`}
-            onMouseDown={startResize('friends')}
-          />
         </section>
         {/* ===== END FRIENDS SECTION ===== */}
 
         {/* ===== TASKS SECTION ===== */}
-        <section 
-          className={`sidebar-section ${activeSection === 'tasks' ? 'resizing' : ''}`}
-          data-section="tasks"
-          style={{ 
-            height: `${sectionHeights.tasks}px`,
-            minHeight: '120px',
-            flex: 'none',
-            transition: isResizing ? 'none' : 'height 0.2s ease-out'
-          }}
-        >
+        <section style={{ flex: '1', minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
           <h3 className="section-title">
             Tasks
             {isResettingTasks && (
@@ -547,10 +392,7 @@ const Sidebar: React.FC<SidebarProps> = ({
           <div 
             className="section-content clickable-area"
             onClick={handleTaskAreaClick}
-            style={{ 
-              height: `${sectionHeights.tasks - 60}px`,
-              overflow: 'hidden'
-            }}
+            style={{ flex: 1, overflow: 'auto' }}
           >
             {!initialized ? (
               <div className="loading-message"></div>
@@ -574,14 +416,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                             className="task-checkbox"
                             disabled={deletingTasks.has(task.id || '') || isResettingTasks}
                           />
-                          <span 
-                            className="task-text"
-                            style={{
-                              color: 'var(--foreground, #000)',
-                              fontSize: '14px',
-                              lineHeight: '1.4'
-                            }}
-                          >
+                          <span className="task-text">
                             {task.event}
                           </span>
                         </label>
@@ -606,12 +441,6 @@ const Sidebar: React.FC<SidebarProps> = ({
                       placeholder="Enter new task..."
                       className="task-input"
                       disabled={isCreatingTask || isResettingTasks}
-                      style={{
-                        width: '100%',
-                        padding: '4px',
-                        border: '1px solid hsl(var(--border)/0.5)',
-                        borderRadius: '4px',
-                      }}
                     />
                     <div className="task-form-buttons" style={{ marginTop: '8px' }}>
                       <button 
@@ -619,15 +448,6 @@ const Sidebar: React.FC<SidebarProps> = ({
                         onClick={(e) => handleCreateTask(e as any)}
                         className="btn btn-save"
                         disabled={isCreatingTask || !newTaskText.trim() || isResettingTasks}
-                        style={{
-                          padding: '4px 12px',
-                          marginRight: '3px',
-                          backgroundColor: (isCreatingTask || isResettingTasks) ? '#ccc' : '#007bff',
-                          color: 'white',
-                          border: 'none',
-                          borderRadius: '4px',
-                          cursor: (isCreatingTask || isResettingTasks) ? 'not-allowed' : 'pointer'
-                        }}
                       >
                         {isCreatingTask ? 'Saving...' : 'Save'}
                       </button>
@@ -636,36 +456,18 @@ const Sidebar: React.FC<SidebarProps> = ({
                         className="btn btn-cancel"
                         onClick={handleCancelTask}
                         disabled={isCreatingTask || isResettingTasks}
-                        style={{
-                          padding: '0px 10px',
-                          backgroundColor: '#6c757d',
-                          color: 'white',
-                          border: 'none',
-                          borderRadius: '4px',
-                          cursor: (isCreatingTask || isResettingTasks) ? 'not-allowed' : 'pointer'
-                        }}
                       >
                         Cancel
                       </button>
                     </div>
                     {localError && (
-                      <div className="error-message" style={{ 
-                        color: 'red', 
-                        fontSize: '12px', 
-                        marginTop: '4px' 
-                      }}>
+                      <div className="error-message">
                         {localError}
                       </div>
                     )}
                   </div>
                 ) : (
-                  <div className="empty-state" style={{ 
-                    padding: '20px', 
-                    textAlign: 'center', 
-                    color: '#666',
-                    cursor: isResettingTasks ? 'not-allowed' : 'pointer',
-                    opacity: isResettingTasks ? 0.5 : 1
-                  }}>
+                  <div className="empty-state">
                     {regularTasks.length === 0 ? (
                       isResettingTasks ? 'Resetting tasks...' : 'Click here to add tasks'
                     ) : (
@@ -681,24 +483,9 @@ const Sidebar: React.FC<SidebarProps> = ({
 
         {/* ===== CLASSES SECTION - COMMENTED OUT ===== */}
         {/*
-        <section 
-          className="sidebar-section"
-          data-section="classes"
-          style={{ 
-            height: `${sectionHeights.classes}px`,
-            minHeight: '120px',
-            transition: isResizing ? 'none' : 'height 0.2s ease-out'
-          }}
-        >
+        <section style={{ flex: '1', minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
           <h3 className="section-title">My Classes</h3>
-          <div 
-            className="section-content"
-            style={{ 
-              height: `${sectionHeights.classes - 60}px`,
-              padding: '4px 8px 4px 8px',
-              overflow: 'hidden'
-            }}
-          >
+          <div className="section-content" style={{ flex: 1, overflow: 'auto' }}>
             {plannerLoading ? (
               <div className="loading-message"></div>
             ) : plannerError ? (
@@ -706,81 +493,18 @@ const Sidebar: React.FC<SidebarProps> = ({
             ) : !plannerInitialized ? (
               <div className="loading-message"></div>
             ) : classes && classes.length > 0 ? (
-              <div className="classes-list" style={{ 
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '1px',
-                height: '100%'
-              }}>
+              <div className="classes-list">
                 {classes
                   .sort((a, b) => a.order - b.order)
-                  .map((plannerClass: PlannerClass, index) => {
-                    const dimensions = calculateClassDimensions(sectionHeights.classes - 68, classes.length);
-                    
-                    return (
-                      <div
-                        key={plannerClass.id}
-                        className="class-item"
-                        style={{
-                          padding: dimensions.padding,
-                          backgroundColor: 'var(--muted, #f8f9fa)',
-                          borderRadius: '3px',
-                          color: 'var(--foreground, #000)',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '6px',
-                          transition: 'background-color 0.1s ease',
-                          flex: 1,
-                          minHeight: 0
-                        }}
-                        onMouseEnter={(e) => {
-                          e.currentTarget.style.backgroundColor = 'var(--accent, #e9ecef)';
-                        }}
-                        onMouseLeave={(e) => {
-                          e.currentTarget.style.backgroundColor = 'var(--muted, #f8f9fa)';
-                        }}
-                      >
-                        <span 
-                          className="class-number"
-                          style={{
-                            fontSize: dimensions.fontSize === '15px' ? '13px' : 
-                                     dimensions.fontSize === '14px' ? '12px' : 
-                                     dimensions.fontSize === '13px' ? '11px' : '10px',
-                            color: 'var(--muted-foreground, #6c757d)',
-                            fontWeight: '600',
-                            minWidth: '12px',
-                            textAlign: 'center'
-                          }}
-                        >
-                          {index + 1}
-                        </span>
-                        <span 
-                          className="class-name"
-                          style={{
-                            fontSize: dimensions.fontSize,
-                            fontWeight: '500',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            whiteSpace: 'nowrap',
-                            flex: 1,
-                            lineHeight: '1.2'
-                          }}
-                        >
-                          {plannerClass.name}
-                        </span>
-                      </div>
-                    );
-                  })}
+                  .map((plannerClass: PlannerClass, index) => (
+                    <div key={plannerClass.id} className="class-item">
+                      <span className="class-number">{index + 1}</span>
+                      <span className="class-name">{plannerClass.name}</span>
+                    </div>
+                  ))}
               </div>
             ) : (
-              <div className="empty-state" style={{ 
-                padding: '8px 6px', 
-                textAlign: 'center', 
-                color: '#999',
-                fontSize: '12px'
-              }}>
-                No classes
-              </div>
+              <div className="empty-state">No classes</div>
             )}
           </div>
         </section>

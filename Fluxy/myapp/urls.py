@@ -62,7 +62,8 @@ from .views_friends import (
     PendingFriendRequestsView,
     UserProfileView,
     MyFriendsView,
-    RemoveFriendView
+    RemoveFriendView,
+    BatchUserProfileView
 )
 
 # Friend system URLs
@@ -75,4 +76,6 @@ urlpatterns += [
     path('api/friends/list/', MyFriendsView.as_view(), name='my-friends'),
     path('api/friends/remove/<int:friend_id>/', RemoveFriendView.as_view(), name='remove-friend'),
     path('api/profile/<int:user_id>/', UserProfileView.as_view(), name='user-profile'),
+    path('api/profiles/batch/', BatchUserProfileView.as_view(), name='batch-user-profiles'),  # NEW
+
 ]

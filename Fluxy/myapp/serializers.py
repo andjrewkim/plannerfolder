@@ -1,11 +1,73 @@
-# serializers.py
 from rest_framework import serializers
-from .models import CalendarEvent, TodoTask, CustomUser
+from .models import (
+    CalendarEvent, 
+    TodoTask, 
+    CustomUser, 
+    UserSettings, 
+    PlannerClass, 
+    Assignment,
+    NoteTab,
+    NoWorkDay,
+    FriendRequest
+)
 from django.core.exceptions import ValidationError
+from django.db.models import Count, Q
+from django.utils import timezone
+from datetime import datetime, date, time
+import pytz
 import json
-from .models import UserSettings
-from .models import PlannerClass, Assignment
 
+
+def get_user_timezone(request=None):
+    """
+    Centralized function to get user's timezone from request.
+    Fallback chain: HTTP header -> query param -> UTC
+    """
+    user_timezone_str = None
+    
+    if request:
+        # Check HTTP header first (sent by frontend)
+        user_timezone_str = request.META.get('HTTP_X_USER_TIMEZONE')
+        
+        # Fallback to query params
+        if not user_timezone_str:
+            user_timezone_str = request.GET.get('timezone')
+    
+    # Default to UTC if no timezone provided
+    if not user_timezone_str:
+        user_timezone_str = 'UTC'
+    
+    try:
+        return pytz.timezone(user_timezone_str)
+    except pytz.exceptions.UnknownTimeZoneError:
+        return pytz.UTC
+
+
+def get_user_local_date(request=None):
+    """
+    Get current date in user's timezone.
+    Returns a date object in the user's local timezone.
+    """
+    user_tz = get_user_timezone(request)
+    user_local_time = timezone.now().astimezone(user_tz)
+    return user_local_time.date()
+
+
+def naive_date_to_user_aware_datetime(date_obj, user_tz, time_obj=None):
+    """
+    Convert a naive date (and optional time) to an aware datetime in user's timezone.
+    If no time is provided, uses midnight (start of day).
+    """
+    if time_obj is None:
+        time_obj = time.min
+    
+    # Combine date and time
+    naive_dt = datetime.combine(date_obj, time_obj)
+    
+    # Localize to user's timezone
+    aware_dt = user_tz.localize(naive_dt)
+    
+    return aware_dt
 
 
 class CalendarEventSerializer(serializers.ModelSerializer):
@@ -49,7 +111,6 @@ class CalendarEventSerializer(serializers.ModelSerializer):
         ]
 
     def create(self, validated_data):
-        # Ensure the user is set from the request context
         request = self.context.get('request')
         if request and hasattr(request, 'user'):
             validated_data['user'] = request.user
@@ -61,17 +122,12 @@ class CalendarEventSerializer(serializers.ModelSerializer):
             return []
         if not isinstance(value, list):
             return []
-        # Convert all items to strings and filter out None values
         return [str(item) for item in value if item is not None]
 
     def to_internal_value(self, data):
         """Transform incoming data to match serializer field names"""
-        print(f"DEBUG - Raw incoming data: {data}")
-        print(f"DEBUG - Data type: {type(data)}")
-        
-        # Handle QueryDict by converting to regular dict and extracting single values
+        # Handle QueryDict by converting to regular dict
         if hasattr(data, 'getlist'):
-            # This is a QueryDict, extract the actual values
             new_data = {}
             for key, value_list in data.lists():
                 if len(value_list) == 1:
@@ -84,21 +140,16 @@ class CalendarEventSerializer(serializers.ModelSerializer):
         else:
             data = dict(data)
         
-        # DEBUG: Print the processed data
-        #print(f"DEBUG - Processed data: {data}")
-        #print(f"DEBUG - Subcategories after QueryDict processing: {data.get('subcategories')}")
-        
         # Map 'type' to 'event_type' if it exists
         if 'type' in data:
             data['event_type'] = str(data.pop('type')) if data['type'] is not None else None
         
-        # Handle subcategories properly - fix character parsing issue
+        # Handle subcategories properly
         if 'subcategories' in data:
             subcats = data['subcategories']
             if subcats is None or subcats == '':
                 data['subcategories'] = []
             elif isinstance(subcats, str):
-                # Try to parse as JSON first, then fall back to comma-separated
                 try:
                     parsed = json.loads(subcats)
                     if isinstance(parsed, list):
@@ -106,13 +157,9 @@ class CalendarEventSerializer(serializers.ModelSerializer):
                     else:
                         data['subcategories'] = []
                 except (json.JSONDecodeError, TypeError):
-                    # Handle comma-separated strings
                     data['subcategories'] = [s.strip() for s in subcats.split(',') if s.strip()]
             elif isinstance(subcats, list):
-                # Check if it's a list of characters (parsing issue)
                 if len(subcats) > 0 and all(len(str(item)) == 1 for item in subcats):
-                    # This looks like a string that was parsed as individual characters
-                    # Join them back and try to parse as JSON
                     joined = ''.join(subcats)
                     try:
                         parsed = json.loads(joined)
@@ -123,11 +170,9 @@ class CalendarEventSerializer(serializers.ModelSerializer):
                     except (json.JSONDecodeError, TypeError):
                         data['subcategories'] = []
                 else:
-                    # Handle normal list processing
                     cleaned_subcats = []
                     for item in subcats:
                         if isinstance(item, list):
-                            # Flatten nested lists
                             cleaned_subcats.extend([str(subitem).strip() for subitem in item if subitem is not None and str(subitem).strip()])
                         elif item is not None and str(item).strip():
                             cleaned_subcats.append(str(item).strip())
@@ -143,11 +188,8 @@ class CalendarEventSerializer(serializers.ModelSerializer):
             if recurrence == 'null' or recurrence is None or recurrence == '':
                 data['recurrence_pattern'] = None
             elif isinstance(recurrence, str):
-                # Keep the original iCal format string as-is
                 data['recurrence_pattern'] = recurrence.strip()
-                print(f"DEBUG - Keeping iCal format: {recurrence}")
             else:
-                # If it's not a string, convert to string or set to None
                 data['recurrence_pattern'] = str(recurrence) if recurrence else None
         
         # Clean up any fields that shouldn't be in the serializer
@@ -155,61 +197,36 @@ class CalendarEventSerializer(serializers.ModelSerializer):
         for field in fields_to_remove:
             data.pop(field, None)
         
-        print(f"DEBUG - Final data before validation: {data}")
-        
-        try:
-            result = super().to_internal_value(data)
-            return result
-        except Exception as e:
-            print(f"DEBUG - Validation failed: {e}")
-            print(f"DEBUG - Exception type: {type(e)}")
-            raise
+        return super().to_internal_value(data)
 
     def validate_recurrence_pattern(self, value):
-        # If the value is None, return None (no recurrence)
         if value is None or value == '' or value == 'null':
             return None
         
         try:
-            # Convert to string and strip whitespace
             if not isinstance(value, str):
                 value = str(value)
             
             value = value.strip()
             
-            # Handle special case of "null" string
             if value.lower() == 'null' or value == '':
                 return None
             
-            # Validate iCal format - should start with FREQ=
             if not value.startswith('FREQ='):
                 raise ValidationError("Recurrence pattern must be in iCal format starting with 'FREQ='")
             
-            # Basic validation of frequency values
             freq_part = value.split(';')[0].replace('FREQ=', '').upper()
             valid_frequencies = ['DAILY', 'WEEKLY', 'MONTHLY', 'YEARLY']
             
             if freq_part not in valid_frequencies:
                 raise ValidationError(f"Invalid frequency. Must be one of: {', '.join(valid_frequencies)}")
             
-            print(f"DEBUG - Validated iCal recurrence pattern: {value}")
             return value
 
         except Exception as e:
             if isinstance(e, ValidationError):
                 raise
             raise ValidationError(f"Invalid recurrence pattern: {str(e)}")
-
-    def validate(self, data):
-        """Add overall validation with debug info"""
-        #print(f"DEBUG - Final validation of data: {data}")
-        try:
-            result = super().validate(data)
-            return result
-        except Exception as e:
-            print(f"DEBUG - Overall validation error: {e}")
-            print(f"DEBUG - Error details: {str(e)}")
-            raise
 
 
 class TodoTaskSerializer(serializers.ModelSerializer):
@@ -236,8 +253,8 @@ class TodoTaskSerializer(serializers.ModelSerializer):
         if instance.user != self.context['request'].user:
             raise serializers.ValidationError("You can only update your own tasks")
         return super().update(instance, validated_data)
-    
-    
+
+
 class UserSettingsSerializer(serializers.ModelSerializer):
     
     class Meta:
@@ -261,9 +278,6 @@ class UserSettingsSerializer(serializers.ModelSerializer):
         if value not in valid_choices:
             raise serializers.ValidationError(f"Invalid choice. Must be one of: {valid_choices}")
         return value
-    
-    
-    from .models import PlannerClass, Assignment
 
 
 class PlannerClassSerializer(serializers.ModelSerializer):
@@ -275,6 +289,7 @@ class PlannerClassSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         validated_data['user'] = self.context['request'].user
         return super().create(validated_data)
+
 
 class AssignmentSerializer(serializers.ModelSerializer):
     class Meta:
@@ -294,16 +309,12 @@ class AssignmentSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Assignment title cannot be empty.")
         return value.strip()
 
-from .models import NoteTab
 
 class NoteTabSerializer(serializers.ModelSerializer):
     class Meta:
         model = NoteTab
         fields = ['id', 'title', 'content', 'order']
-        
-        
-        
-from .models import NoWorkDay
+
 
 class NoWorkDaySerializer(serializers.ModelSerializer):
     class Meta:
@@ -311,26 +322,31 @@ class NoWorkDaySerializer(serializers.ModelSerializer):
         fields = ['id', 'planner_class', 'date']
 
     def create(self, validated_data):
-        # Ensure the planner_class belongs to the authenticated user
         planner_class = validated_data['planner_class']
         if planner_class.user != self.context['request'].user:
             raise serializers.ValidationError("You can only create no-work days for your own classes.")
         return super().create(validated_data)
 
 
-
-
-
-
-from .models import CustomUser, FriendRequest, Assignment
-from django.db.models import Count, Q
-
 class UserBasicSerializer(serializers.ModelSerializer):
     """Basic user info for friend lists and requests"""
+    name = serializers.SerializerMethodField()
+    
     class Meta:
         model = CustomUser
-        fields = ['id', 'username', 'email']
-        read_only_fields = ['id', 'username', 'email']
+        fields = ['id', 'username', 'email', 'name', 'first_name', 'last_name']
+        read_only_fields = ['id', 'username', 'email', 'name', 'first_name', 'last_name']
+    
+    def get_name(self, obj):
+        """Return full name if available, otherwise email username"""
+        if obj.first_name and obj.last_name:
+            return f"{obj.first_name} {obj.last_name}"
+        elif obj.first_name:
+            return obj.first_name
+        elif obj.last_name:
+            return obj.last_name
+        else:
+            return obj.email.split('@')[0]
 
 
 class FriendRequestSerializer(serializers.ModelSerializer):
@@ -349,22 +365,18 @@ class SendFriendRequestSerializer(serializers.Serializer):
     email = serializers.EmailField(required=True)
     
     def validate_email(self, value):
-        # Check if user exists
         try:
             receiver = CustomUser.objects.get(email=value)
         except CustomUser.DoesNotExist:
             raise serializers.ValidationError("User with this email does not exist")
         
-        # Check if trying to add self
         request_user = self.context['request'].user
         if receiver == request_user:
             raise serializers.ValidationError("Cannot send friend request to yourself")
         
-        # Check if already friends
         if receiver in request_user.friends.all():
             raise serializers.ValidationError("Already friends with this user")
         
-        # Check if request already exists (in either direction)
         if FriendRequest.objects.filter(
             Q(sender=request_user, receiver=receiver) | Q(sender=receiver, receiver=request_user),
             accepted=False
@@ -386,7 +398,8 @@ class SendFriendRequestSerializer(serializers.Serializer):
 
 
 class UserProfileSerializer(serializers.ModelSerializer):
-    """Detailed user profile with assignment stats and friends"""
+    """Detailed user profile with assignment stats and friends - TIMEZONE SAFE"""
+    name = serializers.SerializerMethodField()
     friends = UserBasicSerializer(many=True, read_only=True)
     today_completion_percentage = serializers.SerializerMethodField()
     overall_completion_percentage = serializers.SerializerMethodField()
@@ -398,7 +411,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = CustomUser
         fields = [
-            'id', 'username', 'email', 'created_at',
+            'id', 'username', 'email', 'name', 'first_name', 'last_name', 'created_at',
             'today_completion_percentage', 'overall_completion_percentage',
             'total_assignments_today', 'completed_assignments_today',
             'total_assignments_overall', 'completed_assignments_overall',
@@ -406,10 +419,35 @@ class UserProfileSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = fields
     
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._stats_cache = {}
+    
+    def get_name(self, obj):
+        """Return full name if available, otherwise email username"""
+        if obj.first_name and obj.last_name:
+            return f"{obj.first_name} {obj.last_name}"
+        elif obj.first_name:
+            return obj.first_name
+        elif obj.last_name:
+            return obj.last_name
+        else:
+            return obj.email.split('@')[0]
+    
     def get_assignment_stats(self, user):
-        """Helper method to calculate assignment stats"""
-        today = timezone.now().date()
+        """
+        Helper method to calculate assignment stats with caching.
+        TIMEZONE SAFE: Uses user's local date from request timezone.
+        """
+        user_id = user.id
+        if user_id in self._stats_cache:
+            return self._stats_cache[user_id]
         
+        # Get user's local date based on timezone from request
+        request = self.context.get('request')
+        today = get_user_local_date(request)
+        
+        # Query today's assignments (using date field, which is timezone-naive)
         today_stats = Assignment.objects.filter(
             planner_class__user=user, 
             date=today
@@ -418,6 +456,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
             completed=Count('id', filter=Q(completed=True))
         )
         
+        # Query all assignments
         overall_stats = Assignment.objects.filter(
             planner_class__user=user
         ).aggregate(
@@ -425,22 +464,33 @@ class UserProfileSerializer(serializers.ModelSerializer):
             completed=Count('id', filter=Q(completed=True))
         )
         
-        return {
-            'today': today_stats,
-            'overall': overall_stats
+        stats = {
+            'today': {
+                'total': today_stats['total'] or 0,
+                'completed': today_stats['completed'] or 0
+            },
+            'overall': {
+                'total': overall_stats['total'] or 0,
+                'completed': overall_stats['completed'] or 0
+            }
         }
+        
+        # Cache the result
+        self._stats_cache[user_id] = stats
+        
+        return stats
     
     def get_today_completion_percentage(self, obj):
         stats = self.get_assignment_stats(obj)
         total = stats['today']['total']
         completed = stats['today']['completed']
-        return int((completed / total) * 100) if total else 0
+        return int((completed / total) * 100) if total > 0 else 0
     
     def get_overall_completion_percentage(self, obj):
         stats = self.get_assignment_stats(obj)
         total = stats['overall']['total']
         completed = stats['overall']['completed']
-        return int((completed / total) * 100) if total else 0
+        return int((completed / total) * 100) if total > 0 else 0
     
     def get_total_assignments_today(self, obj):
         stats = self.get_assignment_stats(obj)

@@ -165,7 +165,7 @@
   padding: 4px 6px;
   border: 1px solid hsl(var(--primary)/0.3);
   border-radius: 4px;
-  font-size: clamp(10px, 1.1vw, 12px);
+  font-size: 12px;
   background: hsl(var(--input));
   color: hsl(var(--foreground));
   outline: none;
@@ -193,7 +193,7 @@
   padding: 8px 10px;
   border-bottom: 1px solid hsl(var(--border) / 0.35);
   transition: background-color 0.15s ease;
-  background: hsl(var(--calendar-background));
+  background: hsl(var(--sidebar));
 }
 
 .class-item:hover {
@@ -426,7 +426,7 @@
 }
 
 .assignment-cell {
-  background: hsl(var(--calendar-background));
+  background: hsl(var(--sidebar));
   padding: 2px;
   display: flex;
   flex-direction: column;
@@ -443,7 +443,7 @@
 }
 
 .assignment-cell.today-cell {
-  background: hsl(var(--sidebar));
+  background: hsl(var(--calendar-background));
   border-left: 1px solid hsl(var(--accent) / 0.12);
   border-right: 1px solid hsl(var(--border) / 0.35);
   box-shadow: inset 0 0 15px hsl(var(--accent) / 0.015);
@@ -470,13 +470,14 @@
   background: hsl(var(--muted) / 0.75);
   border: 1px solid hsl(var(--border) / 0.1);
   transition: all 0.2s ease;
-  min-height: 24px;
+  min-height: 18px !important;  /* Force smaller height */
   width: 99%;
   max-width: 100%;
   box-sizing: border-box;
   position: relative;
   overflow: hidden;
   margin-bottom: 1px;
+  padding: 2px 3px !important;  /* Force vertical padding */
 }
 
 .today-cell .assignment-item {
@@ -502,10 +503,10 @@
 }
 
 .assignment-title {
-  font-size: clamp(13px, 1.4vw, 13px);
+  font-size: 5;
   color: hsl(var(--foreground));
   flex: 1;
-  line-height: 1.25;
+  line-height: 1.2 !important;
   transition: all 0.15s ease;
   word-wrap: break-word;
   overflow-wrap: break-word;
@@ -544,13 +545,13 @@
 .assignment-edit-input {
   flex: 1;
   background: none;
-  font-size: clamp(13px, 1.4vw, 13px);
+  font-size: 14px;
   color: hsl(var(--foreground));
   padding: 0;
   outline: none;
   width: 100%;
   min-width: 0;
-  line-height: 1.3;
+  line-height: 1.2 !important;
   word-wrap: break-word;
   resize: none;
   padding-right: 12px;

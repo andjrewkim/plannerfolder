@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { authAPI } from '../../lib/auth';
 
 export interface Friend {
@@ -48,6 +48,7 @@ interface MyFriendsResponse {
 
 interface UseFriendsReturn {
   friends: Friend[];
+  friendProfiles: Map<number, UserProfile>;
   pendingRequests: FriendRequest[];
   sentRequests: FriendRequest[];
   loading: boolean;
@@ -56,6 +57,8 @@ interface UseFriendsReturn {
   // Actions
   fetchFriends: () => Promise<void>;
   fetchPendingRequests: () => Promise<void>;
+  fetchAllFriendProfiles: () => Promise<void>;
+  refreshFriendProfiles: () => Promise<void>;
   sendFriendRequest: (email: string) => Promise<boolean>;
   acceptFriendRequest: (requestId: number) => Promise<boolean>;
   declineFriendRequest: (requestId: number) => Promise<boolean>;
@@ -66,8 +69,9 @@ interface UseFriendsReturn {
   clearError: () => void;
 }
 
-export const useFriends = (): UseFriendsReturn => {
+export const useFriends = (autoRefreshInterval: number = 30000): UseFriendsReturn => {
   const [friends, setFriends] = useState<Friend[]>([]);
+  const [friendProfiles, setFriendProfiles] = useState<Map<number, UserProfile>>(new Map());
   const [pendingRequests, setPendingRequests] = useState<FriendRequest[]>([]);
   const [sentRequests, setSentRequests] = useState<FriendRequest[]>([]);
   const [loading, setLoading] = useState(false);
@@ -76,6 +80,9 @@ export const useFriends = (): UseFriendsReturn => {
   // Refs for preventing multiple fetches
   const hasInitializedRef = useRef(false);
   const fetchInProgressRef = useRef(false);
+  const profileFetchInProgressRef = useRef(false);
+  const autoRefreshTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const lastFriendIdsRef = useRef<string>('');
 
   const clearError = () => setError(null);
 
@@ -87,10 +94,7 @@ export const useFriends = (): UseFriendsReturn => {
 
   // Fetch friends list
   const fetchFriends = useCallback(async () => {
-    if (fetchInProgressRef.current) {
-      console.log('Fetch already in progress, skipping...');
-      return;
-    }
+    if (fetchInProgressRef.current) return;
 
     try {
       fetchInProgressRef.current = true;
@@ -115,6 +119,69 @@ export const useFriends = (): UseFriendsReturn => {
       fetchInProgressRef.current = false;
     }
   }, []);
+
+  // Fetch all friend profiles in a single batch call
+  const fetchAllFriendProfiles = useCallback(async () => {
+    if (profileFetchInProgressRef.current || friends.length === 0) return;
+
+    try {
+      profileFetchInProgressRef.current = true;
+      setLoading(true);
+      clearError();
+      
+      const userIds = friends.map(f => f.id).join(',');
+      const response = await authAPI.authenticatedFetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/profiles/batch/?user_ids=${userIds}`,
+        { method: 'GET' }
+      );
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch friend profiles: ${response.status}`);
+      }
+
+      const profiles: UserProfile[] = await response.json();
+      const profileMap = new Map<number, UserProfile>();
+      profiles.forEach(profile => {
+        profileMap.set(profile.id, profile);
+      });
+      
+      setFriendProfiles(profileMap);
+    } catch (err) {
+      handleError(err, 'Failed to fetch friend profiles');
+    } finally {
+      setLoading(false);
+      profileFetchInProgressRef.current = false;
+    }
+  }, [friends]);
+
+  // Refresh profiles without blocking (useful for auto-refresh)
+  const refreshFriendProfiles = useCallback(async () => {
+    if (friends.length === 0 || profileFetchInProgressRef.current) return;
+
+    try {
+      profileFetchInProgressRef.current = true;
+      
+      const userIds = friends.map(f => f.id).join(',');
+      const response = await authAPI.authenticatedFetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/profiles/batch/?user_ids=${userIds}`,
+        { method: 'GET' }
+      );
+
+      if (!response.ok) return;
+
+      const profiles: UserProfile[] = await response.json();
+      const profileMap = new Map<number, UserProfile>();
+      profiles.forEach(profile => {
+        profileMap.set(profile.id, profile);
+      });
+      
+      setFriendProfiles(profileMap);
+    } catch (err) {
+      // Silent fail for background refresh
+    } finally {
+      profileFetchInProgressRef.current = false;
+    }
+  }, [friends]);
 
   // Fetch pending friend requests (both received and sent)
   const fetchPendingRequests = useCallback(async () => {
@@ -163,7 +230,6 @@ export const useFriends = (): UseFriendsReturn => {
         throw new Error(errorData.error || errorData.email?.[0] || `Failed to send friend request: ${response.status}`);
       }
 
-      // Refresh pending requests after sending
       await fetchPendingRequests();
       return true;
     } catch (err) {
@@ -195,7 +261,6 @@ export const useFriends = (): UseFriendsReturn => {
         throw new Error(errorData.error || `Failed to accept friend request: ${response.status}`);
       }
 
-      // Refresh both friends list and pending requests
       await Promise.all([
         fetchFriends(),
         fetchPendingRequests(),
@@ -231,7 +296,6 @@ export const useFriends = (): UseFriendsReturn => {
         throw new Error(errorData.error || `Failed to decline friend request: ${response.status}`);
       }
 
-      // Refresh pending requests after declining
       await fetchPendingRequests();
       return true;
     } catch (err) {
@@ -260,13 +324,16 @@ export const useFriends = (): UseFriendsReturn => {
         throw new Error(errorData.error || `Failed to remove friend: ${response.status}`);
       }
 
-      // Optimistically update the friends list
       setFriends(prev => prev.filter(friend => friend.id !== friendId));
+      setFriendProfiles(prev => {
+        const newMap = new Map(prev);
+        newMap.delete(friendId);
+        return newMap;
+      });
       
       return true;
     } catch (err) {
       handleError(err, 'Failed to remove friend');
-      // Refetch to restore correct state on error
       await fetchFriends();
       return false;
     } finally {
@@ -274,7 +341,7 @@ export const useFriends = (): UseFriendsReturn => {
     }
   }, [fetchFriends]);
 
-  // Get user profile with stats
+  // Get user profile with stats (for individual lookups if needed)
   const getUserProfile = useCallback(async (userId: number): Promise<UserProfile | null> => {
     try {
       setLoading(true);
@@ -299,32 +366,71 @@ export const useFriends = (): UseFriendsReturn => {
     }
   }, []);
 
-  // Fetch friends on mount
+  // Memoize friend IDs to prevent unnecessary effect triggers
+  const friendIds = useMemo(() => 
+    friends.map(f => f.id).sort().join(','),
+    [friends]
+  );
+
+  // Initial fetch on mount
   useEffect(() => {
-    if (!hasInitializedRef.current && !fetchInProgressRef.current) {
+    if (!hasInitializedRef.current) {
       hasInitializedRef.current = true;
       fetchFriends();
       fetchPendingRequests();
     }
   }, [fetchFriends, fetchPendingRequests]);
 
+  // Fetch friend profiles when friends list changes
+  useEffect(() => {
+    if (friendIds && friendIds !== lastFriendIdsRef.current) {
+      lastFriendIdsRef.current = friendIds;
+      if (friends.length > 0) {
+        fetchAllFriendProfiles();
+      } else {
+        setFriendProfiles(new Map());
+      }
+    }
+  }, [friendIds, friends.length, fetchAllFriendProfiles]);
+
+  // Auto-refresh friend profiles at regular intervals
+  useEffect(() => {
+    if (autoRefreshInterval > 0 && friends.length > 0) {
+      if (autoRefreshTimerRef.current) {
+        clearInterval(autoRefreshTimerRef.current);
+      }
+
+      autoRefreshTimerRef.current = setInterval(() => {
+        refreshFriendProfiles();
+      }, autoRefreshInterval);
+
+      return () => {
+        if (autoRefreshTimerRef.current) {
+          clearInterval(autoRefreshTimerRef.current);
+          autoRefreshTimerRef.current = null;
+        }
+      };
+    }
+  }, [autoRefreshInterval, friends.length, refreshFriendProfiles]);
+
   return {
     friends,
+    friendProfiles,
     pendingRequests,
     sentRequests,
     loading,
     error,
     
-    // Actions
     fetchFriends,
     fetchPendingRequests,
+    fetchAllFriendProfiles,
+    refreshFriendProfiles,
     sendFriendRequest,
     acceptFriendRequest,
     declineFriendRequest,
     removeFriend,
     getUserProfile,
     
-    // Utility
     clearError,
   };
 };

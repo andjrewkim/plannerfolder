@@ -115,6 +115,47 @@ class UserProfileView(APIView):
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 
+class BatchUserProfileView(APIView):
+    """Fetch multiple user profiles in a single request"""
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        user_ids_param = request.query_params.get('user_ids', '')
+        
+        if not user_ids_param:
+            return Response(
+                {"error": "user_ids parameter is required"}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        try:
+            # Parse comma-separated user IDs
+            user_ids = [int(uid.strip()) for uid in user_ids_param.split(',') if uid.strip()]
+        except ValueError:
+            return Response(
+                {"error": "Invalid user_ids format. Expected comma-separated integers."}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        if not user_ids:
+            return Response([], status=status.HTTP_200_OK)
+        
+        # Limit to prevent abuse
+        if len(user_ids) > 100:
+            return Response(
+                {"error": "Maximum 100 user IDs allowed per request"}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Fetch users efficiently with prefetch
+        users = CustomUser.objects.filter(id__in=user_ids).prefetch_related('friends')
+        
+        # Serialize all users
+        serializer = UserProfileSerializer(users, many=True)
+        
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
 class MyFriendsView(APIView):
     """List all friends of the authenticated user"""
     permission_classes = [permissions.IsAuthenticated]
