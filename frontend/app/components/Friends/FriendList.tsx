@@ -33,7 +33,7 @@ const FriendItem = memo<FriendItemProps>(({ friend, profile, onRemove }) => {
 
   const completionData = useMemo(() => {
     if (!profile) {
-      return { percentage: 0, color: '#ef4444', completed: 0, total: 0 };
+      return { percentage: 0, color: '#ef4444', gradient: 'linear-gradient(90deg, #ef4444 0%, #dc2626 100%)', completed: 0, total: 0 };
     }
     
     let percentage = profile.today_completion_percentage;
@@ -45,31 +45,39 @@ const FriendItem = memo<FriendItemProps>(({ friend, profile, onRemove }) => {
     }
     
     let color: string;
+    let gradient: string;
+    
     if (percentage === 100) {
-      color = '#22c55e';
+      color = '#10b981';
+      gradient = 'linear-gradient(90deg, #10b981 0%, #059669 100%)';
     } else if (percentage >= 75) {
       const t = (percentage - 75) / 25;
-      color = interpolateColor('#84cc16', '#22c55e', t);
+      color = interpolateColor('#84cc16', '#10b981', t);
+      gradient = `linear-gradient(90deg, ${color} 0%, ${interpolateColor('#65a30d', '#059669', t)} 100%)`;
     } else if (percentage >= 50) {
       const t = (percentage - 50) / 25;
-      color = interpolateColor('#eab308', '#84cc16', t);
+      color = interpolateColor('#facc15', '#84cc16', t);
+      gradient = `linear-gradient(90deg, ${color} 0%, ${interpolateColor('#eab308', '#65a30d', t)} 100%)`;
     } else if (percentage >= 25) {
       const t = (percentage - 25) / 25;
-      color = interpolateColor('#f59e0b', '#eab308', t);
+      color = interpolateColor('#fb923c', '#facc15', t);
+      gradient = `linear-gradient(90deg, ${color} 0%, ${interpolateColor('#f97316', '#eab308', t)} 100%)`;
     } else {
       const t = percentage / 25;
-      color = interpolateColor('#ef4444', '#f59e0b', t);
+      color = interpolateColor('#ef4444', '#fb923c', t);
+      gradient = `linear-gradient(90deg, ${color} 0%, ${interpolateColor('#dc2626', '#f97316', t)} 100%)`;
     }
     
     return { 
       percentage, 
       color,
+      gradient,
       completed: profile.completed_assignments_today,
       total: profile.total_assignments_today
     };
   }, [profile]);
 
-  const { percentage, color, completed, total } = completionData;
+  const { percentage, gradient, completed, total } = completionData;
   const loadingProfile = !profile;
 
   return (
@@ -79,8 +87,8 @@ const FriendItem = memo<FriendItemProps>(({ friend, profile, onRemove }) => {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
-        padding: '8px 10px',
-        borderBottom: '1px solid hsl(var(--border) / 0.2)',
+        padding: '6px 10px',
+        borderBottom: '1px solid hsl(var(--border) / 0.15)',
         transition: 'background-color 0.15s ease',
         background: 'transparent',
         position: 'relative',
@@ -99,10 +107,10 @@ const FriendItem = memo<FriendItemProps>(({ friend, profile, onRemove }) => {
           className="remove-button"
           style={{
             position: 'absolute',
-            top: '8px',
+            top: '6px',
             right: '10px',
-            width: '20px',
-            height: '20px',
+            width: '18px',
+            height: '18px',
             border: 'none',
             background: 'hsl(var(--destructive) / 0.1)',
             color: 'hsl(var(--destructive))',
@@ -110,7 +118,7 @@ const FriendItem = memo<FriendItemProps>(({ friend, profile, onRemove }) => {
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            borderRadius: '4px',
+            borderRadius: '3px',
             fontSize: '14px',
             transition: 'all 0.15s ease',
             flexShrink: 0,
@@ -123,8 +131,8 @@ const FriendItem = memo<FriendItemProps>(({ friend, profile, onRemove }) => {
 
       <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
         <div style={{
-          width: '32px',
-          height: '32px',
+          width: '30px',
+          height: '30px',
           borderRadius: '50%',
           background: 'linear-gradient(135deg, hsl(var(--accent) / 0.6) 0%, hsl(var(--primary) / 0.6) 100%)',
           display: 'flex',
@@ -132,44 +140,44 @@ const FriendItem = memo<FriendItemProps>(({ friend, profile, onRemove }) => {
           justifyContent: 'center',
           color: 'white',
           fontWeight: '600',
-          fontSize: '14px',
+          fontSize: '13px',
           flexShrink: 0,
         }}>
           {displayName.charAt(0).toUpperCase()}
         </div>
         
-<div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{
-            fontSize: '14px',
-            fontWeight: '500',
+            fontSize: '13px',
+            fontWeight: '600',
             color: 'hsl(var(--foreground))',
             overflow: 'hidden',
             textOverflow: 'ellipsis',
             whiteSpace: 'nowrap',
+            marginBottom: '3px',
           }}>
             {displayName}
           </div>
           
-{profile && !loadingProfile && (
+          {profile && !loadingProfile && (
             <div style={{ marginTop: '4px' }}>
               <div style={{
                 display: 'flex',
                 justifyContent: 'space-between',
                 alignItems: 'center',
-                marginBottom: '5px',
+                marginBottom: '4px',
               }}>
                 <div style={{
-                  fontSize: '10px',
+                  fontSize: '11px',
                   color: 'hsl(var(--muted-foreground))',
                   fontWeight: '500',
-                  letterSpacing: '0.01em',
                 }}>
-                  {completed} of {total} {total === 1 ? 'assignment' : 'assignments'}
+                  {completed}/{total}
                 </div>
                 <span style={{
                   fontSize: '11px',
-                  color: 'hsl(var(--muted-foreground))',
-                  fontWeight: '600',
+                  color: 'hsl(var(--foreground))',
+                  fontWeight: '700',
                 }}>
                   {Math.round(percentage)}%
                 </span>
@@ -178,40 +186,27 @@ const FriendItem = memo<FriendItemProps>(({ friend, profile, onRemove }) => {
               <div style={{
                 display: 'flex',
                 gap: '2px',
-                marginBottom: '6px',
               }}>
                 {Array.from({ length: total }).map((_, idx) => (
                   <div
                     key={idx}
                     style={{
                       flex: 1,
-                      height: '6px',
-                      borderRadius: '3px',
-                      background: idx < completed ? color : 'hsl(var(--muted) / 0.25)',
-                      transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                      height: '8px',
+                      borderRadius: '4px',
+                      background: idx < completed ? gradient : 'hsl(var(--muted) / 0.25)',
+                      transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
                     }}
                   />
                 ))}
               </div>
-
-              {percentage === 100 && (
-                <div style={{
-                  fontSize: '10px',
-                  fontWeight: '500',
-                  color: '#22c55e',
-                  letterSpacing: '0.01em',
-                  marginTop: '2px',
-                }}>
-                  Finished assignments for today
-                </div>
-              )}
             </div>
           )}
           
           {loadingProfile && (
             <div style={{
-              marginTop: '4px',
-              height: '4px',
+              marginTop: '6px',
+              height: '3px',
               backgroundColor: 'hsl(var(--muted) / 0.3)',
               borderRadius: '2px',
               overflow: 'hidden',
@@ -239,7 +234,7 @@ const FriendItem = memo<FriendItemProps>(({ friend, profile, onRemove }) => {
         }
         
         .friend-item:hover {
-          background-color: hsl(var(--accent) / 0.1);
+          background-color: hsl(var(--accent) / 0.06);
         }
         
         .remove-button:hover {
@@ -250,7 +245,6 @@ const FriendItem = memo<FriendItemProps>(({ friend, profile, onRemove }) => {
     </div>
   );
 }, (prevProps, nextProps) => {
-  // Custom comparison function to prevent unnecessary re-renders
   return (
     prevProps.friend.id === nextProps.friend.id &&
     prevProps.friend.username === nextProps.friend.username &&
@@ -276,16 +270,16 @@ const FriendRequestItem = memo<FriendRequestItemProps>(({ request, onAccept, onD
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'space-between',
-      padding: '8px',
+      padding: '6px 8px',
       margin: '4px 0',
       borderRadius: '6px',
       background: 'linear-gradient(135deg, hsl(var(--primary) / 0.05) 0%, hsl(var(--accent) / 0.05) 100%)',
       border: '1px solid hsl(var(--primary) / 0.1)',
     }}>
-      <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+      <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: '6px' }}>
         <div style={{
-          width: '28px',
-          height: '28px',
+          width: '26px',
+          height: '26px',
           borderRadius: '50%',
           background: 'linear-gradient(135deg, hsl(var(--primary) / 0.6) 0%, hsl(var(--accent) / 0.6) 100%)',
           display: 'flex',
@@ -293,7 +287,7 @@ const FriendRequestItem = memo<FriendRequestItemProps>(({ request, onAccept, onD
           justifyContent: 'center',
           color: 'white',
           fontWeight: '600',
-          fontSize: '13px',
+          fontSize: '12px',
           flexShrink: 0,
         }}>
           {displayName.charAt(0).toUpperCase()}
@@ -304,22 +298,22 @@ const FriendRequestItem = memo<FriendRequestItemProps>(({ request, onAccept, onD
           textOverflow: 'ellipsis',
           whiteSpace: 'nowrap',
           color: 'hsl(var(--foreground))',
-          fontWeight: '500',
-          fontSize: '14px',
+          fontWeight: '600',
+          fontSize: '13px',
         }}>
           {displayName}
         </span>
       </div>
       
-      <div style={{ display: 'flex', gap: '6px', flexShrink: 0 }}>
+      <div style={{ display: 'flex', gap: '4px', flexShrink: 0 }}>
         <button
           onClick={() => onAccept(request.id)}
           className="accept-button"
           style={{
-            padding: '1px 8px',
-            fontSize: '12px !important',
+            padding: '4px 10px',
+            fontSize: '11px',
             fontWeight: '600',
-            background: 'linear-gradient(135deg, hsl(var(--accent)/0.5) 0%, hsl(var(--primary)/0.5) 500%)',
+            background: 'linear-gradient(135deg, hsl(var(--accent)/0.5) 0%, hsl(var(--primary)/0.5) 100%)',
             color: 'white',
             border: 'none',
             borderRadius: '5px',
@@ -333,8 +327,8 @@ const FriendRequestItem = memo<FriendRequestItemProps>(({ request, onAccept, onD
           onClick={() => onDecline(request.id)}
           className="decline-button"
           style={{
-            padding: '6px 8px',
-            fontSize: '12px !important',
+            padding: '4px 10px',
+            fontSize: '11px',
             fontWeight: '500',
             backgroundColor: 'hsl(var(--muted) / 0.7)',
             color: 'hsl(var(--foreground))',
@@ -352,15 +346,9 @@ const FriendRequestItem = memo<FriendRequestItemProps>(({ request, onAccept, onD
         .accept-button:hover {
           transform: translateY(-1px);
         }
-        .accept-button {
-          font-size: 13px !important;
-        }
               
         .decline-button:hover {
-          background-color: hsl(var(--muted) / 0.7);
-        }
-        .decline-button {
-          font-size: 13px !important;
+          background-color: hsl(var(--muted));
         }
       `}</style>
     </div>
@@ -384,13 +372,32 @@ const FriendList: React.FC = () => {
     declineFriendRequest,
     removeFriend,
     clearError,
-    refreshFriendProfiles,
   } = useFriends(45000);
 
   const [isAddingFriend, setIsAddingFriend] = useState(false);
   const [newFriendInput, setNewFriendInput] = useState('');
   const [showRequests, setShowRequests] = useState(true);
   const [showSentRequests, setShowSentRequests] = useState(true);
+
+  const motivationStats = useMemo(() => {
+    let finishedCount = 0;
+    
+    friends.forEach(friend => {
+      const profile = friendProfiles.get(friend.id);
+      if (profile) {
+        const percentage = profile.today_completion_percentage ?? 
+          (profile.total_assignments_today > 0 
+            ? (profile.completed_assignments_today / profile.total_assignments_today) * 100 
+            : 0);
+        
+        if (percentage === 100) {
+          finishedCount++;
+        }
+      }
+    });
+    
+    return { finishedCount };
+  }, [friends, friendProfiles]);
 
   const handleAddFriend = async () => {
     if (newFriendInput.trim()) {
@@ -411,98 +418,125 @@ const FriendList: React.FC = () => {
       fontFamily: "'Google Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
     }}>
       <div style={{
-        padding: '12px 10px 8px',
-        borderBottom: '1px solid hsl(var(--border) / 0.2)',
+        padding: '8px 10px',
+        borderBottom: '1px solid hsl(var(--border) / 0.15)',
       }}>
-        <p style={{
-          margin: '-20px 0 0',
-          fontSize: '11px',
-          color: 'hsl(var(--muted-foreground))',
-          lineHeight: '1.4',
-        }}>
-          Progress bars track your friend's daily assignment progress. Auto-refreshes every minute.
-        </p>
-      </div>
-      
-      {isAddingFriend && (
-        <div style={{ 
-          padding: '8px 10px',
-          borderBottom: '1px solid hsl(var(--border) / 0.2)',
-        }}>
-          <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-            <input
-              type="text"
-              value={newFriendInput}
-              onChange={(e) => setNewFriendInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') handleAddFriend();
-                if (e.key === 'Escape') {
-                  setIsAddingFriend(false);
-                  setNewFriendInput('');
-                }
-              }}
-              placeholder="Enter email..."
-              autoFocus
-              style={{
-                flex: 1,
-                padding: '6px 10px',
-                border: '1px solid hsl(var(--accent) / 0.3)',
-                borderRadius: '6px',
-                fontSize: '13px',
-                background: 'hsl(var(--background))',
-                color: 'hsl(var(--foreground))',
-                outline: 'none',
-              }}
-            />
+        <div style={{ display: 'flex', gap: '6px', alignItems: 'center', marginTop: '-8px', marginBottom: '6px' }}>
+          {!isAddingFriend ? (
             <button
-              onClick={handleAddFriend}
-              disabled={!newFriendInput.trim()}
+              onClick={() => setIsAddingFriend(true)}
+              className="add-friend-button"
               style={{
-                padding: '6px 10px',
-                background: newFriendInput.trim() 
-                  ? 'linear-gradient(135deg, hsl(var(--accent)/0.75) 100%, hsl(var(--primary)) 100%)'
-                  : 'hsl(var(--muted) / 0.3)',
-                color: newFriendInput.trim() ? 'white' : 'hsl(var(--muted-foreground))',
-                border: 'none',
-                borderRadius: '6px',
-                fontSize: '12px',
-                cursor: newFriendInput.trim() ? 'pointer' : 'not-allowed',
+                width: '100%',
+                padding: '4px',
+                background: 'linear-gradient(135deg, hsl(var(--accent) / 0.08) 0%, hsl(var(--primary) / 0.04) 100%)',
+                color: 'hsl(var(--accent))',
+                border: '1px dashed hsl(var(--accent) / 0.25)',
+                borderRadius: '5px',
+                fontSize: '11px',
+                cursor: 'pointer',
                 fontWeight: '600',
                 transition: 'all 0.15s ease',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '4px',
               }}
             >
-              Add
+              <span style={{ fontSize: '12px' }}>+</span>
+              Add Friend
             </button>
-            <button
-              onClick={() => {
-                setIsAddingFriend(false);
-                setNewFriendInput('');
-              }}
-              style={{
-                padding: '6px 10px',
-                backgroundColor: 'hsl(var(--muted) / 0.4)',
-                color: 'hsl(var(--foreground))',
-                border: 'none',
-                borderRadius: '6px',
-                fontSize: '12px',
-                cursor: 'pointer',
-                fontWeight: '500',
-                transition: 'all 0.15s ease',
-              }}
-            >
-              ✕
-            </button>
-          </div>
+          ) : (
+            <>
+              <input
+                type="text"
+                value={newFriendInput}
+                onChange={(e) => setNewFriendInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handleAddFriend();
+                  if (e.key === 'Escape') {
+                    setIsAddingFriend(false);
+                    setNewFriendInput('');
+                  }
+                }}
+                placeholder="Enter email..."
+                autoFocus
+                style={{
+                  flex: 1,
+                  minWidth: 0,
+                  padding: '5px 8px',
+                  border: '1px solid hsl(var(--accent) / 0.3)',
+                  borderRadius: '6px',
+                  fontSize: '12px',
+                  background: 'hsl(var(--background))',
+                  color: 'hsl(var(--foreground))',
+                  outline: 'none',
+                }}
+              />
+              <button
+                onClick={handleAddFriend}
+                disabled={!newFriendInput.trim()}
+                style={{
+                  padding: '5px 10px',
+                  background: newFriendInput.trim() 
+                    ? 'linear-gradient(135deg, hsl(var(--accent)/0.75) 100%, hsl(var(--primary)) 100%)'
+                    : 'hsl(var(--muted) / 0.3)',
+                  color: newFriendInput.trim() ? 'white' : 'hsl(var(--muted-foreground))',
+                  border: 'none',
+                  borderRadius: '6px',
+                  fontSize: '11px',
+                  cursor: newFriendInput.trim() ? 'pointer' : 'not-allowed',
+                  fontWeight: '600',
+                  transition: 'all 0.15s ease',
+                  flexShrink: 0,
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                Add
+              </button>
+              <button
+                onClick={() => {
+                  setIsAddingFriend(false);
+                  setNewFriendInput('');
+                }}
+                style={{
+                  padding: '5px 10px',
+                  backgroundColor: 'hsl(var(--muted) / 0.4)',
+                  color: 'hsl(var(--foreground))',
+                  border: 'none',
+                  borderRadius: '6px',
+                  fontSize: '11px',
+                  cursor: 'pointer',
+                  fontWeight: '500',
+                  transition: 'all 0.15s ease',
+                  flexShrink: 0,
+                }}
+              >
+                ✕
+              </button>
+            </>
+          )}
         </div>
-      )}
+        
+        {friends.length > 0 && (
+          <p style={{
+            margin: '0',
+            fontSize: '10px',
+            color: 'hsl(var(--muted-foreground))',
+            lineHeight: '1.3',
+          }}>
+            Progress bars track your friend's daily assignment progress. Auto-refreshes every minute.
+          </p>
+        )}
+      </div>
 
       {error && (
         <div style={{
-          padding: '8px 10px',
+          padding: '6px 10px',
           margin: '6px 10px',
           backgroundColor: 'hsl(var(--destructive) / 0.1)',
           color: 'hsl(var(--destructive))',
-          fontSize: '12px',
+          fontSize: '11px',
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
@@ -517,7 +551,7 @@ const FriendList: React.FC = () => {
               border: 'none',
               color: 'hsl(var(--destructive))',
               cursor: 'pointer',
-              fontSize: '16px',
+              fontSize: '14px',
               padding: 0,
               fontWeight: 'bold',
             }}
@@ -540,25 +574,25 @@ const FriendList: React.FC = () => {
               onClick={() => setShowRequests(!showRequests)}
               style={{
                 width: '100%',
-                padding: '2px 0',
+                padding: '3px 0',
                 backgroundColor: 'transparent',
                 color: 'hsl(var(--accent))',
                 border: 'none',
-                fontSize: '12px',
+                fontSize: '11px',
                 cursor: 'pointer',
-                fontWeight: '600',
+                fontWeight: '700',
                 textAlign: 'left',
                 display: 'flex',
                 justifyContent: 'space-between',
                 alignItems: 'center',
-                marginBottom: '6px',
+                marginBottom: '4px',
               }}
             >
               <span>Friend Requests ({pendingRequests.length})</span>
-              <span style={{ fontSize: '10px' }}>{showRequests ? '▼' : '▶'}</span>
+              <span style={{ fontSize: '9px' }}>{showRequests ? '▼' : '▶'}</span>
             </button>
             {showRequests && (
-              <div style={{ maxHeight: '200px', overflowY: 'auto', width: '108%', marginLeft: '-4%' }}>
+              <div style={{ maxHeight: '200px', overflowY: 'auto' }}>
                 {pendingRequests.map((request) => (
                   <FriendRequestItem
                     key={request.id}
@@ -578,22 +612,22 @@ const FriendList: React.FC = () => {
               onClick={() => setShowSentRequests(!showSentRequests)}
               style={{
                 width: '100%',
-                padding: '6px 0',
+                padding: '3px 0',
                 backgroundColor: 'transparent',
                 color: 'hsl(var(--muted-foreground))',
                 border: 'none',
-                fontSize: '12px',
+                fontSize: '11px',
                 cursor: 'pointer',
-                fontWeight: '600',
+                fontWeight: '700',
                 textAlign: 'left',
                 display: 'flex',
                 justifyContent: 'space-between',
                 alignItems: 'center',
-                marginBottom: '6px',
+                marginBottom: '4px',
               }}
             >
               <span>Sent Requests ({sentRequests.length})</span>
-              <span style={{ fontSize: '10px' }}>{showSentRequests ? '▼' : '▶'}</span>
+              <span style={{ fontSize: '9px' }}>{showSentRequests ? '▼' : '▶'}</span>
             </button>
             {showSentRequests && (
               <div>
@@ -605,25 +639,25 @@ const FriendList: React.FC = () => {
                       style={{
                         display: 'flex',
                         alignItems: 'center',
-                        padding: '10px',
-                        margin: '6px 0',
+                        padding: '6px 8px',
+                        margin: '4px 0',
                         borderRadius: '6px',
-                        background: 'hsl(var(--muted) / 0.3)',
-                        border: '1px solid hsl(var(--border) / 0.3)',
+                        background: 'hsl(var(--muted) / 0.25)',
+                        border: '1px solid hsl(var(--border) / 0.25)',
                       }}
                     >
-                      <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: '6px' }}>
                         <div style={{
-                          width: '28px',
-                          height: '28px',
+                          width: '26px',
+                          height: '26px',
                           borderRadius: '50%',
-                          background: 'linear-gradient(135deg, hsl(var(--muted-foreground) / 0.4) 0%, hsl(var(--muted-foreground) / 0.2) 100%)',
+                          background: 'linear-gradient(135deg, hsl(var(--muted-foreground) / 0.3) 0%, hsl(var(--muted-foreground) / 0.15) 100%)',
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'center',
                           color: 'hsl(var(--muted-foreground))',
                           fontWeight: '600',
-                          fontSize: '13px',
+                          fontSize: '12px',
                           flexShrink: 0,
                         }}>
                           {receiverName.charAt(0).toUpperCase()}
@@ -636,13 +670,13 @@ const FriendList: React.FC = () => {
                             whiteSpace: 'nowrap',
                             color: 'hsl(var(--foreground))',
                             fontWeight: '500',
-                            fontSize: '14px',
+                            fontSize: '13px',
                             display: 'block',
                           }}>
                             {receiverName}
                           </span>
                           <span style={{
-                            fontSize: '11px',
+                            fontSize: '10px',
                             color: 'hsl(var(--muted-foreground))',
                           }}>
                             Pending...
@@ -661,7 +695,7 @@ const FriendList: React.FC = () => {
           <div style={{
             textAlign: 'center',
             color: 'hsl(var(--muted-foreground))',
-            fontSize: '13px',
+            fontSize: '12px',
             padding: '16px',
           }}>
             Loading...
@@ -669,36 +703,23 @@ const FriendList: React.FC = () => {
         ) : friends.length === 0 ? (
           <div style={{
             textAlign: 'center',
-            padding: '10px 16px',
+            padding: '16px',
           }}>
             <div style={{
-              fontSize: '32px',
-              marginBottom: '8px',
-            }}></div>
-            <div style={{
               color: 'hsl(var(--muted-foreground))',
-              fontSize: '13px',
-              marginBottom: '8px',
+              fontSize: '12px',
+              fontWeight: '500',
+              marginBottom: '6px',
             }}>
-              No friends yet. Invite your classmates to join you!
+              No friends yet
             </div>
-            <button
-              onClick={() => setIsAddingFriend(true)}
-              className="add-friend-empty"
-              style={{
-                padding: '6px 14px',
-                background: 'linear-gradient(135deg, hsl(var(--accent)/0.8) 100%, hsl(var(--primary)) 100%)',
-                color: 'white',
-                border: 'none',
-                borderRadius: '6px',
-                fontSize: '12px',
-                cursor: 'pointer',
-                fontWeight: '600',
-                transition: 'all 0.15s ease',
-              }}
-            >
-              Add Friend
-            </button>
+            <div style={{
+              color: 'hsl(var(--muted-foreground) / 0.7)',
+              fontSize: '11px',
+              lineHeight: '1.4',
+            }}>
+              Add friends to see their progress
+            </div>
           </div>
         ) : (
           <div>
@@ -713,46 +734,27 @@ const FriendList: React.FC = () => {
           </div>
         )}
       </div>
-
-      {!isAddingFriend && friends.length > 0 && (
-        <div style={{ 
-          padding: '10px',
-          borderTop: '1px solid hsl(var(--border) / 0.2)',
+      
+      {friends.length > 0 && motivationStats.finishedCount > 0 && (
+        <div style={{
+          padding: '5px 8px',
+          margin: '6px 10px',
+          background: 'linear-gradient(135deg, hsl(var(--primary) / 0.08) 0%, hsl(var(--accent) / 0.08) 100%)',
+          borderRadius: '5px',
+          border: '1px solid hsl(var(--primary) / 0.15)',
+          fontSize: '10px',
+          fontWeight: '600',
+          color: 'hsl(var(--primary))',
+          textAlign: 'center',
         }}>
-          <button
-            onClick={() => setIsAddingFriend(true)}
-            className="add-friend-button"
-            style={{
-              width: '100%',
-              padding: '8px',
-              background: 'linear-gradient(135deg, hsl(var(--accent) / 0.1) 0%, hsl(var(--primary) / 0.05) 100%)',
-              color: 'hsl(var(--accent))',
-              border: '1px dashed hsl(var(--accent) / 0.3)',
-              borderRadius: '6px',
-              fontSize: '13px',
-              cursor: 'pointer',
-              fontWeight: '600',
-              transition: 'all 0.15s ease',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '6px',
-            }}
-          >
-            <span style={{ fontSize: '16px' }}>+</span>
-            Add Friend
-          </button>
+          {motivationStats.finishedCount} {motivationStats.finishedCount === 1 ? 'friend has' : 'friends have'} finished today 🎉
         </div>
       )}
       
       <style>{`
-        .add-friend-empty:hover {
-          transform: translateY(-1px);
-        }
-        
         .add-friend-button:hover {
-          background: linear-gradient(135deg, hsl(var(--accent) / 0.15) 0%, hsl(var(--primary) / 0.1) 100%);
-          border-color: hsl(var(--accent) / 0.5);
+          background: linear-gradient(135deg, hsl(var(--accent) / 0.12) 0%, hsl(var(--primary) / 0.08) 100%);
+          border-color: hsl(var(--accent) / 0.4);
         }
       `}</style>
     </div>
