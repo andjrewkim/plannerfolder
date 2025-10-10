@@ -714,11 +714,11 @@ const FriendList: React.FC = () => {
               No friends yet
             </div>
             <div style={{
-              color: 'hsl(var(--muted-foreground) / 0.7)',
-              fontSize: '11px',
+              color: 'hsl(var(--muted-foreground) / 0.9)',
+              fontSize: '12px',
               lineHeight: '1.4',
             }}>
-              Add friends to see their progress
+              Connect with classmates who want to stay on top of their homework. Add your classmates now and see their progress in real time.
             </div>
           </div>
         ) : (
