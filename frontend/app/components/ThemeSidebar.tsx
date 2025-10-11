@@ -55,7 +55,9 @@ const ThemeSidebar: React.FC<ThemeSidebarProps> = ({
   }, [isOpen]);
 
   const handleDarkModeToggle = (checked: boolean) => {
-    onSettingsChange({ dark_mode: checked });
+    if (checked || hasUnlockedFeatures) {
+      onSettingsChange({ dark_mode: checked });
+    }
   };
 
   const handleThemeChange = (themeId: string) => {
@@ -93,15 +95,27 @@ const ThemeSidebar: React.FC<ThemeSidebarProps> = ({
 
         <div className="sidebar-content">
           <div className="settings-section">
-            <label className="section-label">Theme</label>
+            <div className="section-header">
+              <label className="section-label">Theme</label>
+              {!hasUnlockedFeatures && (
+                <span className="unlock-badge">
+                  <Lock size={10} strokeWidth={2} />
+                  Add a friend to unlock
+                </span>
+              )}
+            </div>
             <div className="mode-selector">
               <button
                 type="button"
-                className={`mode-btn ${!settings.dark_mode ? 'active' : ''}`}
+                className={`mode-btn ${!settings.dark_mode ? 'active' : ''} ${!hasUnlockedFeatures ? 'locked' : ''}`}
                 onClick={() => handleDarkModeToggle(false)}
+                disabled={!hasUnlockedFeatures && settings.dark_mode}
               >
                 <Sun size={18} strokeWidth={2} />
                 <span>Light</span>
+                {!hasUnlockedFeatures && (
+                  <Lock size={14} strokeWidth={2} className="mode-lock-icon" />
+                )}
               </button>
               <button
                 type="button"
@@ -117,12 +131,7 @@ const ThemeSidebar: React.FC<ThemeSidebarProps> = ({
           <div className="divider" />
           
           <div className="settings-section">
-            <div className="section-header">
-              <label className="section-label">Color</label>
-              {!hasUnlockedFeatures && (
-                <span className="pro-badge">PRO</span>
-              )}
-            </div>
+
 
             {isLoading ? (
               <div className="loading-state">
@@ -175,7 +184,7 @@ const ThemeSidebar: React.FC<ThemeSidebarProps> = ({
 
                 {!hasUnlockedFeatures && (
                   <div className="upgrade-notice">
-                    <p>Unlock all themes with Pro</p>
+                    <p>Add a friend to unlock all color themes</p>
                   </div>
                 )}
               </>
@@ -297,18 +306,18 @@ const ThemeSidebar: React.FC<ThemeSidebarProps> = ({
           font-size: 13px;
           font-weight: 600;
           color: hsl(var(--foreground));
-          margin-bottom: 12px;
           letter-spacing: -0.01em;
         }
 
-        .pro-badge {
+        .unlock-badge {
           display: inline-flex;
           align-items: center;
+          gap: 4px;
           padding: 3px 8px;
-          font-size: 11px;
+          font-size: 10px;
           font-weight: 600;
-          color: hsl(var(--primary));
-          background: hsl(var(--primary) / 0.1);
+          color: hsl(var(--muted-foreground));
+          background: hsl(var(--muted) / 0.3);
           border-radius: 4px;
           letter-spacing: 0.02em;
         }
@@ -337,9 +346,10 @@ const ThemeSidebar: React.FC<ThemeSidebarProps> = ({
           cursor: pointer;
           transition: all 0.15s ease;
           letter-spacing: -0.01em;
+          position: relative;
         }
 
-        .mode-btn:hover {
+        .mode-btn:hover:not(.locked):not(:disabled) {
           color: hsl(var(--foreground));
         }
 
@@ -347,6 +357,17 @@ const ThemeSidebar: React.FC<ThemeSidebarProps> = ({
           background: hsl(var(--calendar-background));
           color: hsl(var(--foreground));
           box-shadow: 0 1px 2px hsl(var(--foreground) / 0.08);
+        }
+
+        .mode-btn.locked:not(.active) {
+          opacity: 0.5;
+          cursor: not-allowed;
+        }
+
+        .mode-lock-icon {
+          position: absolute;
+          right: 8px;
+          color: hsl(var(--muted-foreground));
         }
 
         .divider {

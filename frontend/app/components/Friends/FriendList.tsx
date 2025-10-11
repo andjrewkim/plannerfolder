@@ -705,21 +705,20 @@ const FriendList: React.FC = () => {
             textAlign: 'center',
             padding: '16px',
           }}>
-            <div style={{
-              color: 'hsl(var(--muted-foreground))',
-              fontSize: '12px',
-              fontWeight: '500',
-              marginBottom: '6px',
-            }}>
-              No friends yet
-            </div>
-            <div style={{
+
+          <div
+            style={{
               color: 'hsl(var(--muted-foreground) / 0.9)',
-              fontSize: '12px',
+              fontSize: '11px',
               lineHeight: '1.4',
-            }}>
-              Connect with classmates who want to stay on top of their homework. Add your classmates now and see their progress in real time.
-            </div>
+            }}
+          >
+            Connect with classmates who want to stay on top of their homework. Add your classmates now and see their progress in real time.
+            <p style={{ margin:0 }}>
+              <br />
+              Color themes unlock after adding one friend.
+            </p>
+          </div>
           </div>
         ) : (
           <div>
