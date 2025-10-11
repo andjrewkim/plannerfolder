@@ -47,11 +47,38 @@ class AcceptFriendRequestView(APIView):
                 status=status.HTTP_404_NOT_FOUND
             )
         
+        # Accept the friend request
         friend_request.accept()
-        return Response({
+        
+        # Unlock features for both users if they haven't unlocked yet
+        sender = friend_request.sender
+        receiver = request.user
+        
+        users_unlocked = []
+        
+        # Check and unlock for sender
+        if not sender.has_unlocked_features:
+            sender.has_unlocked_features = True
+            sender.save(update_fields=['has_unlocked_features'])
+            users_unlocked.append(sender.username)
+        
+        # Check and unlock for receiver
+        if not receiver.has_unlocked_features:
+            receiver.has_unlocked_features = True
+            receiver.save(update_fields=['has_unlocked_features'])
+            users_unlocked.append(receiver.username)
+        
+        response_data = {
             "success": "Friend request accepted",
-            "friend": UserBasicSerializer(friend_request.sender).data
-        }, status=status.HTTP_200_OK)
+            "friend": UserBasicSerializer(sender).data,
+            "features_unlocked": bool(users_unlocked)
+        }
+        
+        # Add info about who unlocked features
+        if users_unlocked:
+            response_data["unlocked_for"] = users_unlocked
+        
+        return Response(response_data, status=status.HTTP_200_OK)
 
 
 class DeclineFriendRequestView(APIView):

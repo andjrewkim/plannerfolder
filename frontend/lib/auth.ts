@@ -1,7 +1,13 @@
-// lib/auth.ts - FIXED VERSION with proper header merging
+// lib/auth.ts - Combined user status fetching
 import { User, LoginCredentials, RegisterData, AuthResponse } from '../types/auth';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
+
+// Add new interface for user status
+interface UserStatus {
+  hasSeenOnboarding: boolean;
+  hasUnlockedFeatures: boolean;
+}
 
 // Helper function to handle unknown errors
 const handleError = (error: unknown): Error => {
@@ -17,7 +23,7 @@ class AuthService {
   private authCheckCacheTime: number = 30000; // 30 seconds cache
   private cachedAuthStatus: boolean | null = null;
 
-  // ✅ FIXED: Only return Authorization header, let callers set Content-Type when needed
+  // Only return Authorization header, let callers set Content-Type when needed
   private getAuthHeaders(): Record<string, string> {
     const token = this.getToken();
     return {
@@ -25,28 +31,42 @@ class AuthService {
     };
   }
 
-  async getOnboardingStatus() {
+  // ✅ NEW: Combined status endpoint - fetches both onboarding and features status
+  async getUserStatus(): Promise<UserStatus> {
     try {
-      const response = await fetch('/api/user/onboarding/', {
+      const token = this.getToken();
+      
+      const response = await fetch(`${API_BASE_URL}/api/user/status/`, {
         method: 'GET',
         credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
+          ...(token && { 'Authorization': `Token ${token}` }),
         },
       });
       
       if (!response.ok) {
-        throw new Error('Failed to fetch onboarding status');
+        throw new Error('Failed to fetch user status');
       }
       
       const data = await response.json();
       return {
         hasSeenOnboarding: data.has_seen_onboarding || false,
+        hasUnlockedFeatures: data.has_unlocked_features || false,
       };
     } catch (error) {
-      console.error('Error fetching onboarding status:', error);
-      return { hasSeenOnboarding: false };
+      console.error('Error fetching user status:', error);
+      return { 
+        hasSeenOnboarding: false,
+        hasUnlockedFeatures: false,
+      };
     }
+  }
+
+  // DEPRECATED: Use getUserStatus() instead
+  async getOnboardingStatus() {
+    const status = await this.getUserStatus();
+    return { hasSeenOnboarding: status.hasSeenOnboarding };
   }
   
   async markOnboardingSeen() {
@@ -74,6 +94,37 @@ class AuthService {
       return true;
     } catch (error) {
       console.error('Error updating onboarding status:', error);
+      throw error;
+    }
+  }
+
+  // ✅ NEW: Update feature unlock status
+  async updateFeatureUnlock(unlocked: boolean): Promise<boolean> {
+    try {
+      const token = this.getToken();
+      
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+
+      const response = await fetch(`${API_BASE_URL}/api/user/features/unlock/`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Token ${token}`,
+        },
+        body: JSON.stringify({ has_unlocked_features: unlocked }),
+      });
+      
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || `Server returned ${response.status}`);
+      }
+      
+      return true;
+    } catch (error) {
+      console.error('Error updating feature unlock status:', error);
       throw error;
     }
   }
@@ -291,7 +342,6 @@ class AuthService {
     return false;
   }
   
-  // ✅ FIXED: Proper header merging - user's custom headers always take precedence
   async authenticatedFetch(url: string, options: RequestInit = {}): Promise<Response> {
     const token = this.getToken();
     if (!token) {

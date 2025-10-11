@@ -1,18 +1,20 @@
 'use client';
 import React, { useState, useEffect } from 'react';
 import { usePostHog } from 'posthog-js/react';
+import { Palette } from 'lucide-react';
 import Calendar from '../components/Calendar/Calendar';
 import Sidebar from '../components/Sidebar';
 import Planner from '../components/Planner/Planner';
 import Onboarding from '../components/Onboarding/Onboarding';
+import ThemeSidebar from '../components/ThemeSidebar';
 import '../globals.css';
-import { ThemeProvider } from '../services/themeContext';
+import { ThemeProvider, useTheme } from '../services/themeContext';
 import { useAppState } from '../hooks/useAppState';
+import { useUserSettings } from '../hooks/useUserSettings';
 import { authAPI } from '../../lib/auth';
 import Notes from '../components/Notes';
 import Popup from '../components/Popup/Popup';
 
-// Define available views - Planner (your-new-view) is now the default/first
 type ViewType = 'your-new-view' | 'calendar';
 
 interface AppContentProps {
@@ -26,18 +28,27 @@ const AppContent: React.FC<AppContentProps> = ({
 }) => {
   const posthog = usePostHog();
   
-  // Authentication state - start as true for instant display
   const [isAuthenticated, setIsAuthenticated] = useState(true);
-  
-  // Remove layout ready state - no longer needed
-  const [isClient, setIsClient] = useState(true); // Start as true for SSR
+  const [isClient, setIsClient] = useState(true);
   const [userData, setUserData] = useState<any>(null);
+
+  // Theme sidebar state
+  const [showThemeSidebar, setShowThemeSidebar] = useState(false);
+  
+  // Use the settings hook to manage theme
+  const {
+    settings,
+    isLoading: settingsLoading,
+    isSaving,
+    hasUnsavedChanges,
+    updateSettings,
+    saveSettings,
+  } = useUserSettings();
 
   // Onboarding state
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [onboardingCompleted, setOnboardingCompleted] = useState(false);
   
-  // Use the centralized state hook
   const {
     events,
     tasks,
@@ -52,26 +63,21 @@ const AppContent: React.FC<AppContentProps> = ({
     setError
   } = useAppState();
 
-  
-  // View management state - Default to 'your-new-view' (planner)
   const [activeView, setActiveView] = useState<ViewType>('your-new-view');
   const [view, setView] = useState<string>('dayGridMonth');
   const [refreshEvents, setRefreshEvents] = useState(0);
   const [navbarVisible, setNavbarVisible] = useState(false);
 
-  // Set this to true for dev, false for production
   const DEV_MODE = false;
 
-  // Initialize view from localStorage synchronously on mount
   useEffect(() => {
-    // Check localStorage immediately without waiting
     if (typeof window !== 'undefined') {
       const savedView = localStorage.getItem('lastActiveView') as ViewType;
       if (savedView && (savedView === 'calendar' || savedView === 'your-new-view')) {
         setActiveView(savedView);
       }
     }
-  }, []); // Run only once on mount
+  }, []);
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -80,12 +86,10 @@ const AppContent: React.FC<AppContentProps> = ({
         setIsAuthenticated(isAuth);
         
         if (isAuth) {
-          // Get user data (which includes has_seen_onboarding)
-          // This assumes you have a method to get current user
-          // If you don't, the user data is already in localStorage from login!
           const storedUser = localStorage.getItem('user');
           if (storedUser) {
-            setUserData(JSON.parse(storedUser));
+            const user = JSON.parse(storedUser);
+            setUserData(user);
           }
           
           if (typeof window !== 'undefined') {
@@ -102,8 +106,6 @@ const AppContent: React.FC<AppContentProps> = ({
 
     setTimeout(checkAuth, 500);
   }, []);
-// In page.tsx - Replace the onboarding useEffect with this:
-
 
   useEffect(() => {
     if (!userData) return;
@@ -111,15 +113,10 @@ const AppContent: React.FC<AppContentProps> = ({
     if (DEV_MODE) {
       setShowOnboarding(true);
     } else {
-      // Just check the user data we already have from login
       setShowOnboarding(!userData.has_seen_onboarding);
     }
   }, [userData]);
 
-
-
-
-  // Cleanup and scroll management
   useEffect(() => {
     document.body.style.overflow = 'auto';
     document.documentElement.style.overflow = 'auto';
@@ -134,7 +131,6 @@ const AppContent: React.FC<AppContentProps> = ({
     };
   }, [posthog]);
 
-  // Mouse move handler - run in background
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
       if (e.clientY <= 25) {
@@ -144,7 +140,6 @@ const AppContent: React.FC<AppContentProps> = ({
       }
     };
 
-    // Add listener after a delay to avoid blocking initial render
     setTimeout(() => {
       window.addEventListener('mousemove', handleMouseMove);
     }, 100);
@@ -184,20 +179,15 @@ const AppContent: React.FC<AppContentProps> = ({
     }
   };
 
-  // Simplify the complete handler:
   const handleOnboardingSkip = async () => {
-    console.log('Skip button clicked!');
     setShowOnboarding(false);
     
     try {
       await authAPI.markOnboardingSeen();
-      console.log('Onboarding status saved!');
       
-      // Update userData state
       const updatedUser = { ...userData, has_seen_onboarding: true };
       setUserData(updatedUser);
       
-      // CRITICAL: Update localStorage so it persists
       if (typeof window !== 'undefined') {
         localStorage.setItem('user', JSON.stringify(updatedUser));
       }
@@ -213,18 +203,14 @@ const AppContent: React.FC<AppContentProps> = ({
   };
 
   const handleOnboardingComplete = async () => {
-    console.log('Complete button clicked!');
     setShowOnboarding(false);
     
     try {
       await authAPI.markOnboardingSeen();
-      console.log('Onboarding status saved!');
       
-      // Update userData state
       const updatedUser = { ...userData, has_seen_onboarding: true };
       setUserData(updatedUser);
       
-      // CRITICAL: Update localStorage so it persists
       if (typeof window !== 'undefined') {
         localStorage.setItem('user', JSON.stringify(updatedUser));
       }
@@ -238,7 +224,34 @@ const AppContent: React.FC<AppContentProps> = ({
       });
     }
   };
-  // Task handlers with PostHog tracking
+
+  // Settings change handler with auto-save
+  const handleSettingsChange = async (newSettings: any) => {
+    // Update the settings (this marks it as unsaved)
+    updateSettings(newSettings);
+    
+    // Automatically save the settings
+    setTimeout(async () => {
+      await saveSettings();
+    }, 100);
+    
+    // Track changes if posthog is available
+    if (posthog) {
+      if (newSettings.theme) {
+        posthog.capture('theme_changed', {
+          theme: newSettings.theme,
+          timestamp: new Date().toISOString()
+        });
+      }
+      if (newSettings.dark_mode !== undefined) {
+        posthog.capture('dark_mode_toggled', {
+          dark_mode: newSettings.dark_mode,
+          timestamp: new Date().toISOString()
+        });
+      }
+    }
+  };
+
   const handleSidebarTaskCreate = async (taskData: any): Promise<void> => {
     const newTask = await createTask(taskData);
     if (newTask && posthog) {
@@ -270,7 +283,6 @@ const AppContent: React.FC<AppContentProps> = ({
     }
   };
 
-  // Event handlers with PostHog tracking
   const handleEventCreate = async (eventData: any): Promise<void> => {
     const newEvent = await createEvent(eventData);
     if (newEvent) {
@@ -329,11 +341,9 @@ const AppContent: React.FC<AppContentProps> = ({
     }
   };
 
-  // Render the active view content - Immediate rendering
   const renderActiveView = () => {
     return (
       <div className="scaled-view-container">
-        {/* Planner View - Always rendered, visibility controlled by CSS */}
         <div className={`view-component ${activeView === 'your-new-view' ? 'active' : 'hidden'}`}>
           <Planner 
             rightSidebarOpen={false}
@@ -343,12 +353,10 @@ const AppContent: React.FC<AppContentProps> = ({
           />
         </div>
         
-        {/* Notes - Separate component, always rendered alongside planner */}
         <div className={`view-component notes-view ${activeView === 'your-new-view' ? 'active' : 'hidden'}`} style={{ height: '100%', background: '#f9fafb' }}>
           <Notes />
         </div>
         
-        {/* Calendar View - Always rendered, visibility controlled by CSS */}
         <div className={`view-component ${activeView === 'calendar' ? 'active' : 'hidden'}`}>
           <Calendar 
             refreshTrigger={refreshEvents}
@@ -365,12 +373,10 @@ const AppContent: React.FC<AppContentProps> = ({
     );
   };
 
-  // Render immediately - no loading states
   return (
     <div className="h-screen overflow-hidden">
       <Popup />
 
-      {/* Onboarding Component - only render when needed */}
       {showOnboarding && (
         <Onboarding
           isVisible={showOnboarding}
@@ -381,33 +387,65 @@ const AppContent: React.FC<AppContentProps> = ({
         />
       )}
 
-      {/* Sidebar - Always render */}
+      {/* Theme Sidebar Component - now with unified settings */}
+      {settings && (
+        <ThemeSidebar
+          isOpen={showThemeSidebar}
+          onClose={() => setShowThemeSidebar(false)}
+          settings={settings}
+          onSettingsChange={handleSettingsChange}
+          hasUnsavedChanges={hasUnsavedChanges}
+        />
+      )}
+
+      {/* Theme Button - Attached to right edge */}
+      <button 
+        className="theme-open-button"
+        onClick={() => setShowThemeSidebar(true)}
+        aria-label="Open themes"
+      >
+        <svg 
+          width="20" 
+          height="20" 
+          viewBox="0 0 24 24" 
+          fill="none" 
+          xmlns="http://www.w3.org/2000/svg"
+          className="palette-icon"
+        >
+          <defs>
+            <linearGradient id="rainbow-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" style={{ stopColor: '#FF6B9D' }} />
+              <stop offset="25%" style={{ stopColor: '#FFA94D' }} />
+              <stop offset="50%" style={{ stopColor: '#FFD93D' }} />
+              <stop offset="75%" style={{ stopColor: '#6BCF7F' }} />
+              <stop offset="100%" style={{ stopColor: '#6BA3FF' }} />
+            </linearGradient>
+          </defs>
+          <circle cx="13.5" cy="6.5" r="1.8" fill="#FF6B9D"/>
+          <circle cx="17.5" cy="10.5" r="1.8" fill="#FFD93D"/>
+          <circle cx="8.5" cy="7.5" r="1.8" fill="#FFA94D"/>
+          <circle cx="6.5" cy="12.5" r="1.8" fill="#6BCF7F"/>
+          <path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z" 
+                stroke="url(#rainbow-gradient)" 
+                strokeWidth="2" 
+                strokeLinecap="round" 
+                strokeLinejoin="round"
+                style={{ filter: 'drop-shadow(0 1px 2px rgba(0, 0, 0, 0.1))' }}/>
+        </svg>
+      </button>
+
       <Sidebar 
         onEventChange={handleEventChange}
         refreshTrigger={refreshEvents}
       />
       
-      {/* Main content area - Immediate rendering */}
       <div className="main-content-area">
-        {/* Error message overlay - only when there's an error */}
         {error && (
-          <div style={{ 
-            position: 'absolute', 
-            top: '60px', 
-            left: '20px', 
-            right: '20px',
-            zIndex: 1001,
-            background: '#fee2e2',
-            color: '#dc2626',
-            padding: '8px 12px',
-            borderRadius: '4px',
-            fontSize: '14px'
-          }}>
+          <div className="error-banner">
             {error}
           </div>
         )}
         
-        {/* Dynamic View Content */}
         <div className="view-content">
           {renderActiveView()}
         </div>
@@ -465,6 +503,54 @@ const AppContent: React.FC<AppContentProps> = ({
           height: 100%;
         }
 
+        .error-banner {
+          position: absolute;
+          top: 60px;
+          left: 20px;
+          right: 20px;
+          z-index: 1001;
+          background: #fee2e2;
+          color: #dc2626;
+          padding: 8px 12px;
+          border-radius: 4px;
+          font-size: 14px;
+        }
+
+        .theme-open-button {
+          position: fixed;
+          top: 90px;
+          right: 0;
+          transform: translateY(-50%);
+          width: 40px;
+          height: 48px;
+          background: hsl(var(--real-sidebar));
+          border: 1px solid hsl(var(--border) / 0.5);
+          border-right: none;
+          border-radius: 8px 0 0 8px;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          transition: all 0.15s ease;
+          z-index: 998;
+        }
+
+        .theme-open-button:hover {
+          width: 44px;
+        }
+
+        .theme-open-button:active {
+          transform: translateY(-50%) scale(0.98);
+        }
+
+        .palette-icon {
+          transition: transform 0.2s ease;
+        }
+
+        .theme-open-button:hover .palette-icon {
+          transform: scale(1.1);
+        }
+
         @media (max-width: 768px) {
           .main-content-area {
             left: 0;
@@ -512,8 +598,6 @@ const Page = () => {
   const [rightSidebarOpen, setRightSidebarOpen] = useState(false);
 
   return (
-    
-    
     <ThemeProvider>
       <AppContent 
         rightSidebarOpen={rightSidebarOpen}

@@ -14,6 +14,11 @@ from google.oauth2 import id_token
 from google.auth.transport import requests
 import json
 import logging
+from django.http import JsonResponse
+from django.views.decorators.http import require_http_methods
+from django.contrib.auth.decorators import login_required
+from django.views.decorators.csrf import csrf_exempt
+import json
 
 logger = logging.getLogger(__name__)
 
@@ -247,28 +252,51 @@ def google_auth(request):
             'error': f'Google authentication failed: {str(e)}'
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+# views.py
+from rest_framework.decorators import api_view, permission_classes, authentication_classes
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.authentication import TokenAuthentication
+from rest_framework.response import Response
+from rest_framework import status
 
-# NEW ENDPOINT: Mark onboarding as seen
+@api_view(['GET'])
+@authentication_classes([TokenAuthentication])
+@permission_classes([IsAuthenticated])
+def get_user_status(request):
+    """
+    Combined endpoint to fetch both onboarding and feature unlock status
+    Reduces API calls by returning all user status info at once
+    """
+    user = request.user
+    return Response({
+        'has_seen_onboarding': user.has_seen_onboarding,
+        'has_unlocked_features': user.has_unlocked_features,
+    })
+
+
 @api_view(['POST'])
+@authentication_classes([TokenAuthentication])
 @permission_classes([IsAuthenticated])
 def mark_onboarding_seen(request):
-    """
-    Mark that the user has seen the onboarding
-    """
+    """Mark that the user has seen the onboarding"""
+    user = request.user
+    user.has_seen_onboarding = True
+    user.save(update_fields=['has_seen_onboarding'])
+    return Response({'success': True})
+
+
+@api_view(['POST'])
+@authentication_classes([TokenAuthentication])
+@permission_classes([IsAuthenticated])
+def update_feature_unlock(request):
+    """Update the user's feature unlock status"""
     try:
+        has_unlocked = request.data.get('has_unlocked_features', False)
+        
         user = request.user
-        user.has_seen_onboarding = True
-        user.save(update_fields=['has_seen_onboarding'])
+        user.has_unlocked_features = has_unlocked
+        user.save(update_fields=['has_unlocked_features'])
         
-        print(f"DEBUG: Onboarding marked as seen for user {user.id}")
-        
-        return Response({
-            'success': True,
-            'message': 'Onboarding status updated'
-        }, status=status.HTTP_200_OK)
-        
+        return Response({'success': True})
     except Exception as e:
-        logger.error(f"Error marking onboarding as seen: {e}")
-        return Response({
-            'error': f'Failed to update onboarding status: {str(e)}'
-        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

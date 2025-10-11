@@ -10,7 +10,7 @@ from myapp.views_check_login import check_login
 from .view_dispatcher import ScheduleInputDispatcher, ScheduleInputParser  # Import the missing views
 from myapp.views_llm_text import llm_text
 from .views_notes import NoteTabListCreateView, NoteTabDetailView
-from . import views_user
+from .views_user import update_feature_unlock, mark_onboarding_seen, google_auth, get_user_status
 from .views_no_work import delete_no_work_day, no_work_days_list_create
 
 from .user_settings import UserSettingsView
@@ -35,7 +35,7 @@ urlpatterns = [
     path('api/logout/', logout_view),
     path('api/register/', register_user),
     path('api/login/', login_user),
-    path('api/auth/google/', views_user.google_auth, name='google_auth'),
+    path('api/auth/google/', google_auth, name='google_auth'),
 
     path('api/check-login/', check_login),
     path('api/schedule/parse/', ScheduleInputParser.as_view(), name='schedule-parser'),
@@ -50,8 +50,10 @@ urlpatterns = [
     
     path('api/planner/no-work-days/', no_work_days_list_create, name='no-work-days-list-create'),
     path('api/planner/no-work-days/<int:pk>/', delete_no_work_day, name='delete-no-work-day'),
-    path('api/user/onboarding/seen/', views_user.mark_onboarding_seen, name='mark_onboarding_seen')
-    
+    path('api/user/onboarding/seen/', mark_onboarding_seen, name='mark_onboarding_seen'),
+    path('api/user/features/unlock/', update_feature_unlock, name='update_feature_unlock'),
+    path('api/user/status/', get_user_status, name='user_status'),
+
 ]
 
 
