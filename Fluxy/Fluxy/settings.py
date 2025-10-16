@@ -51,6 +51,13 @@ DUCKLING_URL = os.environ.get('DUCKLING_URL', 'http://127.0.0.1:8080')
 
 
 REST_FRAMEWORK = {
+    'DEFAULT_PERMISSION_CLASSES': [
+        'rest_framework.permissions.IsAuthenticated',
+    ],
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'rest_framework.authentication.SessionAuthentication',  # Move this first
+        'rest_framework.authentication.TokenAuthentication',
+    ],
     "DEFAULT_THROTTLE_CLASSES": [
         "rest_framework.throttling.UserRateThrottle",
     ],
