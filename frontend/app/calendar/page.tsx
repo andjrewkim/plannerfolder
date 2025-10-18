@@ -68,7 +68,7 @@ const AppContent: React.FC<AppContentProps> = ({
   const [refreshEvents, setRefreshEvents] = useState(0);
   const [navbarVisible, setNavbarVisible] = useState(false);
 
-  const DEV_MODE = false;
+  const DEV_MODE = true;
 
   useEffect(() => {
     if (typeof window !== 'undefined') {

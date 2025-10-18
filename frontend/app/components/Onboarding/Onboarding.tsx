@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { X, ArrowRight, ArrowLeft, Check } from 'lucide-react';
+import { X, ArrowRight, Check } from 'lucide-react';
 
 interface OnboardingStep {
   id: string;
@@ -7,8 +7,8 @@ interface OnboardingStep {
   description: string;
   target: string;
   position: 'top' | 'bottom' | 'left' | 'right' | 'center';
-  action?: 'click' | 'hover' | 'none';
-  actionText?: string;
+  requiresAction?: boolean;
+  actionType?: 'click' | 'edit' | 'add-assignment';
 }
 
 interface OnboardingProps {
@@ -22,44 +22,40 @@ interface OnboardingProps {
 const onboardingSteps: OnboardingStep[] = [
   {
     id: 'welcome',
-    title: 'Welcome to Your Assignment Planner!',
-    description: 'Are you ready to stop stressing about class assignments? Let\'s take a quick tour to help you organize your tasks.',
+    title: 'Let\'s get you organized in 30 seconds',
+    description: 'Stop juggling assignments in your head. Add your first class and task now and see what is due today.',
     target: 'body',
     position: 'center'
   },
   {
-    id: 'edit-class-button',
-    title: 'Edit Class Names',
-    description: 'You can change the default classes and class names to match your exact schedule.',
-    target: '.edit-class-btn',
-    position: 'right'
+    id: 'edit-class-name',
+    title: 'Click the edit button to rename this',
+    description: 'Change "Class 1" to one of your actual classes. Click the pencil icon.',
+    target: '.class-item:first-child',
+    position: 'right',
+    requiresAction: true,
+    actionType: 'click'
   },
   {
-    id: 'main-grid',
-    title: 'Assignment Grid',
-    description: 'This grid shows your assignments for each class and day. You can create assignments for your classes throughout the week.',
-    target: '.main-grid',
-    position: 'left'
+    id: 'save-class-name',
+    title: 'Type your class name and press Enter',
+    description: 'Enter a real class you\'re taking - like "Biology" or "Calculus" - then hit Enter to save it.',
+    target: '.class-name-edit-input',
+    position: 'right',
+    requiresAction: true,
+    actionType: 'edit'
   },
   {
     id: 'add-assignment',
-    title: 'Adding Assignments',
-    description: 'Use this + button to add a new assignment.',
-    target: '.today-cell .add-assignment-btn, .assignment-cell.today .add-assignment-btn, [data-today="true"] .add-assignment-btn',
+    title: 'Now add something you need to do',
+    description: 'Click the + button to add an assignment for your class.',
+    target: '.class-row:first-child .assignment-cell:nth-child(2)',
     position: 'right'
   },
   {
-    id: 'stripe-toggle',
-    title: 'Mark No Work Days',
-    description: 'Press to mark when there\'s no work for a class.',
-    target: '.today-cell .no-work-toggle, .assignment-cell.today .no-work-toggle, [data-today="true"] .no-work-toggle',
-    position: 'right'
-  },
-
-  {
-    id: 'completion',
-    title: 'You\'re All Set!',
-    description: 'You now know the basics! Explore the features at your own pace.',
+    id: 'done',
+    title: 'That\'s it. You\'re ready.',
+    description: 'Tip: Press Ctrl + D to bookmark or pin this page so you can find it quickly. Come back after class to check off your work.',
     target: 'body',
     position: 'center'
   }
@@ -81,27 +77,96 @@ const Onboarding: React.FC<OnboardingProps> = ({
 
   const currentStepData = onboardingSteps[currentStep];
   const isLastStep = currentStep === onboardingSteps.length - 1;
-  const isFirstStep = currentStep === 0;
 
   // Handle view switching
   useEffect(() => {
     if (!isVisible) return;
-
-    const step = onboardingSteps[currentStep];
-    
-    if ((step.id === 'planner-view' || 
-         step.id === 'classes-sidebar' || 
-         step.id === 'class-item' ||
-         step.id === 'add-class-button' ||
-         step.id === 'grid-header' ||
-         step.id === 'main-grid' ||
-         step.id === 'assignment-cell' ||
-         step.id === 'add-assignment' ||
-         step.id === 'assignment-item') && 
-        currentView !== 'your-new-view') {
+    if (currentView !== 'your-new-view') {
       onViewChange('your-new-view');
     }
   }, [currentStep, isVisible, currentView, onViewChange]);
+
+  // Set up action listeners
+  useEffect(() => {
+    if (!isVisible || !currentStepData.requiresAction) return;
+
+    console.log('Setting up listeners for step:', currentStepData.id, 'actionType:', currentStepData.actionType);
+
+    const handleAction = (e: Event) => {
+      const target = e.target as HTMLElement;
+      
+      console.log('Event detected:', e.type, 'on', target);
+      
+      if (currentStepData.actionType === 'click') {
+        // Check if edit button was clicked
+        const isEditButton = target.classList.contains('edit-class-btn') || 
+                             target.closest('.edit-class-btn') ||
+                             target.tagName === 'svg' && target.closest('.edit-class-btn');
+        if (isEditButton) {
+          setTimeout(() => {
+            setCurrentStep(prev => prev + 1);
+          }, 300);
+        }
+      } else if (currentStepData.actionType === 'edit') {
+        // ONLY for class name editing
+        if (target.classList.contains('class-name-edit-input')) {
+          if (e.type === 'blur') {
+            const inputValue = (target as HTMLInputElement).value.trim();
+            if (inputValue && inputValue !== 'Class 1') {
+              setTimeout(() => {
+                setCurrentStep(prev => prev + 1);
+              }, 300);
+            }
+          }
+        }
+      } else if (currentStepData.actionType === 'type-assignment') {
+        // For assignment input ONLY
+        console.log('Type assignment event:', e.type, 'target:', target);
+        console.log('Target classes:', target.className);
+        console.log('Target tag:', target.tagName);
+        console.log('Is input?', target.tagName === 'INPUT');
+        console.log('Input type:', target.getAttribute('type'));
+        
+        const isAssignmentInput = target.tagName === 'INPUT' && 
+                                   !target.classList.contains('class-name-edit-input');
+        
+        console.log('Is assignment input?', isAssignmentInput);
+        
+        if (isAssignmentInput) {
+          if ((e.type === 'keydown' || e.type === 'keypress') && (e as KeyboardEvent).key === 'Enter') {
+            const inputValue = (target as HTMLInputElement).value.trim();
+            console.log('Assignment input value:', inputValue);
+            if (inputValue) {
+              console.log('Advancing to next step!');
+              // Wait a bit longer to ensure the assignment was created
+              setTimeout(() => {
+                setCurrentStep(prev => prev + 1);
+              }, 800);
+            }
+          }
+        }
+      }
+    };
+
+    // Listen for appropriate events based on action type
+    if (currentStepData.actionType === 'edit') {
+      document.addEventListener('blur', handleAction, true);
+    } else if (currentStepData.actionType === 'type-assignment') {
+      // Use capture phase to catch before other handlers
+      document.addEventListener('keydown', handleAction, { capture: true });
+      document.addEventListener('keypress', handleAction, { capture: true });
+      console.log('Added keydown and keypress listeners for type-assignment');
+    } else {
+      document.addEventListener('click', handleAction, true);
+    }
+
+    return () => {
+      document.removeEventListener('click', handleAction, true);
+      document.removeEventListener('keydown', handleAction, true);
+      document.removeEventListener('keypress', handleAction, true);
+      document.removeEventListener('blur', handleAction, true);
+    };
+  }, [currentStep, isVisible, currentStepData]);
 
   // Find element and position tooltip
   useEffect(() => {
@@ -112,8 +177,8 @@ const Onboarding: React.FC<OnboardingProps> = ({
     if (step.position === 'center') {
       setHighlightedElement(null);
       setTooltipPosition({ 
-        top: window.innerHeight / 2 - 100, // Subtract half the tooltip height (approx)
-        left: window.innerWidth / 2 - 160  // Subtract half the tooltip width
+        top: window.innerHeight / 2 - 100,
+        left: window.innerWidth / 2 - 160
       });
       return;
     }
@@ -133,15 +198,13 @@ const Onboarding: React.FC<OnboardingProps> = ({
         }
       }
       
-      // Fallback to center if not found
       setHighlightedElement(null);
       setTooltipPosition({ 
-        top: window.innerHeight / 2 - 100, // Subtract half the tooltip height (approx)
-        left: window.innerWidth / 2 - 160  // Subtract half the tooltip width
+        top: window.innerHeight / 2 - 100,
+        left: window.innerWidth / 2 - 160
       });
     };
 
-    // Wait a bit for view changes to complete
     const timeoutId = setTimeout(findElement, 100);
     return () => clearTimeout(timeoutId);
   }, [currentStep, isVisible, currentView]);
@@ -174,14 +237,12 @@ const Onboarding: React.FC<OnboardingProps> = ({
         break;
     }
 
-    // Keep on screen - horizontal
     if (left < padding) {
       left = padding;
     } else if (left + tooltipWidth > window.innerWidth - padding) {
       left = window.innerWidth - tooltipWidth - padding;
     }
 
-    // Keep on screen - vertical
     if (top < padding) {
       top = padding;
     } else if (top + tooltipHeight > window.innerHeight - padding) {
@@ -199,40 +260,39 @@ const Onboarding: React.FC<OnboardingProps> = ({
     }
   };
 
-  const handlePrev = () => {
-    if (!isFirstStep) {
-      setCurrentStep(prev => prev - 1);
-    }
-  };
-
   if (!isVisible) return null;
+
+  const rect = highlightedElement?.getBoundingClientRect();
 
   return (
     <>
-      {/* Simple overlay */}
-      <div style={{
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        backgroundColor: 'rgba(0, 0, 0, 0.2)',
-        zIndex: 10000
-      }} />
-      
-      {/* Element highlight */}
-      {highlightedElement && (
+      {/* Simple overlay when center positioned */}
+      {currentStepData.position === 'center' && (
         <div style={{
           position: 'fixed',
-          top: highlightedElement.getBoundingClientRect().top - 4,
-          left: highlightedElement.getBoundingClientRect().left - 4,
-          width: highlightedElement.getBoundingClientRect().width + 8,
-          height: highlightedElement.getBoundingClientRect().height + 8,
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.2)',
+          zIndex: 10000,
+          pointerEvents: 'auto'
+        }} />
+      )}
+      
+      {/* Element highlight - with higher z-index to appear above overlay */}
+      {highlightedElement && rect && (
+        <div style={{
+          position: 'fixed',
+          top: rect.top - 4,
+          left: rect.left - 4,
+          width: rect.width + 8,
+          height: rect.height + 8,
           zIndex: 10001,
-          border: '3px solid #3b82f6',
+          border: '2px solid #3b82f6',
           borderRadius: '8px',
           pointerEvents: 'none',
-          boxShadow: '0 0 0 4px rgba(59, 130, 246, 0.3)'
+          boxShadow: '0 0 0 3px rgba(59, 130, 246, 0.2)'
         }} />
       )}
 
@@ -241,7 +301,7 @@ const Onboarding: React.FC<OnboardingProps> = ({
         position: 'fixed',
         top: tooltipPosition.top,
         left: tooltipPosition.left,
-        zIndex: 10002,
+        zIndex: 10003,
         backgroundColor: 'hsl(220, 12%, 14%)',
         color: 'hsl(220, 10%, 85%)',
         borderRadius: '12px',
@@ -249,7 +309,8 @@ const Onboarding: React.FC<OnboardingProps> = ({
         padding: '24px',
         width: '320px',
         border: '1px solid hsla(210, 2%, 42%, 1.00)',
-        transition: 'top 200ms ease-out, left 200ms ease-out'
+        transition: 'top 200ms ease-out, left 200ms ease-out',
+        pointerEvents: 'auto'
       }}>
         {/* Header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
@@ -269,7 +330,8 @@ const Onboarding: React.FC<OnboardingProps> = ({
               border: 'none',
               cursor: 'pointer',
               color: 'hsl(220, 10%, 55%)',
-              padding: '4px'
+              padding: '4px',
+              zIndex: 1
             }}
           >
             <X size={16} />
@@ -309,55 +371,53 @@ const Onboarding: React.FC<OnboardingProps> = ({
           </div>
           
           <div style={{ display: 'flex', gap: '12px' }}>
-            {!isFirstStep && (
+            {currentStepData.requiresAction ? (
+              <div style={{
+                padding: '8px 16px',
+                backgroundColor: 'hsla(217, 34%, 48%, 0.3)',
+                border: '1px solid hsla(217, 34%, 48%, 0.5)',
+                borderRadius: '6px',
+                fontSize: '13px',
+                color: 'hsl(217, 50%, 68%)',
+                fontWeight: '500',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px'
+              }}>
+
+
+                Waiting...
+              </div>
+            ) : (
               <button
-                onClick={handlePrev}
+                onClick={handleNext}
                 style={{
                   display: 'flex',
                   alignItems: 'center',
                   gap: '6px',
                   padding: '8px 16px',
-                  backgroundColor: 'transparent',
-                  border: '1px solid hsl(220, 10%, 55%)',
+                  backgroundColor: 'hsla(217, 34%, 48%, 1.00)',
+                  border: 'none',
                   borderRadius: '6px',
                   cursor: 'pointer',
                   fontSize: '14px',
-                  color: 'hsl(220, 10%, 55%)'
+                  color: 'white',
+                  fontWeight: '500'
                 }}
               >
-                <ArrowLeft size={14} />
-                Back
+                {isLastStep ? (
+                  <>
+                    <Check size={14} />
+                    Got it
+                  </>
+                ) : (
+                  <>
+                    Next
+                    <ArrowRight size={14} />
+                  </>
+                )}
               </button>
             )}
-            
-            <button
-              onClick={handleNext}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-                padding: '8px 16px',
-                backgroundColor: 'hsla(217, 34%, 48%, 1.00)',
-                border: 'none',
-                borderRadius: '6px',
-                cursor: 'pointer',
-                fontSize: '14px',
-                color: 'white',
-                fontWeight: '500'
-              }}
-            >
-              {isLastStep ? (
-                <>
-                  <Check size={14} />
-                  Get Started
-                </>
-              ) : (
-                <>
-                  Next
-                  <ArrowRight size={14} />
-                </>
-              )}
-            </button>
           </div>
         </div>
 
@@ -381,6 +441,19 @@ const Onboarding: React.FC<OnboardingProps> = ({
           </button>
         )}
       </div>
+
+      <style>{`
+        @keyframes pulse {
+          0%, 100% {
+            opacity: 1;
+            transform: scale(1);
+          }
+          50% {
+            opacity: 0.6;
+            transform: scale(0.95);
+          }
+        }
+      `}</style>
     </>
   );
 };

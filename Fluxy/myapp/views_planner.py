@@ -31,18 +31,7 @@ class PlannerClassViewSet(viewsets.ModelViewSet):
                     )
                     default_classes.append(default_class)
                 
-                # Create default assignment for Class 1 only using user's timezone
-                if default_classes:
-                    first_class = default_classes[0]
-                    if not Assignment.objects.filter(planner_class=first_class).exists():
-                        # Use centralized timezone utility
-                        user_date = get_user_local_date(request)
-                        Assignment.objects.create(
-                            planner_class=first_class,
-                            title="First Assignment",
-                            date=user_date,
-                            order=0
-                        )
+
             
             # Refresh the queryset after creating defaults
             queryset = self.get_queryset()

@@ -4,31 +4,9 @@ from django.contrib.auth.models import User
 from django.utils import timezone
 from datetime import datetime
 import zoneinfo
-from .models import PlannerClass, Assignment
 
-@receiver(post_save, sender=PlannerClass)
-def create_default_assignment(sender, instance, created, **kwargs):
-    """
-    Create a default assignment when the first PlannerClass (Class 1) is created for a new user.
-    Uses user's timezone to ensure date is correct in their local time.
-    """
-    if created and instance.name == 'Class 1':
-        # Double-check this is actually the user's first class
-        user_classes_count = PlannerClass.objects.filter(user=instance.user).count()
-        
-        if user_classes_count == 1:  # This is their very first class
-            # Get user's timezone
-            user_tz = get_user_timezone(instance.user)
-            
-            # Get current date in user's timezone (not server timezone)
-            local_date = timezone.now().astimezone(user_tz).date()
-            
-            Assignment.objects.create(
-                planner_class=instance,
-                title="First Assignment",
-                date=local_date,
-                order=0
-            )
+
+
 
 
 def get_user_timezone(user):
