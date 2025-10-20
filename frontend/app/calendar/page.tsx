@@ -31,6 +31,9 @@ const AppContent: React.FC<AppContentProps> = ({
   const [isAuthenticated, setIsAuthenticated] = useState(true);
   const [isClient, setIsClient] = useState(true);
   const [userData, setUserData] = useState<any>(null);
+  
+  // Feature unlock status - same as ThemeSidebar
+  const [hasUnlockedFeatures, setHasUnlockedFeatures] = useState(false);
 
   // Theme sidebar state
   const [showThemeSidebar, setShowThemeSidebar] = useState(false);
@@ -68,7 +71,7 @@ const AppContent: React.FC<AppContentProps> = ({
   const [refreshEvents, setRefreshEvents] = useState(0);
   const [navbarVisible, setNavbarVisible] = useState(false);
 
-  const DEV_MODE = true;
+  const DEV_MODE = false;
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -78,6 +81,24 @@ const AppContent: React.FC<AppContentProps> = ({
       }
     }
   }, []);
+
+  // Fetch feature unlock status - same as ThemeSidebar
+  useEffect(() => {
+    const fetchFeatureStatus = async () => {
+      if (!isAuthenticated) return;
+      
+      try {
+        const status = await authAPI.getUserStatus();
+        setHasUnlockedFeatures(status.hasUnlockedFeatures);
+        console.log('Feature unlock status:', status.hasUnlockedFeatures);
+      } catch (error) {
+        console.error('Failed to fetch feature status:', error);
+        setHasUnlockedFeatures(false);
+      }
+    };
+
+    fetchFeatureStatus();
+  }, [isAuthenticated]);
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -350,6 +371,7 @@ const AppContent: React.FC<AppContentProps> = ({
             activeAppView={activeView}
             onAppViewChange={handleAppViewChange}
             isAuthenticated={isAuthenticated}
+            settingsUnlocked={hasUnlockedFeatures}
           />
         </div>
         

@@ -36,11 +36,12 @@ interface PlannerGridProps {
   days: DayInfo[];
   organizedAssignments: Record<string, Record<string, Assignment[]>>;
   isAuthenticated: boolean;
+  settingsUnlocked: boolean;  // Add this line
   dragState: DragState;
   editingAssignment: string | null;
   editingAssignmentValue: string;
   newAssignmentInputs: Record<string, string>;
-  stripedCells: Set<string>; // Changed from showStripePattern boolean to set of cell keys
+  stripedCells: Set<string>;
   getRowHeight: (classId: string) => number;
   onToggleAssignment: (assignmentId: string, currentCompleted: boolean) => void;
   onStartEditAssignment: (assignmentId: string, currentTitle: string) => void;
@@ -53,7 +54,7 @@ interface PlannerGridProps {
   onCreateAssignment: (classId: string, dateString: string) => void;
   onCancelNewAssignment: (classId: string, dateString: string) => void;
   onKeyPress: (e: React.KeyboardEvent, action: () => void) => void;
-  onToggleStripePattern: (classId: string, dateString: string) => void; // Added this prop
+  onToggleStripePattern: (classId: string, dateString: string) => void;
 }
 
 const PlannerGrid: React.FC<PlannerGridProps> = ({
@@ -61,6 +62,7 @@ const PlannerGrid: React.FC<PlannerGridProps> = ({
   days,
   organizedAssignments,
   isAuthenticated,
+  settingsUnlocked,  // Add this line
   dragState,
   editingAssignment,
   editingAssignmentValue,
@@ -101,7 +103,7 @@ const PlannerGrid: React.FC<PlannerGridProps> = ({
           >
             {days.map((day) => {
               const cellKey = `${cls.id}-${day.dateString}`;
-                const showStripePattern = stripedCells?.has(cellKey) || false;
+              const showStripePattern = stripedCells?.has(cellKey) || false;
               
               return (
                 <AssignmentCell
@@ -111,6 +113,7 @@ const PlannerGrid: React.FC<PlannerGridProps> = ({
                   assignments={organizedAssignments[cls.id]?.[day.dateString] || []}
                   isToday={day.isToday}
                   isAuthenticated={isAuthenticated}
+                  settingsUnlocked={settingsUnlocked}
                   editingAssignment={editingAssignment}
                   editingAssignmentValue={editingAssignmentValue}
                   newAssignmentInput={newAssignmentInputs[cellKey]}

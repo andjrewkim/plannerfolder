@@ -709,14 +709,14 @@ const FriendList: React.FC = () => {
           <div
             style={{
               color: 'hsl(var(--muted-foreground) / 0.9)',
-              fontSize: '11px',
+              fontSize: '14px',
               lineHeight: '1.4',
             }}
           >
             Connect with classmates who want to stay on top of their homework. Add your classmates now and see their progress in real time.
             <p style={{ margin:0 }}>
               <br />
-              Color themes unlock after adding one friend.
+              Unlock color themes and exclusive features when you add a friend.
             </p>
           </div>
           </div>

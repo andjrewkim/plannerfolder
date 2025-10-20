@@ -8,7 +8,7 @@ interface OnboardingStep {
   target: string;
   position: 'top' | 'bottom' | 'left' | 'right' | 'center';
   requiresAction?: boolean;
-  actionType?: 'click' | 'edit' | 'add-assignment';
+  actionType?: 'click' | 'edit' | 'add-assignment' | 'type-assignment';
 }
 
 interface OnboardingProps {
@@ -48,7 +48,7 @@ const onboardingSteps: OnboardingStep[] = [
   {
     id: 'add-assignment',
     title: 'Now add something you need to do',
-    description: 'Click the + button to add an assignment for your class.',
+    description: 'Click the + button to add an assignment actually due for your class. Ex: "submit essay," or "practice problems."',
     target: '.class-row:first-child .assignment-cell:nth-child(2)',
     position: 'right'
   },

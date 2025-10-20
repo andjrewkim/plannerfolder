@@ -6,6 +6,7 @@ interface UserSettings {
   week_starts_on: string;
   dark_mode: boolean;
   theme: string;
+  settings_unlocked?: boolean;  // Added this property
   // Add other settings as needed
 }
 
@@ -28,7 +29,8 @@ const DEFAULT_SETTINGS: UserSettings = {
   default_calendar_view: 'month',
   week_starts_on: 'sunday',
   dark_mode: true,
-  theme: 'coffee'
+  theme: 'coffee',
+  settings_unlocked: false  // Added default value
 };
 
 // Singleton pattern to ensure only one instance manages settings

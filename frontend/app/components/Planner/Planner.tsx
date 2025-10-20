@@ -14,6 +14,7 @@ export interface PlannerProps {
   activeAppView?: ViewType;
   onAppViewChange?: (newView: ViewType) => void;
   isAuthenticated?: boolean;
+  settingsUnlocked: boolean;
 }
 
 interface DragState {
@@ -50,7 +51,8 @@ const Planner: React.FC<PlannerProps> = ({
   rightSidebarOpen = false,
   activeAppView = 'your-new-view',
   onAppViewChange,
-  isAuthenticated = false
+  isAuthenticated = false,
+  settingsUnlocked = false
 }) => {
   const screenSize = useScreenSize();
   
@@ -646,7 +648,6 @@ const Planner: React.FC<PlannerProps> = ({
             delete updated[assignmentId];
             return updated;
           });
-          if (setError) setError('Failed to delete assignment');
         }
       })
       .catch(error => {
@@ -656,7 +657,6 @@ const Planner: React.FC<PlannerProps> = ({
           return updated;
         });
         console.error('Error deleting assignment:', error);
-        if (setError) setError('Failed to delete assignment');
       });
   };
 
@@ -791,6 +791,7 @@ const Planner: React.FC<PlannerProps> = ({
           days={daysToShow}
           organizedAssignments={organizedAssignments}
           isAuthenticated={isAuthenticated}
+          settingsUnlocked={settingsUnlocked}
           dragState={dragState}
           editingAssignment={editingAssignment}
           editingAssignmentValue={editingAssignmentValue}

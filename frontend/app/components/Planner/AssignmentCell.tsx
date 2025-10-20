@@ -1,7 +1,7 @@
 import React from 'react';
 import AssignmentItem from './AssignmentItem';
 import NewAssignmentInput from './NewAssignmentInput';
-import { usePlanner, Assignment } from '../../hooks/usePlanner'; // Adjust import path
+import { usePlanner, Assignment } from '../../hooks/usePlanner';
 
 interface AssignmentCellProps {
   classId: string;
@@ -9,6 +9,7 @@ interface AssignmentCellProps {
   assignments: Assignment[];
   isToday: boolean;
   isAuthenticated: boolean;
+  settingsUnlocked: boolean;
   editingAssignment: string | null;
   editingAssignmentValue: string;
   newAssignmentInput?: string;
@@ -33,6 +34,7 @@ const AssignmentCell: React.FC<AssignmentCellProps> = ({
   assignments,
   isToday,
   isAuthenticated,
+  settingsUnlocked,
   editingAssignment,
   editingAssignmentValue,
   newAssignmentInput,
@@ -61,7 +63,6 @@ const AssignmentCell: React.FC<AssignmentCellProps> = ({
   const shouldShowNoWorkPattern = showStripePattern && hasNoAssignments;
 
   const handleToggleAssignment = async (assignmentId: string, currentCompleted: boolean) => {
-    // Optimistic update - call parent handler immediately
     onToggleAssignment(assignmentId, currentCompleted);
     
     try {
@@ -70,13 +71,11 @@ const AssignmentCell: React.FC<AssignmentCellProps> = ({
       });
       
       if (!success) {
-        // Rollback on failure
         onToggleAssignment(assignmentId, !currentCompleted);
         setError('Failed to update assignment');
         console.error('Failed to toggle assignment');
       }
     } catch (error) {
-      // Rollback on error
       onToggleAssignment(assignmentId, !currentCompleted);
       console.error('Error toggling assignment:', error);
       setError('Failed to update assignment');
@@ -84,29 +83,24 @@ const AssignmentCell: React.FC<AssignmentCellProps> = ({
   };
 
   const handleDeleteAssignment = async (assignmentId: string) => {
-    // Find the assignment to backup for potential rollback
     const assignmentToDelete = assignments.find(a => a.id === assignmentId);
     if (!assignmentToDelete) return;
     
-    // Optimistic update - call parent handler immediately
     onDeleteAssignment(assignmentId);
     
     try {
       const success = await deleteAssignment(assignmentId);
       
       if (!success) {
-        // Rollback by re-adding the assignment (you'll need to implement this in your parent)
-        // This would require a new prop like onRestoreAssignment
         console.error('Failed to delete assignment');
-        
-        // For now, we can only show error - full rollback requires parent component changes
-        // You might want to refresh the data or implement onRestoreAssignment
       }
     } catch (error) {
-      // Same rollback strategy as above
       console.error('Error deleting assignment:', error);
     }
   };
+
+  // Show button only when settings are unlocked (user has friends)
+  const shouldShowNoWorkButton = isAuthenticated && !showTempClass && hasNoAssignments && settingsUnlocked;
 
   return (
     <div 
@@ -147,7 +141,8 @@ const AssignmentCell: React.FC<AssignmentCellProps> = ({
       </div>
       
       <div className={`cell-buttons ${hasNoAssignments ? 'empty-cell' : 'has-content'}`}>
-        {isAuthenticated && !showTempClass && hasNoAssignments && (
+        {/* No Work button - only shows when user has friends (settingsUnlocked) */}
+        {shouldShowNoWorkButton && (
           <button
             onClick={() => onToggleStripePattern(classId, dateString)}
             className={`no-work-toggle ${showStripePattern ? 'active' : ''}`}
