@@ -11,13 +11,13 @@ class CustomUserAdmin(UserAdmin):
     model = CustomUser
 
     list_display = (
-        'email', 'username', 'created_at',
+        'email', 'username', 'first_name', 'last_name', 'created_at',
         'has_seen_onboarding', 'has_unlocked_features', 'is_staff',
     )
-    search_fields = ('email', 'username')
+    search_fields = ('email', 'username', 'first_name', 'last_name')
     ordering = ('email',)
 
-    readonly_fields = ('created_at',)  # ✅ Add this line
+    readonly_fields = ('created_at',)
 
     fieldsets = UserAdmin.fieldsets + (
         (_('Custom Fields'), {
