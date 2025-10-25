@@ -2,7 +2,7 @@
 :root {
   --bg-primary: hsl(var(--background));
   --bg-secondary: hsl(var(--muted)/0.5);
-  --bg-hover: hsl(var(--muted)); /* Using muted color for lighter hover */
+  --bg-hover: hsl(var(--muted));
   --text-primary: hsl(var(--foreground));
   --text-secondary: hsl(var(--muted-foreground));
   --border-color: hsl(var(--border));
@@ -28,74 +28,34 @@
   align-items: center;
   justify-content: space-between;
   height: 100%;
-  padding: 0 20px 0;
+  padding: 0 20px;
   gap: 20px;
   max-width: 100%;
-}
-
-/* App View Switcher - Left */
-.app-view-switcher {
-  display: flex;
-  align-items: center;
-  gap: 3px;
-  background: var(--bg-secondary);
-  border-radius: 8px;
-  padding: 3px;
-}
-
-.app-view-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 6px 16px;
-  height: 32px;
-  border: none;
-  border-radius: 6px;
-  background: transparent;
-  color: var(--text-secondary);
-  font-size: 12px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  white-space: nowrap;
   position: relative;
-  overflow: hidden;
 }
 
-.app-view-btn.active {
-  background: var(--card-bg);
-  color: var(--text-primary);
-  transform: translateY(-1px);
+/* Left Section - Streak */
+.left-section {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  flex-shrink: 0; /* Don't shrink */
+  z-index: 2;
 }
 
-.app-view-btn:hover:not(.active) {
-  background: var(--bg-hover);
-  color: var(--text-primary);
-}
-
-.app-view-btn::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: -100%;
-  width: 100%;
-  height: 100%;
-  background: linear-gradient(90deg, transparent, var(--primary-light), transparent);
-  transition: left 0.5s ease;
-  z-index: -1;
-}
-
-.app-view-btn.active::after {
-  left: 100%;
-}
-
-/* Navigation Section - Left Center */
+/* Navigation Section */
 .nav-section {
   display: flex;
   align-items: center;
   opacity: 1;
   transform: translateX(0);
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  flex-shrink: 0; /* Don't shrink */
+  z-index: 2;
+}
+
+.nav-section.compact {
+  transform: scale(1);
 }
 
 .nav-section.hidden {
@@ -105,6 +65,7 @@
 }
 
 .nav-group {
+  margin-left: -5px;
   display: flex;
   align-items: center;
   gap: 2px;
@@ -117,7 +78,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  min-width: 32px;
+  min-width: 25px;
   height: 32px;
   border: none;
   border-radius: 6px;
@@ -146,8 +107,8 @@
 }
 
 .nav-today {
-  gap: 8px;
-  padding: 0 12px;
+  gap: 5px;
+  padding: 0 5px;
   min-width: auto;
 }
 
@@ -163,19 +124,25 @@
   font-weight: 500;
 }
 
-/* Title Section - Center */
+/* Title Section - Perfectly Centered with Absolute Positioning */
 .title-section {
-  flex: 1;
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
   display: flex;
   align-items: center;
   justify-content: center;
+  pointer-events: none;
+  max-width: 40%; /* Limit width to prevent overlap */
+  z-index: 1;
 }
 
 .title-container {
   display: flex;
   align-items: center;
-  justify-content: center;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  white-space: nowrap;
+  max-width: 100%;
+  overflow: hidden;
 }
 
 .title-container.switching {
@@ -190,19 +157,41 @@
   color: var(--text-primary);
   line-height: 1;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
 }
 
 .title-text {
   display: inline-block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-/* View Section - Right Center */
+/* View Section */
 .view-section {
   display: flex;
   align-items: center;
   opacity: 1;
   transform: translateX(0);
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  flex-shrink: 0; /* Don't shrink */
+  z-index: 2;
+}
+
+.view-section.compact {
+  transform: scale(1);
+}
+
+.view-section.hidden {
+  opacity: 0;
+  transform: translateX(20px);
+  pointer-events: none;
+}
+.view-section.compact {
+  transform: scale(1);
 }
 
 .view-section.hidden {
@@ -250,7 +239,7 @@
   gap: 2px;
   z-index: 1;
   overflow: hidden;
-  transform: translateZ(0); /* Enable hardware acceleration */
+  transform: translateZ(0);
 }
 
 .view-btn.active {
@@ -274,7 +263,75 @@
   letter-spacing: 0.5px;
 }
 
-/* Navigation Icons - Right */
+/* Right Section - App Switcher + Nav Icons */
+.right-section {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-left: auto;
+}
+
+/* App View Switcher */
+.app-view-switcher {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  background: var(--bg-secondary);
+  border-radius: 8px;
+  padding: 3px;
+}
+
+.app-view-switcher.compact {
+  transform: scale(1);
+}
+
+.app-view-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 12px;
+  height: 32px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  white-space: nowrap;
+  position: relative;
+  overflow: hidden;
+}
+
+.app-view-btn.active {
+  background: var(--card-bg);
+  color: var(--text-primary);
+  transform: translateY(-1px);
+}
+
+.app-view-btn:hover:not(.active) {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.app-view-btn::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, var(--primary-light), transparent);
+  transition: left 0.5s ease;
+  z-index: -1;
+}
+
+.app-view-btn.active::after {
+  left: 100%;
+}
+
+/* Navigation Icons */
 .nav-icons {
   display: flex;
   align-items: center;
@@ -314,6 +371,93 @@
   display: none;
 }
 
+/* View button animations */
+.view-btn:not(.active) {
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.view-btn:not(.active):hover {
+  transform: translateY(-1px);
+}
+
+.view-btn:not(.active):active {
+  transform: translateY(0);
+  transition: all 0.1s ease;
+}
+
+.slider-indicator {
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  will-change: transform;
+}
+
+.view-icon,
+.view-label {
+  transition: all 0.2s ease;
+}
+
+.view-btn:not(.active) .view-icon {
+  opacity: 0.7;
+  transform: scale(0.95);
+}
+
+.view-btn:not(.active):hover .view-icon {
+  opacity: 1;
+  transform: scale(1.05);
+}
+
+.view-btn:not(.active) .view-label {
+  opacity: 0.8;
+}
+
+.view-btn:not(.active):hover .view-label {
+  opacity: 1;
+}
+
+.view-btn.active {
+  transform: none;
+  box-shadow: none;
+}
+
+.view-btn.active .view-icon,
+.view-btn.active .view-label {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.view-btn.active::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: radial-gradient(circle at center, rgba(255, 255, 255, 0.1) 0%, transparent 70%);
+  pointer-events: none;
+  opacity: 0;
+  animation: subtleGlow 2s ease-in-out infinite alternate;
+}
+
+@keyframes subtleGlow {
+  0% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 0.3;
+  }
+}
+
+.view-section {
+  transition: all 0.3s ease;
+}
+
+.view-slider:hover .view-btn:not(.active) {
+  opacity: 0.9;
+}
+
+.view-slider:hover .view-btn.active {
+  opacity: 1;
+}
+
 /* Responsive Design */
 @media (max-width: 768px) {
   .header-container {
@@ -330,9 +474,7 @@
     height: 30px;
   }
   
-  .calendar-title {
-    font-size: 17px;
-  }
+
   
   .view-btn {
     width: 50px;
@@ -365,10 +507,7 @@
   .view-section {
     display: none;
   }
-  
-  .calendar-title {
-    font-size: 16px;
-  }
+
   
   .nav-today .nav-text {
     display: none;
@@ -389,97 +528,4 @@
     width: 16px;
     height: 16px;
   }
-}
-
-/* Enhanced view button animations */
-.view-btn:not(.active) {
-  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.view-btn:not(.active):hover {
-  transform: translateY(-1px);
-}
-
-.view-btn:not(.active):active {
-  transform: translateY(0);
-  transition: all 0.1s ease;
-}
-
-/* Sliding animation for the background indicator */
-.slider-indicator {
-  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  will-change: transform;
-}
-
-/* Smooth icon and label transitions */
-.view-icon,
-.view-label {
-  transition: all 0.2s ease;
-}
-
-.view-btn:not(.active) .view-icon {
-  opacity: 0.7;
-  transform: scale(0.95);
-}
-
-.view-btn:not(.active):hover .view-icon {
-  opacity: 1;
-  transform: scale(1.05);
-}
-
-.view-btn:not(.active) .view-label {
-  opacity: 0.8;
-}
-
-.view-btn:not(.active):hover .view-label {
-  opacity: 1;
-}
-
-/* Active state enhancements */
-.view-btn.active {
-  transform: none;
-  box-shadow: none;
-}
-
-.view-btn.active .view-icon,
-.view-btn.active .view-label {
-  opacity: 1;
-  transform: scale(1);
-}
-
-/* Subtle glow effect for active button */
-.view-btn.active::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: radial-gradient(circle at center, rgba(255, 255, 255, 0.1) 0%, transparent 70%);
-  pointer-events: none;
-  opacity: 0;
-  animation: subtleGlow 2s ease-in-out infinite alternate;
-}
-
-@keyframes subtleGlow {
-  0% {
-    opacity: 0;
-  }
-  100% {
-    opacity: 0.3;
-  }
-}
-
-/* Smooth transitions for the entire view section */
-.view-section {
-  transition: all 0.3s ease;
-}
-
-/* Enhanced hover effects for the slider container */
-.view-slider:hover .view-btn:not(.active) {
-  opacity: 0.9;
-}
-
-.view-slider:hover .view-btn.active {
-  opacity: 1;
 }

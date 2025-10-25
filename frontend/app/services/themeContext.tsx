@@ -31,6 +31,11 @@ type Theme = {
     card: string;
     button: string;
     link: string;
+    fireBase: string;
+    fireMid: string;
+    fireBright: string;
+    fireTip: string;
+    fireGlow: string;
   };
   dark: {
     primary: string;
@@ -58,6 +63,11 @@ type Theme = {
     card: string;
     button: string;
     link: string;
+    fireBase: string;
+    fireMid: string;
+    fireBright: string;
+    fireTip: string;
+    fireGlow: string;
   };
 };
 
@@ -92,6 +102,11 @@ export const themes: Theme[] = [
       card: '220 12% 86%',
       button: '217 100% 32%',
       link: '217 100% 25%',
+      fireBase: '265 70% 55%',
+      fireMid: '217 70% 58%',
+      fireBright: '217 75% 68%',
+      fireTip: '200 70% 78%',
+      fireGlow: '217 80% 70%',
     },
     dark: {
       primary: '220 15% 85%',
@@ -119,6 +134,11 @@ export const themes: Theme[] = [
       card: '220 12% 14%',
       button: '217 100% 68%',
       link: '217 100% 75%',
+      fireBase: '265 85% 55%',
+      fireMid: '217 90% 60%',
+      fireBright: '217 95% 72%',
+      fireTip: '200 90% 85%',
+      fireGlow: '217 100% 68%',
     }
   },
   {
@@ -151,6 +171,11 @@ export const themes: Theme[] = [
       card: '152 12% 86%',
       button: '147 50% 45%',
       link: '147 70% 35%',
+      fireBase: '45 75% 55%',
+      fireMid: '147 60% 55%',
+      fireBright: '147 65% 65%',
+      fireTip: '160 60% 75%',
+      fireGlow: '147 70% 58%',
     },
     dark: {
       primary: '150 15% 85%',
@@ -178,6 +203,11 @@ export const themes: Theme[] = [
       card: '150 12% 14%',
       button: '147 100% 68%',
       link: '147 100% 75%',
+      fireBase: '45 95% 30%',
+      fireMid: '147 80% 40%',
+      fireBright: '147 85% 42%',
+      fireTip: '160 85% 85%',
+      fireGlow: '147 90% 65%',
     }
   },
   {
@@ -210,6 +240,11 @@ export const themes: Theme[] = [
       card: '202 12% 86%',
       button: '199 50% 45%',
       link: '199 70% 35%',
+      fireBase: '147 65% 52%',
+      fireMid: '199 65% 58%',
+      fireBright: '199 70% 68%',
+      fireTip: '190 65% 78%',
+      fireGlow: '199 75% 60%',
     },
     dark: {
       primary: '200 15% 85%',
@@ -237,6 +272,11 @@ export const themes: Theme[] = [
       card: '200 12% 14%',
       button: '199 100% 68%',
       link: '199 100% 75%',
+      fireBase: '147 85% 48%',
+      fireMid: '199 85% 42%',
+      fireBright: '199 90% 42%',
+      fireTip: '190 90% 85%',
+      fireGlow: '199 95% 70%',
     }
   },
   {
@@ -269,6 +309,11 @@ export const themes: Theme[] = [
       card: '20 12% 86%',
       button: '24 50% 45%',
       link: '24 70% 35%',
+      fireBase: '15 70% 52%',
+      fireMid: '24 75% 58%',
+      fireBright: '35 80% 65%',
+      fireTip: '45 75% 75%',
+      fireGlow: '24 80% 60%',
     },
     dark: {
       primary: '25 15% 85%',
@@ -296,6 +341,11 @@ export const themes: Theme[] = [
       card: '25 12% 14%',
       button: '24 100% 68%',
       link: '24 100% 75%',
+      fireBase: '10 95% 60%',
+      fireMid: '24 95% 65%',
+      fireBright: '35 100% 72%',
+      fireTip: '45 100% 82%',
+      fireGlow: '24 100% 70%',
     }
   },
   {
@@ -328,6 +378,11 @@ export const themes: Theme[] = [
       card: '265 12% 86%',
       button: '265 50% 45%',
       link: '265 70% 35%',
+      fireBase: '340 65% 55%',
+      fireMid: '265 60% 58%',
+      fireBright: '265 65% 68%',
+      fireTip: '280 60% 78%',
+      fireGlow: '265 70% 62%',
     },
     dark: {
       primary: '265 15% 85%',
@@ -355,6 +410,11 @@ export const themes: Theme[] = [
       card: '265 12% 14%',
       button: '265 100% 68%',
       link: '265 100% 75%',
+      fireBase: '340 90% 60%',
+      fireMid: '265 85% 62%',
+      fireBright: '265 90% 72%',
+      fireTip: '280 90% 85%',
+      fireGlow: '265 95% 70%',
     }
   },
   {
@@ -364,7 +424,7 @@ export const themes: Theme[] = [
     light: {
       primary: '220 15% 15%',
       secondary: '220 10% 70%',
-      accent: '0 50% 45%',
+      accent: '0 0% 45%',
       background: '220 8% 84%',
       calendarBackground: '0 0% 95%',
       mainBackground: '222 8% 90%',
@@ -374,7 +434,7 @@ export const themes: Theme[] = [
       darkerBorder: '220 8% 84%',
       border: '220 10% 45%',
       input: '220 10% 85%',
-      ring: '0 50% 45%',
+      ring: '0 0% 45%',
       chart1: '12 70% 55%',
       chart2: '160 50% 45%',
       chart3: '200 40% 50%',
@@ -385,13 +445,18 @@ export const themes: Theme[] = [
       sidebar: '220 10% 93%',
       header: '222 50% 95%',
       card: '220 12% 86%',
-      button: '0 50% 45%',
-      link: '0 70% 35%',
+      button: '0 0% 45%',
+      link: '0 0% 35%',
+      fireBase: '0 75% 55%',
+      fireMid: '0 70% 62%',
+      fireBright: '15 65% 68%',
+      fireTip: '30 60% 75%',
+      fireGlow: '0 70% 60%',
     },
     dark: {
       primary: '0 15% 85%',
       secondary: '0 10% 30%',
-      accent: '0 50% 68%',
+      accent: '0 0% 68%',
       background: '0 10% 8%',
       calendarBackground: '0 3% 7%',
       foreground: '0 10% 85%',
@@ -400,7 +465,7 @@ export const themes: Theme[] = [
       darkerBorder: '0 8% 19%',
       border: '0 10% 55%',
       input: '0 10% 15%',
-      ring: '0 100% 68%',
+      ring: '0 0% 68%',
       chart1: '12 70% 55%',
       chart2: '160 50% 45%',
       chart3: '200 40% 50%',
@@ -412,11 +477,17 @@ export const themes: Theme[] = [
       sidebar: '0 8% 7%',
       header: '0 50% 5%',
       card: '0 12% 14%',
-      button: '0 100% 68%',
-      link: '0 100% 75%',
+      button: '0 0% 68%',
+      link: '0 0% 75%',
+      fireBase: '0 85% 60%',
+      fireMid: '15 80% 65%',
+      fireBright: '30 75% 72%',
+      fireTip: '45 70% 82%',
+      fireGlow: '15 85% 68%',
     }
   },
 ];
+
 
 type ThemeContextType = {
   currentTheme: Theme;
@@ -484,7 +555,12 @@ export const ThemeProvider: React.FC<{children: React.ReactNode}> = ({ children 
       '--button-custom': variables.button,
       '--link-custom': variables.link,
       '--sidebar-item-color': variables.sidebarItemColor,
-      '--real-sidebar': variables.realsidebar
+      '--real-sidebar': variables.realsidebar,
+      '--fire-base': variables.fireBase,
+      '--fire-mid': variables.fireMid,
+      '--fire-bright': variables.fireBright,
+      '--fire-tip': variables.fireTip,
+      '--fire-glow': variables.fireGlow
     };
     
     Object.entries(cssVariables).forEach(([property, value]) => {

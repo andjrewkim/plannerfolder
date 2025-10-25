@@ -308,7 +308,7 @@ const Onboarding: React.FC<OnboardingProps> = ({
         boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.3), 0 10px 10px -5px rgba(0, 0, 0, 0.2)',
         padding: '24px',
         width: '320px',
-        border: '1px solid hsla(210, 2%, 42%, 1.00)',
+        border: '1px solid hsla(0, 0%, 26%, 1.00)',
         transition: 'top 200ms ease-out, left 200ms ease-out',
         pointerEvents: 'auto'
       }}>

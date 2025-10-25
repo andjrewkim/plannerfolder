@@ -1,5 +1,6 @@
 import React, { useState, RefObject } from 'react';
 import Link from 'next/link';
+import StreakIndicator from '../components/Streak/StreakIndicator';
 import '../styles/calendarheader.css';
 
 // Define the FullCalendar API interface
@@ -28,6 +29,9 @@ interface CustomCalendarHeaderProps {
   rightSidebarOpen?: boolean;
   activeAppView?: ViewType;
   onAppViewChange?: (view: ViewType) => void;
+  currentStreak?: number;
+  maxStreak?: number;
+  isStreakLit?: boolean;
 }
 
 const CustomCalendarHeader: React.FC<CustomCalendarHeaderProps> = ({ 
@@ -36,9 +40,36 @@ const CustomCalendarHeader: React.FC<CustomCalendarHeaderProps> = ({
   currentView,
   onViewChange,
   isAuthenticated = false,
-  activeAppView = 'your-new-view', // Default changed to planner
-  onAppViewChange
+  activeAppView = 'your-new-view',
+  onAppViewChange,
+  currentStreak = 7,
+  maxStreak = 7,
+  isStreakLit = true
 }) => {
+  // Use props or filler data for streak
+  const streakData = {
+    currentStreak,
+    maxStreak,
+    isLit: isStreakLit
+  };
+
+  // Function to abbreviate month names to 3 letters
+  const abbreviateTitle = (title: string): string => {
+    const months = [
+      'January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December'
+    ];
+    
+    let abbreviated = title;
+    months.forEach(month => {
+      if (title.includes(month)) {
+        abbreviated = title.replace(month, month.substring(0, 3));
+      }
+    });
+    
+    return abbreviated;
+  };
+
   const handlePrevious = (): void => {
     if (calendarRef.current) {
       calendarRef.current.getApi().prev();
@@ -125,20 +156,13 @@ const CustomCalendarHeader: React.FC<CustomCalendarHeaderProps> = ({
   return (
     <div className="advanced-calendar-header">
       <div className="header-container">
-        {/* Left: App View Switcher - Planner now comes first (left side) */}
-        <div className="app-view-switcher">
-          <button
-            className={`app-view-btn ${activeAppView === 'your-new-view' ? 'active' : ''}`}
-            onClick={() => handleAppViewChange('your-new-view')}
-          >
-            Planner
-          </button>
-          <button
-            className={`app-view-btn ${activeAppView === 'calendar' ? 'active' : ''}`}
-            onClick={() => handleAppViewChange('calendar')}
-          >
-            Calendar
-          </button>
+        {/* Left: Streak Indicator */}
+        <div className="left-section">
+          <StreakIndicator 
+            currentStreak={streakData.currentStreak}
+            maxStreak={streakData.maxStreak}
+            isLit={streakData.isLit}
+          />
         </div>
 
         {/* Left-Center: Navigation (both calendar and planner views) */}
@@ -161,18 +185,18 @@ const CustomCalendarHeader: React.FC<CustomCalendarHeaderProps> = ({
           </div>
         )}
 
-        {/* Center: Title */}
+        {/* Center: Title (abbreviated) */}
         <div className="title-section">
           <div className="title-container">
             <h1 className="calendar-title">
               <span className="title-text">
-                {currentTitle}
+                {abbreviateTitle(currentTitle)}
               </span>
             </h1>
           </div>
         </div>
 
-        {/* Right-Center: View Selector (calendar view only) */}
+        {/* Right-Center: View Selector (calendar view only, compact) */}
         <div className="view-section">
           <div className="view-slider" style={{ visibility: activeAppView === 'calendar' ? 'visible' : 'hidden' }}>
             <div 
@@ -194,9 +218,26 @@ const CustomCalendarHeader: React.FC<CustomCalendarHeaderProps> = ({
           </div>
         </div>
 
-        {/* Right: Navigation Icons */}
-        <div className="nav-icons">
-          {renderNavItems()}
+        {/* Right: App View Switcher + Navigation Icons */}
+        <div className="right-section">
+          <div className="app-view-switcher">
+            <button
+              className={`app-view-btn ${activeAppView === 'your-new-view' ? 'active' : ''}`}
+              onClick={() => handleAppViewChange('your-new-view')}
+            >
+              Planner
+            </button>
+            <button
+              className={`app-view-btn ${activeAppView === 'calendar' ? 'active' : ''}`}
+              onClick={() => handleAppViewChange('calendar')}
+            >
+              Calendar
+            </button>
+          </div>
+
+          <div className="nav-icons">
+            {renderNavItems()}
+          </div>
         </div>
       </div>
     </div>
