@@ -1,7 +1,8 @@
 'use client';
 import { usePlanner } from '../../app/hooks/usePlanner';
 import React, { useState, useEffect } from 'react';
-import { usePostHog } from 'posthog-js/react';
+import posthog from 'posthog-js'
+import { PostHogProvider } from 'posthog-js/react';
 import Calendar from '../components/Calendar/Calendar';
 import Sidebar from '../components/Sidebar';
 import Planner from '../components/Planner/Planner';
@@ -27,7 +28,6 @@ const AppContent: React.FC<AppContentProps> = ({
   rightSidebarOpen, 
   setRightSidebarOpen
 }) => {
-  const posthog = usePostHog();
   
   const [isAuthenticated, setIsAuthenticated] = useState(true);
   const [isClient, setIsClient] = useState(true);
@@ -188,18 +188,6 @@ const AppContent: React.FC<AppContentProps> = ({
     }
   };
 
-  const handleRightSidebarToggle = () => {
-    setRightSidebarOpen(!rightSidebarOpen);
-    
-    if (posthog) {
-      setTimeout(() => {
-        posthog.capture('sidebar_toggled', {
-          isOpen: !rightSidebarOpen,
-          timestamp: new Date().toISOString()
-        });
-      }, 0);
-    }
-  };
 
   const handleOnboardingSkip = async () => {
     setShowOnboarding(false);
@@ -274,94 +262,7 @@ const AppContent: React.FC<AppContentProps> = ({
     }
   };
 
-  const handleSidebarTaskCreate = async (taskData: any): Promise<void> => {
-    const newTask = await createTask(taskData);
-    if (newTask && posthog) {
-      setTimeout(() => {
-        posthog.capture('task_created', {
-          task_id: newTask.id,
-          task_type: taskData.type || 'general',
-          timestamp: new Date().toISOString()
-        });
-      }, 0);
-    }
-  };
 
-  const handleSidebarTaskDelete = async (taskId: string): Promise<boolean> => {
-    try {
-      const success = await deleteTask(taskId);
-      if (success && posthog) {
-        setTimeout(() => {
-          posthog.capture('task_deleted', {
-            task_id: taskId,
-            timestamp: new Date().toISOString()
-          });
-        }, 0);
-      }
-      return success;
-    } catch (error) {
-      console.error('Failed to delete task:', error);
-      return false;
-    }
-  };
-
-  const handleEventCreate = async (eventData: any): Promise<void> => {
-    const newEvent = await createEvent(eventData);
-    if (newEvent) {
-      handleEventChange();
-      
-      if (posthog) {
-        setTimeout(() => {
-          posthog.capture('calendar_event_created', {
-            event_id: newEvent.id,
-            event_title: eventData.title || 'Untitled',
-            event_duration: eventData.duration,
-            has_attendees: !!(eventData.attendees && eventData.attendees.length > 0),
-            timestamp: new Date().toISOString()
-          });
-        }, 0);
-      }
-    }
-  };
-
-  const handleEventUpdate = async (eventId: string, updates: any): Promise<void> => {
-    const updatedEvent = await updateEvent(eventId, updates);
-    if (updatedEvent) {
-      handleEventChange();
-      
-      if (posthog) {
-        setTimeout(() => {
-          posthog.capture('calendar_event_updated', {
-            event_id: eventId,
-            updated_fields: Object.keys(updates),
-            timestamp: new Date().toISOString()
-          });
-        }, 0);
-      }
-    }
-  };
-
-  const handleEventDelete = async (eventId: string): Promise<boolean> => {
-    try {
-      const success = await deleteEvent(eventId);
-      if (success) {
-        handleEventChange();
-        
-        if (posthog) {
-          setTimeout(() => {
-            posthog.capture('calendar_event_deleted', {
-              event_id: eventId,
-              timestamp: new Date().toISOString()
-            });
-          }, 0);
-        }
-      }
-      return success;
-    } catch (error) {
-      console.error('Failed to delete event:', error);
-      return false;
-    }
-  };
 
   const renderActiveView = () => {
     return (
@@ -622,17 +523,16 @@ const Page = () => {
   const [rightSidebarOpen, setRightSidebarOpen] = useState(false);
 
   return (
-    <ThemeProvider>
-      <StreakProvider>
-
-      <AppContent 
-        rightSidebarOpen={rightSidebarOpen}
-        setRightSidebarOpen={setRightSidebarOpen}
-        
-      />
-      </StreakProvider>
-
-    </ThemeProvider>
+    <PostHogProvider client={posthog}> {/* ADD THIS */}
+      <ThemeProvider>
+        <StreakProvider>
+          <AppContent 
+            rightSidebarOpen={rightSidebarOpen}
+            setRightSidebarOpen={setRightSidebarOpen}
+          />
+        </StreakProvider>
+      </ThemeProvider>
+    </PostHogProvider>
   );
 };
 
