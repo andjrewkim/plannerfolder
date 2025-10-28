@@ -168,9 +168,8 @@ const fetchNoWorkDays = async (): Promise<NoWorkDay[]> => {
   return data;
 };
 
-export const usePlanner = () => {
+export const usePlanner = (posthog?: PostHog) => {
   debugLog('usePlanner: Hook called/re-rendered');
-  const posthog = usePostHog();
 
   const [state, setState] = useState<PlannerState>(() => {
     if (globalPlannerState) {

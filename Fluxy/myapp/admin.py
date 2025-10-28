@@ -12,11 +12,11 @@ class CustomUserAdmin(UserAdmin):
 
     list_display = (
         'email', 'username', 'first_name', 'last_name', 'created_at',
-        'has_seen_onboarding', 'has_unlocked_features', 'is_staff',
+        'has_seen_onboarding', 'has_unlocked_features', 'has_friends',
     )
+
     search_fields = ('email', 'username', 'first_name', 'last_name')
     ordering = ('email',)
-
     readonly_fields = ('created_at',)
 
     fieldsets = UserAdmin.fieldsets + (
@@ -41,6 +41,11 @@ class CustomUserAdmin(UserAdmin):
             ),
         }),
     )
+
+    def has_friends(self, obj):
+        return obj.friends.exists()  # Returns True if there is at least one friend
+    has_friends.boolean = True  # Displays a nice ✅/❌ in the admin
+    has_friends.short_description = 'Has Friends'
 
 # Other models
 admin.site.register(CalendarEvent)

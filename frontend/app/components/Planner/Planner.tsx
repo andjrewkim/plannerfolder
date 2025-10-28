@@ -57,7 +57,8 @@ const Planner: React.FC<PlannerProps> = ({
   activeAppView = 'your-new-view',
   onAppViewChange,
   isAuthenticated = false,
-  settingsUnlocked = false
+  settingsUnlocked = false,
+  posthog,
 }) => {
   const screenSize = useScreenSize();
   
@@ -78,7 +79,7 @@ const Planner: React.FC<PlannerProps> = ({
     deleteNoWorkDay,
     noWorkDays,
     setError
-  } = usePlanner();
+  } = usePlanner(posthog);
 
 
   const [newClassName, setNewClassName] = useState('');

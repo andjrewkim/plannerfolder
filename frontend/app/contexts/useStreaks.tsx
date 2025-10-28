@@ -113,7 +113,6 @@ export const StreakProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       
       setStreakData(normalizedData);
     } catch (err) {
-      console.error('❌ Error fetching streak data:', err);
       setStreakData(getDefaultStreakData());
     } finally {
       setLoading(false);
@@ -124,7 +123,6 @@ export const StreakProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const today = getTodayDateString();
     
     if (updatedTodayRef.current === today) {
-      console.log('⏭️ Already updated in this session');
       return false;
     }
     
@@ -134,37 +132,26 @@ export const StreakProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     
     const lastUpdate = streakData.lastUpdateDate.split('T')[0];
     const canUpdate = lastUpdate !== today;
-    
-    console.log('🗓️ Can update check:', {
-      today,
-      lastUpdate,
-      canUpdate,
-      sessionUpdated: updatedTodayRef.current,
-    });
-    
+
     return canUpdate;
   }, [streakData.lastUpdateDate]);
 
   const updateStreakForAction = useCallback(async (): Promise<boolean> => {
     if (updateInProgress.current) {
-      console.log('⏭️ [STREAK] Update already in progress');
       return false;
     }
     
     const todayString = getTodayDateString();
     if (updatedTodayRef.current === todayString) {
-      console.log('⏭️ [STREAK] Already updated today (session check)');
       return false;
     }
     
     const lastUpdateString = streakData.lastUpdateDate?.split('T')[0];
     if (lastUpdateString === todayString) {
-      console.log('⏭️ [STREAK] Already updated today (backend check)');
       updatedTodayRef.current = todayString;
       return false;
     }
     
-    console.log('✅ [STREAK] Can update! Proceeding with API call...');
     updateInProgress.current = true;
     
     try {

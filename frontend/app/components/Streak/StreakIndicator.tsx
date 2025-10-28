@@ -24,7 +24,6 @@ const StreakIndicator: React.FC = () => {
   // Initialize displayed streak on first load
   useEffect(() => {
     if (!hasInitialized.current && !loading) {
-      console.log('🎬 Initializing StreakIndicator with streak:', currentStreak);
       setDisplayedStreak(currentStreak);
       prevStreakRef.current = currentStreak;
       hasInitialized.current = true;
@@ -34,12 +33,7 @@ const StreakIndicator: React.FC = () => {
   // Detect streak changes and trigger animations
   useEffect(() => {
     if (!hasInitialized.current) return;
-    
-    console.log('🔍 Streak change detected:', {
-      prev: prevStreakRef.current,
-      current: currentStreak,
-      displayed: displayedStreak,
-    });
+
     
     // Only animate if streak actually increased
     if (currentStreak > prevStreakRef.current && currentStreak > 0) {
@@ -70,7 +64,6 @@ const StreakIndicator: React.FC = () => {
       }, 1500);
     } else if (currentStreak !== prevStreakRef.current) {
       // Streak changed but didn't increase (reset or initial load)
-      console.log('↩️ Streak changed (not increase):', prevStreakRef.current, '→', currentStreak);
       setDisplayedStreak(currentStreak);
       prevStreakRef.current = currentStreak;
     }
