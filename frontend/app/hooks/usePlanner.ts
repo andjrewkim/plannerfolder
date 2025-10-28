@@ -59,6 +59,21 @@ const debugLog = (message: string, data?: any) => {
   const timestamp = new Date().toISOString();
 };
 
+// Helper to get default date range (4 days past + 1 week future)
+const getDefaultDateRange = () => {
+  const today = new Date();
+  const startDate = new Date(today);
+  startDate.setDate(today.getDate() - 4); // 4 days ago
+  
+  const endDate = new Date(today);
+  endDate.setDate(today.getDate() + 7); // 1 week ahead
+  
+  return {
+    start: startDate.toISOString().split('T')[0],
+    end: endDate.toISOString().split('T')[0]
+  };
+};
+
 // API functions
 const fetchClasses = async (): Promise<PlannerClass[]> => {
   debugLog('fetchClasses: Starting');
@@ -89,15 +104,21 @@ const fetchClasses = async (): Promise<PlannerClass[]> => {
   return data;
 };
 
-const fetchAssignments = async (): Promise<Assignment[]> => {
-  debugLog('fetchAssignments: Starting');
+const fetchAssignments = async (days?: number): Promise<Assignment[]> => {
+  debugLog('fetchAssignments: Starting', { days });
   
   if (!authAPI.isAuthenticated()) {
     debugLog('fetchAssignments: Not authenticated - throwing error');
     throw new Error('Not authenticated');
   }
   
-  const url = `${process.env.NEXT_PUBLIC_API_URL}/api/planner/assignments/`;
+  let url = `${process.env.NEXT_PUBLIC_API_URL}/api/planner/assignments/`;
+  
+  // Add days parameter if provided (backend will calculate the range)
+  if (days !== undefined) {
+    url += `?days=${days}`;
+  }
+  
   debugLog('fetchAssignments: Making request to', url);
 
   const response = await authAPI.authenticatedFetch(url);
@@ -269,8 +290,8 @@ export const usePlanner = () => {
       // First fetch classes (which creates default assignment if needed)
       const classes = await fetchClasses();
       
-      // Then fetch assignments (now the default assignment will be there)
-      const assignments = await fetchAssignments();
+      // Then fetch assignments for default range (4 days past + 7 days future = 11 days total)
+      const assignments = await fetchAssignments(11);
       
       // Finally fetch no work days
       const noWorkDays = await fetchNoWorkDays();
@@ -694,7 +715,7 @@ export const usePlanner = () => {
     try {
       const [classesResult, assignmentsResult, noWorkDaysResult] = await Promise.allSettled([
         fetchClasses(),
-        fetchAssignments(),
+        fetchAssignments(11), // 4 days past + 7 days future
         fetchNoWorkDays()
       ]);
 
@@ -732,6 +753,37 @@ export const usePlanner = () => {
       setError(error instanceof Error ? error.message : 'Failed to refresh data');
     }
   }, [setError]);
+
+  // Load more assignments - pass number of days to load
+  const loadMoreAssignments = useCallback(async (days: number): Promise<boolean> => {
+    debugLog('loadMoreAssignments: Starting', { days });
+    
+    if (!authAPI.isAuthenticated()) {
+      debugLog('loadMoreAssignments: Not authenticated');
+      return false;
+    }
+
+    try {
+      const newAssignments = await fetchAssignments(days);
+      
+      debugLog('loadMoreAssignments: Fetched assignments', {
+        count: newAssignments.length
+      });
+
+      // Replace all assignments with the new expanded set
+      updateGlobalAndLocalState(prev => ({
+        ...prev,
+        assignments: newAssignments,
+        error: null
+      }));
+      
+      return true;
+    } catch (error) {
+      debugLog('loadMoreAssignments: Error caught', error);
+      setError(error instanceof Error ? error.message : 'Failed to load more assignments');
+      return false;
+    }
+  }, [setError, updateGlobalAndLocalState]);
 
   // Helper function to get assignments organized by class and date
   const getAssignmentsByClassAndDate = useCallback(() => {
@@ -786,6 +838,7 @@ export const usePlanner = () => {
     
     // Utilities
     refreshPlanner,
+    loadMoreAssignments,
     setError,
     getAssignmentsByClassAndDate
   };

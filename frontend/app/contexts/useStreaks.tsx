@@ -32,6 +32,11 @@ const getTodayDateString = (): string => {
   return `${year}-${month}-${day}`;
 };
 
+// Helper to get user's timezone
+const getUserTimezone = (): string => {
+  return Intl.DateTimeFormat().resolvedOptions().timeZone;
+};
+
 interface StreakContextType {
   streakData: StreakData;
   loading: boolean;
@@ -48,13 +53,12 @@ export const StreakProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [loading, setLoading] = useState(true);
   const updateInProgress = useRef(false);
   const lastFetchTime = useRef<number>(0);
-  const updatedTodayRef = useRef<string | null>(null); // Track if updated today in session
-  const CACHE_DURATION = 1000; // 1 second cache to prevent rapid refetches
+  const updatedTodayRef = useRef<string | null>(null);
+  const CACHE_DURATION = 1000;
 
   const fetchStreakData = useCallback(async (force: boolean = false) => {
     const now = Date.now();
     
-    // Prevent too frequent fetches unless forced
     if (!force && now - lastFetchTime.current < CACHE_DURATION) {
       console.log('⏭️ Skipping fetch - too soon since last fetch');
       return;
@@ -68,8 +72,9 @@ export const StreakProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
+          'X-User-Timezone': getUserTimezone(),
         },
-        cache: 'no-store', // Prevent caching
+        cache: 'no-store',
       });
 
       if (!response.ok) {
@@ -87,7 +92,6 @@ export const StreakProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         weekActivity: data.weekActivity,
       });
       
-      // Normalize the data structure
       const normalizedData: StreakData = {
         currentStreak: data.currentStreak || 0,
         maxStreak: data.maxStreak || 7,
@@ -98,7 +102,6 @@ export const StreakProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         lastUpdateDate: data.lastUpdateDate || null,
       };
       
-      // If we fetched and last update is today, mark as updated in session
       if (normalizedData.lastUpdateDate) {
         const lastUpdateDay = normalizedData.lastUpdateDate.split('T')[0];
         const today = getTodayDateString();
@@ -120,18 +123,16 @@ export const StreakProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const canUpdateToday = useCallback((): boolean => {
     const today = getTodayDateString();
     
-    // Check session ref first
     if (updatedTodayRef.current === today) {
       console.log('⏭️ Already updated in this session');
       return false;
     }
     
-    // Check from backend data
     if (!streakData.lastUpdateDate) {
       return true;
     }
     
-    const lastUpdate = streakData.lastUpdateDate.split('T')[0]; // Handle ISO datetime format
+    const lastUpdate = streakData.lastUpdateDate.split('T')[0];
     const canUpdate = lastUpdate !== today;
     
     console.log('🗓️ Can update check:', {
@@ -145,25 +146,21 @@ export const StreakProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   }, [streakData.lastUpdateDate]);
 
   const updateStreakForAction = useCallback(async (): Promise<boolean> => {
-
-    // Check if already updating
     if (updateInProgress.current) {
       console.log('⏭️ [STREAK] Update already in progress');
       return false;
     }
     
-    // Check session ref first
     const todayString = getTodayDateString();
     if (updatedTodayRef.current === todayString) {
       console.log('⏭️ [STREAK] Already updated today (session check)');
       return false;
     }
     
-    // Check lastUpdateDate
     const lastUpdateString = streakData.lastUpdateDate?.split('T')[0];
     if (lastUpdateString === todayString) {
       console.log('⏭️ [STREAK] Already updated today (backend check)');
-      updatedTodayRef.current = todayString; // Sync session ref
+      updatedTodayRef.current = todayString;
       return false;
     }
     
@@ -175,6 +172,7 @@ export const StreakProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'X-User-Timezone': getUserTimezone(),
         },
         body: JSON.stringify({}),
       });
@@ -189,10 +187,8 @@ export const StreakProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       
       console.log('✅ [STREAK] API success:', responseData);
       
-      // Mark as updated in session
       updatedTodayRef.current = todayString;
       
-      // Update with server data
       const updatedData: StreakData = {
         currentStreak: responseData.currentStreak || 0,
         maxStreak: responseData.longestStreak || responseData.maxStreak || 7,
@@ -213,7 +209,6 @@ export const StreakProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       setStreakData(updatedData);
       updateInProgress.current = false;
       
-      // Force refresh after a short delay to ensure UI updates
       setTimeout(() => {
         console.log('🔄 Post-update refresh');
         fetchStreakData(true);
@@ -228,19 +223,16 @@ export const StreakProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
   }, [streakData, fetchStreakData]);
 
-  // Fetch streak data on mount
   useEffect(() => {
     console.log('🚀 StreakProvider mounted - fetching initial data');
     fetchStreakData(true);
   }, []);
 
-  // Check for day change every 5 minutes and reset session ref
   useEffect(() => {
     const checkDayChange = () => {
       const today = getTodayDateString();
       const lastUpdate = streakData.lastUpdateDate?.split('T')[0];
       
-      // Reset session ref if new day
       if (updatedTodayRef.current && updatedTodayRef.current !== today) {
         console.log('🌅 New day detected! Resetting session flag');
         updatedTodayRef.current = null;
@@ -262,23 +254,20 @@ export const StreakProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     fetchStreakData(true);
   }, [fetchStreakData]);
 
-
   const hasUpdatedToday = useCallback((): boolean => {
-  const today = getTodayDateString();
-  
-  // Check session ref first
-  if (updatedTodayRef.current === today) {
-    return true;
-  }
-  
-  // Check from backend data
-  if (!streakData.lastUpdateDate) {
-    return false;
-  }
-  
-  const lastUpdate = streakData.lastUpdateDate.split('T')[0];
-  return lastUpdate === today;
-}, [streakData.lastUpdateDate]);
+    const today = getTodayDateString();
+    
+    if (updatedTodayRef.current === today) {
+      return true;
+    }
+    
+    if (!streakData.lastUpdateDate) {
+      return false;
+    }
+    
+    const lastUpdate = streakData.lastUpdateDate.split('T')[0];
+    return lastUpdate === today;
+  }, [streakData.lastUpdateDate]);
 
   const contextValue = {
     streakData,

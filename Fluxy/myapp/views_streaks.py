@@ -4,14 +4,35 @@ from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from django.utils import timezone
-from datetime import timedelta, date
+from datetime import timedelta, datetime
+import pytz
 from .models import UserStreak, DailyActivity
 from .serializers import UserStreakSerializer, DailyActivitySerializer
 
 
-def get_week_activity(user, today):
+def get_user_timezone(request):
+    """
+    Extract user's timezone from request headers.
+    Falls back to UTC if not provided.
+    """
+    tz_header = request.headers.get('X-User-Timezone', 'UTC')
+    try:
+        return pytz.timezone(tz_header)
+    except pytz.exceptions.UnknownTimeZoneError:
+        return pytz.UTC
+
+
+def get_user_today(request):
+    """
+    Get today's date in the user's timezone
+    """
+    user_tz = get_user_timezone(request)
+    return timezone.now().astimezone(user_tz).date()
+
+
+def get_week_activity(user, today, user_tz):
     """Helper to get week activity array (Sunday to Saturday of current calendar week)"""
-    # Calculate current week's Sunday
+    # Calculate current week's Sunday in user's timezone
     days_since_sunday = (today.weekday() + 1) % 7
     week_start = today - timedelta(days=days_since_sunday)
     week_end = week_start + timedelta(days=6)
@@ -43,7 +64,8 @@ class StreakDataView(APIView):
 
     def get(self, request):
         user = request.user
-        today = timezone.now().date()
+        user_tz = get_user_timezone(request)
+        today = get_user_today(request)
         
         try:
             # Get or create user streak
@@ -59,7 +81,7 @@ class StreakDataView(APIView):
             has_updated_today = streak.last_active_date == today
             
             # Get week activity
-            week_activity = get_week_activity(user, today)
+            week_activity = get_week_activity(user, today, user_tz)
             
             # Calculate if streak is "lit" (user completed today's assignments)
             is_lit = has_updated_today or (today_activity.is_complete if today_activity else False)
@@ -100,7 +122,8 @@ class UpdateStreakView(APIView):
 
     def post(self, request):
         user = request.user
-        today = timezone.now().date()
+        user_tz = get_user_timezone(request)
+        today = get_user_today(request)
         
         try:
             # Get or create user streak
@@ -108,7 +131,7 @@ class UpdateStreakView(APIView):
             
             # Check if already updated today - PREVENT DOUBLE UPDATES
             if streak.last_active_date == today:
-                print(f"⏭️ Streak already updated today for {user.email}")
+                print(f"⏭️ Streak already updated today for {user.email} (date: {today})")
                 
                 # Still return success with current data
                 today_activity = DailyActivity.objects.filter(user=user, date=today).first()
@@ -122,17 +145,45 @@ class UpdateStreakView(APIView):
                     'totalAssignments': today_activity.total_assignments if today_activity else 0,
                     'isComplete': today_activity.is_complete if today_activity else False,
                     'lastUpdateDate': streak.last_active_date.isoformat(),
-                    'weekActivity': get_week_activity(user, today),
+                    'weekActivity': get_week_activity(user, today, user_tz),
                 }, status=status.HTTP_200_OK)
             
-            print(f"✅ Updating streak for {user.email}")
+            print(f"✅ Updating streak for {user.email} on {today} (user tz: {user_tz})")
             print(f"   Before: current_streak={streak.current_streak}, last_active={streak.last_active_date}")
             
-            # Update the streak using YOUR model's method
-            streak.update_streak()
+            # Update the streak - but we need to set last_active_date to user's today
+            # Check if streak should continue or break
+            if streak.last_active_date:
+                days_diff = (today - streak.last_active_date).days
+                
+                # Count weekend days between last active and today
+                weekend_days = 0
+                check_date = streak.last_active_date + timedelta(days=1)
+                while check_date < today:
+                    if check_date.weekday() in [5, 6]:  # Saturday or Sunday
+                        weekend_days += 1
+                    check_date += timedelta(days=1)
+                
+                # Days that should have had activity (excluding weekends)
+                expected_active_days = days_diff - weekend_days
+                
+                if expected_active_days <= 1:
+                    # Continuing streak (either consecutive day or only weekends in between)
+                    streak.current_streak += 1
+                else:
+                    # Streak broken - missed weekday(s)
+                    streak.current_streak = 1
+            else:
+                # First time tracking
+                streak.current_streak = 1
             
-            # Refresh from database to get updated values
-            streak.refresh_from_db()
+            # Update longest streak if necessary
+            if streak.current_streak > streak.longest_streak:
+                streak.longest_streak = streak.current_streak
+            
+            # Set last active date to user's today
+            streak.last_active_date = today
+            streak.save()
             
             print(f"   After: current_streak={streak.current_streak}, last_active={streak.last_active_date}")
             
@@ -151,10 +202,11 @@ class UpdateStreakView(APIView):
             if not activity_created:
                 daily_activity.assignments_completed += 1
                 daily_activity.total_assignments = max(daily_activity.total_assignments, daily_activity.assignments_completed)
+                daily_activity.is_complete = True
                 daily_activity.save()
 
             # NOW get week activity AFTER the database has been updated
-            week_activity = get_week_activity(user, today)
+            week_activity = get_week_activity(user, today, user_tz)
 
             print(f"🎉 Streak updated successfully: {streak.current_streak} days")
 
@@ -188,11 +240,12 @@ class DailyActivityView(APIView):
 
     def get(self, request):
         user = request.user
+        today = get_user_today(request)
         
         try:
             # Get date range from query params (default to last 30 days)
             days = int(request.query_params.get('days', 30))
-            end_date = timezone.now().date()
+            end_date = today
             start_date = end_date - timedelta(days=days-1)
             
             activities = DailyActivity.objects.filter(
@@ -210,13 +263,14 @@ class DailyActivityView(APIView):
 
     def post(self, request):
         user = request.user
+        today = get_user_today(request)
         
         try:
             date_str = request.data.get('date')
             if date_str:
-                activity_date = timezone.datetime.strptime(date_str, '%Y-%m-%d').date()
+                activity_date = datetime.strptime(date_str, '%Y-%m-%d').date()
             else:
-                activity_date = timezone.now().date()
+                activity_date = today
             
             daily_activity, created = DailyActivity.objects.update_or_create(
                 user=user,
