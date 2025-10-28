@@ -84,14 +84,7 @@ export const StreakProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       }
 
       const data = await response.json();
-      console.log('📊 Fetched streak data:', {
-        currentStreak: data.currentStreak,
-        maxStreak: data.maxStreak,
-        isLit: data.isLit,
-        lastUpdateDate: data.lastUpdateDate,
-        weekActivity: data.weekActivity,
-      });
-      
+
       const normalizedData: StreakData = {
         currentStreak: data.currentStreak || 0,
         maxStreak: data.maxStreak || 7,
@@ -106,7 +99,6 @@ export const StreakProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         const lastUpdateDay = normalizedData.lastUpdateDate.split('T')[0];
         const today = getTodayDateString();
         if (lastUpdateDay === today) {
-          console.log('✅ Detected today update from fetch, marking session');
           updatedTodayRef.current = today;
         }
       }
@@ -211,7 +203,6 @@ export const StreakProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   }, [streakData, fetchStreakData]);
 
   useEffect(() => {
-    console.log('🚀 StreakProvider mounted - fetching initial data');
     fetchStreakData(true);
   }, []);
 
@@ -221,12 +212,10 @@ export const StreakProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       const lastUpdate = streakData.lastUpdateDate?.split('T')[0];
       
       if (updatedTodayRef.current && updatedTodayRef.current !== today) {
-        console.log('🌅 New day detected! Resetting session flag');
         updatedTodayRef.current = null;
       }
       
       if (lastUpdate && lastUpdate !== today) {
-        console.log('🌅 Day changed! Refreshing streak data...');
         fetchStreakData(true);
       }
     };

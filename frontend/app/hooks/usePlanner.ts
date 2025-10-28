@@ -168,8 +168,9 @@ const fetchNoWorkDays = async (): Promise<NoWorkDay[]> => {
   return data;
 };
 
-export const usePlanner = (posthog?: PostHog) => {
+export const usePlanner = () => {
   debugLog('usePlanner: Hook called/re-rendered');
+
 
   const [state, setState] = useState<PlannerState>(() => {
     if (globalPlannerState) {
@@ -534,18 +535,15 @@ export const usePlanner = (posthog?: PostHog) => {
       }
 
       const newAssignment: Assignment = await response.json();
-      
-      // Track the assignment creation event
-      if (posthog) {
-        setTimeout(() => {
-          posthog.capture('assignment_created', {
-            assignment_id: newAssignment.id,
-            class_id: assignmentData.planner_class,
-            date: assignmentData.date,
-            has_title: !!assignmentData.title,
-            timestamp: new Date().toISOString()
-          });
-        }, 0);
+        
+      if (typeof window !== 'undefined' && (window as any).posthog) {
+        (window as any).posthog.capture('assignment_created', {
+          assignment_id: newAssignment.id,
+          class_id: assignmentData.planner_class,
+          date: assignmentData.date,
+          has_title: !!assignmentData.title,
+          timestamp: new Date().toISOString()
+        });
       }
       
       updateGlobalAndLocalState(prev => ({
@@ -559,7 +557,7 @@ export const usePlanner = (posthog?: PostHog) => {
       setError(error instanceof Error ? error.message : 'Failed to create assignment');
       return false;
     }
-  }, [setError, updateGlobalAndLocalState, posthog]);
+  }, [setError, updateGlobalAndLocalState]);
 
 
   const updateAssignment = useCallback(async (assignmentId: string, updates: Partial<Assignment>): Promise<boolean> => {

@@ -79,7 +79,7 @@ const Planner: React.FC<PlannerProps> = ({
     deleteNoWorkDay,
     noWorkDays,
     setError
-  } = usePlanner(posthog);
+  } = usePlanner();
 
 
   const [newClassName, setNewClassName] = useState('');
