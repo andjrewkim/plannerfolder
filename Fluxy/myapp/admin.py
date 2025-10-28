@@ -3,7 +3,7 @@ from django.contrib.auth.admin import UserAdmin
 from django.utils.translation import gettext_lazy as _
 from .models import (
     CustomUser, PlannerClass, Assignment, CalendarEvent,
-    TodoTask, UserSettings, NoteTab, NoWorkDay
+    TodoTask, UserSettings, NoteTab, NoWorkDay, UserStreak
 )
 
 @admin.register(CustomUser)
@@ -50,3 +50,4 @@ admin.site.register(PlannerClass)
 admin.site.register(Assignment)
 admin.site.register(NoteTab)
 admin.site.register(NoWorkDay)
+admin.site.register(UserStreak)

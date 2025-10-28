@@ -4,6 +4,7 @@ from django.contrib.auth.models import AbstractUser
 from django.conf import settings
 from django.utils import timezone
 from datetime import timedelta
+from zoneinfo import ZoneInfo
 import pytz
 
 class FriendRequest(models.Model):
@@ -25,11 +26,15 @@ class CustomUser(AbstractUser):
     created_at = models.DateTimeField(auto_now_add=True)
     has_seen_onboarding = models.BooleanField(default=False)
     friends = models.ManyToManyField('self', symmetrical=True, blank=True)
-    has_unlocked_features = models.BooleanField(default=False) 
+    has_unlocked_features = models.BooleanField(default=False)
+    timezone = models.CharField(
+        max_length=50,
+        default='UTC',
+        help_text="IANA timezone string, e.g., 'America/New_York'"
+    )
 
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = []
-
 
 
 class CalendarEvent(models.Model):
@@ -55,9 +60,6 @@ class CalendarEvent(models.Model):
         event_name = self.event_name or "Unnamed Event"
         return f'{event_name} on {self.date} at {self.start_time} - {username}'
 
-
-
-
 class TodoTask(models.Model):
     user = models.ForeignKey(CustomUser, on_delete=models.CASCADE)
     event = models.CharField(max_length=200)
@@ -66,12 +68,6 @@ class TodoTask(models.Model):
     
     def __str__(self):
         return f"{self.event} - {self.user.username}"
-    
-    
-    
-    
-    
-
 
 class UserSettings(models.Model):
     VIEW_CHOICES = [
@@ -103,10 +99,6 @@ class UserSettings(models.Model):
 
     def __str__(self):
         return f"Settings for {self.user.email}"
-
-    
-
-
 
 class LLMUsage(models.Model):
     """Track LLM usage per user per week"""
@@ -178,10 +170,6 @@ class LLMUsage(models.Model):
         usage.save()
         return usage
 
-
-
-
-
 class PlannerClass(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True)
     name = models.CharField(max_length=200)
@@ -225,10 +213,6 @@ class NoWorkDay(models.Model):
     def __str__(self):
         return f"{self.planner_class.name} - No Work Day ({self.date})"
 
-
-
-    
-    
 class NoteTab(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True)
     title = models.CharField(max_length=100, default="New Tab")  # tab label
@@ -237,3 +221,100 @@ class NoteTab(models.Model):
 
     def __str__(self):
         return f"{self.title} ({self.user.username})"
+
+class UserStreak(models.Model):
+    user = models.OneToOneField(
+        'CustomUser',
+        on_delete=models.CASCADE,
+        related_name='streak'
+    )
+    current_streak = models.PositiveIntegerField(default=0)
+    longest_streak = models.PositiveIntegerField(default=0)
+    last_active_date = models.DateField(null=True, blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.user.email} — {self.current_streak}-day streak"
+
+    def update_streak(self):
+        """
+        Call this method whenever the user performs a 'streak-worthy' action.
+        It updates the streak count based on their last active date.
+        Weekends (Saturday=5, Sunday=6) do not break the streak.
+        """
+        today = timezone.now().date()
+
+        if self.last_active_date == today:
+            # Already counted today — nothing to update
+            return
+
+        # If this is the first activity ever
+        if self.last_active_date is None:
+            self.current_streak = 1
+            self.longest_streak = 1
+            self.last_active_date = today
+            self.save()
+            return
+
+        # Calculate the last expected active day (skipping weekends)
+        expected_date = self.last_active_date + timedelta(days=1)
+        
+        # Skip forward past any weekends
+        while expected_date.weekday() in [5, 6]:  # 5=Saturday, 6=Sunday
+            expected_date += timedelta(days=1)
+
+        if today >= expected_date:
+            # Check if streak should continue or break
+            check_date = self.last_active_date + timedelta(days=1)
+            streak_broken = False
+            
+            # Check each day between last active and today
+            while check_date < today:
+                # If it's a weekday and was missed, streak is broken
+                if check_date.weekday() not in [5, 6]:
+                    streak_broken = True
+                    break
+                check_date += timedelta(days=1)
+            
+            if streak_broken:
+                # Streak broken — reset to 1
+                self.current_streak = 1
+            else:
+                # Continued streak (today is the expected next day or within weekend grace)
+                self.current_streak += 1
+        else:
+            # This shouldn't happen, but just in case
+            self.current_streak = 1
+
+        # Update longest streak if needed
+        self.longest_streak = max(self.longest_streak, self.current_streak)
+        self.last_active_date = today
+        self.save()
+
+
+class DailyActivity(models.Model):
+    user = models.ForeignKey(
+        'CustomUser', 
+        on_delete=models.CASCADE, 
+        related_name='daily_activities'
+    )
+    date = models.DateField(default=timezone.now)
+    assignments_completed = models.IntegerField(default=0)
+    total_assignments = models.IntegerField(default=0)
+    is_complete = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        db_table = 'daily_activities'
+        verbose_name = 'Daily Activity'
+        verbose_name_plural = 'Daily Activities'
+        unique_together = ['user', 'date']
+        ordering = ['-date']
+    
+    def __str__(self):
+        return f"{self.user.email} - {self.date} - {self.assignments_completed}/{self.total_assignments}"
+    
+    def save(self, *args, **kwargs):
+        self.is_complete = self.assignments_completed >= self.total_assignments
+        super().save(*args, **kwargs)

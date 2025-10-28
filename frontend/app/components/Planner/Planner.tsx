@@ -1,9 +1,13 @@
 import React, { useState, useRef, useMemo, useEffect } from 'react';
 import CustomCalendarHeader from '../CustomCalHeader';
 import { usePlanner } from '../../hooks/usePlanner';
+import { useStreaks } from '../../contexts/useStreaks';
 import DeleteConfirmationModal from './DeleteConfirmationModal';
 import ClassesSidebar from './ClassesSidebar';
 import PlannerGrid from './PlannerGrid';
+import { PostHog } from 'posthog-js';
+
+
 import '../../styles/planner.css';
 
 // Define or import ViewType - matching the main app view types
@@ -15,6 +19,7 @@ export interface PlannerProps {
   onAppViewChange?: (newView: ViewType) => void;
   isAuthenticated?: boolean;
   settingsUnlocked: boolean;
+  posthog?: PostHog;
 }
 
 interface DragState {
@@ -75,6 +80,7 @@ const Planner: React.FC<PlannerProps> = ({
     setError
   } = usePlanner();
 
+
   const [newClassName, setNewClassName] = useState('');
   const [showAddClass, setShowAddClass] = useState(false);
   const [editingClass, setEditingClass] = useState<string | null>(null);
@@ -82,6 +88,9 @@ const Planner: React.FC<PlannerProps> = ({
   const [editingAssignment, setEditingAssignment] = useState<string | null>(null);
   const [editingAssignmentValue, setEditingAssignmentValue] = useState('');
   const [newAssignmentInputs, setNewAssignmentInputs] = useState<Record<string, string>>({});
+  const { updateStreakForAction, hasUpdatedToday } = useStreaks();
+
+  
   
   // Local state for optimistic updates
   const [localAssignmentUpdates, setLocalAssignmentUpdates] = useState<Record<string, { completed?: boolean; deleted?: boolean }>>({});
@@ -293,7 +302,7 @@ const Planner: React.FC<PlannerProps> = ({
   };
 
   // Optimistic stripe pattern toggle
-  const handleToggleStripePattern = (classId: string, dateString: string) => {
+  const handleToggleStripePattern = async (classId: string, dateString: string) => {
     if (!isAuthenticated) return;
     
     const cellKey = `${classId}-${dateString}`;
@@ -305,7 +314,12 @@ const Planner: React.FC<PlannerProps> = ({
       [cellKey]: !isCurrentlyStriped
     }));
     
-    // 2. Make API call in background
+    // 2. Update streak on first action of the day (only when marking stripe, not unmarking)
+    if (!isCurrentlyStriped && !hasUpdatedToday) {
+      await updateStreakForAction();
+    }
+    
+    // 3. Make API call in background
     (async () => {
       try {
         if (isCurrentlyStriped) {
@@ -526,6 +540,15 @@ const Planner: React.FC<PlannerProps> = ({
 
     const existingAssignments = organizedAssignments[classId]?.[dateString] || [];
     
+    // 1. Update streak FIRST (if needed)
+    if (!hasUpdatedToday) {
+      await updateStreakForAction();
+    }
+    
+    // Small delay to let React process state updates
+    await new Promise(resolve => setTimeout(resolve, 50));
+    
+    // 2. Create the assignment
     const success = await createAssignment({
       title: title.trim(),
       date: dateString,
@@ -535,10 +558,12 @@ const Planner: React.FC<PlannerProps> = ({
     });
 
     if (success) {
+      // 3. Clear the input
       const updated = { ...newAssignmentInputs };
       delete updated[inputKey];
       setNewAssignmentInputs(updated);
       
+      // 4. Remove stripe if exists
       const cellKey = `${classId}-${dateString}`;
       if (stripedCells.has(cellKey)) {
         try {
@@ -549,6 +574,8 @@ const Planner: React.FC<PlannerProps> = ({
       }
     }
   };
+
+
 
   const handleAssignmentInputChange = (classId: string, dateString: string, value: string) => {
     if (!isAuthenticated) return;
@@ -733,6 +760,9 @@ const Planner: React.FC<PlannerProps> = ({
           rightSidebarOpen={rightSidebarOpen}
           activeAppView={activeAppView}
           onAppViewChange={onAppViewChange}
+          currentStreak={5}
+          maxStreak={7}
+          isStreakLit={false}
         />
       </div>
     );
@@ -749,6 +779,7 @@ const Planner: React.FC<PlannerProps> = ({
         rightSidebarOpen={rightSidebarOpen}
         activeAppView={activeAppView}
         onAppViewChange={onAppViewChange}
+        
       />
 
       {isAuthenticated && (
@@ -810,6 +841,7 @@ const Planner: React.FC<PlannerProps> = ({
           onCancelNewAssignment={cancelNewAssignment}
           onKeyPress={handleKeyPress}
           onToggleStripePattern={handleToggleStripePattern}
+          
         />
       </div>
     </div>

@@ -46,12 +46,6 @@ const CustomCalendarHeader: React.FC<CustomCalendarHeaderProps> = ({
   maxStreak = 7,
   isStreakLit = true
 }) => {
-  // Use props or filler data for streak
-  const streakData = {
-    currentStreak,
-    maxStreak,
-    isLit: isStreakLit
-  };
 
   // Function to abbreviate month names to 3 letters
   const abbreviateTitle = (title: string): string => {
@@ -156,36 +150,31 @@ const CustomCalendarHeader: React.FC<CustomCalendarHeaderProps> = ({
   return (
     <div className="advanced-calendar-header">
       <div className="header-container">
-        {/* Left: Streak Indicator */}
+        {/* Left Column: Streak + Navigation */}
         <div className="left-section">
-          <StreakIndicator 
-            currentStreak={streakData.currentStreak}
-            maxStreak={streakData.maxStreak}
-            isLit={streakData.isLit}
-          />
+          <StreakIndicator />
+          
+          {(activeAppView === 'calendar' || activeAppView === 'your-new-view') && (
+            <div className="nav-section">
+              <div className="nav-group">
+                <button onClick={handlePrevious} className="nav-btn nav-prev">
+                  <span className="nav-icon">‹</span>
+                </button>
+                
+                <button onClick={handleToday} className="nav-btn nav-today">
+                  <span className="today-dot"></span>
+                  <span className="nav-text">Today</span>
+                </button>
+                
+                <button onClick={handleNext} className="nav-btn nav-next">
+                  <span className="nav-icon">›</span>
+                </button>
+              </div>
+            </div>
+          )}
         </div>
 
-        {/* Left-Center: Navigation (both calendar and planner views) */}
-        {(activeAppView === 'calendar' || activeAppView === 'your-new-view') && (
-          <div className="nav-section">
-            <div className="nav-group">
-              <button onClick={handlePrevious} className="nav-btn nav-prev">
-                <span className="nav-icon">‹</span>
-              </button>
-              
-              <button onClick={handleToday} className="nav-btn nav-today">
-                <span className="today-dot"></span>
-                <span className="nav-text">Today</span>
-              </button>
-              
-              <button onClick={handleNext} className="nav-btn nav-next">
-                <span className="nav-icon">›</span>
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Center: Title (abbreviated) */}
+        {/* Center Column: Title (perfectly centered) */}
         <div className="title-section">
           <div className="title-container">
             <h1 className="calendar-title">
@@ -196,30 +185,31 @@ const CustomCalendarHeader: React.FC<CustomCalendarHeaderProps> = ({
           </div>
         </div>
 
-        {/* Right-Center: View Selector (calendar view only, compact) */}
-        <div className="view-section">
-          <div className="view-slider" style={{ visibility: activeAppView === 'calendar' ? 'visible' : 'hidden' }}>
-            <div 
-              className="slider-indicator"
-              style={{
-                transform: `translateX(${viewOptions.findIndex(v => v.key === currentView) * 100}%)`
-              }}
-            />
-            {viewOptions.map((view: ViewOption) => (
-              <button
-                key={view.key}
-                onClick={() => handleViewChange(view.key)}
-                className={`view-btn ${currentView === view.key ? 'active' : ''}`}
-              >
-                <span className="view-icon">{view.icon}</span>
-                <span className="view-label">{view.label}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Right: App View Switcher + Navigation Icons */}
+        {/* Right Column: View Selector + App Switcher + Nav Icons */}
         <div className="right-section">
+          {/* View Selector (calendar view only) */}
+          <div className="view-section">
+            <div className="view-slider" style={{ visibility: activeAppView === 'calendar' ? 'visible' : 'hidden' }}>
+              <div 
+                className="slider-indicator"
+                style={{
+                  transform: `translateX(${viewOptions.findIndex(v => v.key === currentView) * 100}%)`
+                }}
+              />
+              {viewOptions.map((view: ViewOption) => (
+                <button
+                  key={view.key}
+                  onClick={() => handleViewChange(view.key)}
+                  className={`view-btn ${currentView === view.key ? 'active' : ''}`}
+                >
+                  <span className="view-icon">{view.icon}</span>
+                  <span className="view-label">{view.label}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* App View Switcher */}
           <div className="app-view-switcher">
             <button
               className={`app-view-btn ${activeAppView === 'your-new-view' ? 'active' : ''}`}
@@ -235,6 +225,7 @@ const CustomCalendarHeader: React.FC<CustomCalendarHeaderProps> = ({
             </button>
           </div>
 
+          {/* Navigation Icons */}
           <div className="nav-icons">
             {renderNavItems()}
           </div>

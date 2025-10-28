@@ -534,3 +534,30 @@ class PendingFriendRequestsSerializer(serializers.Serializer):
     """Serializer for listing pending friend requests"""
     received = FriendRequestSerializer(many=True, read_only=True)
     sent = FriendRequestSerializer(many=True, read_only=True)
+    
+
+
+
+from .models import UserStreak, DailyActivity
+
+
+class UserStreakSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = UserStreak
+        fields = ['current_streak', 'longest_streak', 'last_active_date', 'updated_at']
+        read_only_fields = ['updated_at']
+
+
+class DailyActivitySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = DailyActivity
+        fields = [
+            'id', 
+            'date', 
+            'assignments_completed', 
+            'total_assignments', 
+            'is_complete',
+            'created_at',
+            'updated_at'
+        ]
+        read_only_fields = ['id', 'is_complete', 'created_at', 'updated_at']

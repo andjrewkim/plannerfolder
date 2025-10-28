@@ -1,7 +1,7 @@
 'use client';
+import { usePlanner } from '../../app/hooks/usePlanner';
 import React, { useState, useEffect } from 'react';
 import { usePostHog } from 'posthog-js/react';
-import { Palette } from 'lucide-react';
 import Calendar from '../components/Calendar/Calendar';
 import Sidebar from '../components/Sidebar';
 import Planner from '../components/Planner/Planner';
@@ -14,6 +14,7 @@ import { useUserSettings } from '../hooks/useUserSettings';
 import { authAPI } from '../../lib/auth';
 import Notes from '../components/Notes';
 import Popup from '../components/Popup/Popup';
+import { StreakProvider } from '../contexts/useStreaks';
 
 type ViewType = 'your-new-view' | 'calendar';
 
@@ -51,7 +52,7 @@ const AppContent: React.FC<AppContentProps> = ({
   // Onboarding state
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [onboardingCompleted, setOnboardingCompleted] = useState(false);
-  
+
   const {
     events,
     tasks,
@@ -372,6 +373,8 @@ const AppContent: React.FC<AppContentProps> = ({
             onAppViewChange={handleAppViewChange}
             isAuthenticated={isAuthenticated}
             settingsUnlocked={hasUnlockedFeatures}
+            posthog={posthog}
+
           />
         </div>
         
@@ -457,7 +460,6 @@ const AppContent: React.FC<AppContentProps> = ({
       </button>
 
       <Sidebar 
-        onEventChange={handleEventChange}
         refreshTrigger={refreshEvents}
       />
       
@@ -621,10 +623,15 @@ const Page = () => {
 
   return (
     <ThemeProvider>
+      <StreakProvider>
+
       <AppContent 
         rightSidebarOpen={rightSidebarOpen}
         setRightSidebarOpen={setRightSidebarOpen}
+        
       />
+      </StreakProvider>
+
     </ThemeProvider>
   );
 };

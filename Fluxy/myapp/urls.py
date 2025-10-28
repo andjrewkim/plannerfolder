@@ -12,6 +12,7 @@ from myapp.views_llm_text import llm_text
 from .views_notes import NoteTabListCreateView, NoteTabDetailView
 from .views_user import update_feature_unlock, mark_onboarding_seen, google_auth, get_user_status
 from .views_no_work import delete_no_work_day, no_work_days_list_create
+from.views_update_timezone import UpdateTimezoneView
 
 from .user_settings import UserSettingsView
 from rest_framework.routers import DefaultRouter
@@ -53,6 +54,8 @@ urlpatterns = [
     path('api/user/onboarding/seen/', mark_onboarding_seen, name='mark_onboarding_seen'),
     path('api/user/features/unlock/', update_feature_unlock, name='update_feature_unlock'),
     path('api/user/status/', get_user_status, name='user_status'),
+    path('api/update-timezone/', UpdateTimezoneView.as_view(), name='update-timezone'),
+
 
 ]
 
@@ -80,4 +83,19 @@ urlpatterns += [
     path('api/profile/<int:user_id>/', UserProfileView.as_view(), name='user-profile'),
     path('api/profiles/batch/', BatchUserProfileView.as_view(), name='batch-user-profiles'),  # NEW
 
+]
+
+
+from .views_streaks import (
+    StreakDataView,
+    UpdateStreakView,
+    DailyActivityView,
+    StreakStatsView
+)
+
+urlpatterns += [
+    path('api/streaks/', StreakDataView.as_view(), name='streak-data'),
+    path('api/streaks/update/', UpdateStreakView.as_view(), name='update-streak'),
+    path('api/streaks/activity/', DailyActivityView.as_view(), name='daily-activity'),
+    path('api/streaks/stats/', StreakStatsView.as_view(), name='streak-stats'),
 ]

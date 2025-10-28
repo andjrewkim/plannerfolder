@@ -1,6 +1,8 @@
 // hooks/usePlanner.ts - DATE-BASED VERSION WITH NO-WORK DAYS
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { authAPI } from '../../lib/auth';
+import { usePostHog } from 'posthog-js/react';
+import type { PostHog } from 'posthog-js';
 
 // Simple global state to prevent duplicate fetches across hook instances
 let globalPlannerState: {
@@ -147,7 +149,8 @@ const fetchNoWorkDays = async (): Promise<NoWorkDay[]> => {
 
 export const usePlanner = () => {
   debugLog('usePlanner: Hook called/re-rendered');
-  
+  const posthog = usePostHog();
+
   const [state, setState] = useState<PlannerState>(() => {
     if (globalPlannerState) {
       // Use existing global state if available
@@ -512,6 +515,19 @@ export const usePlanner = () => {
 
       const newAssignment: Assignment = await response.json();
       
+      // Track the assignment creation event
+      if (posthog) {
+        setTimeout(() => {
+          posthog.capture('assignment_created', {
+            assignment_id: newAssignment.id,
+            class_id: assignmentData.planner_class,
+            date: assignmentData.date,
+            has_title: !!assignmentData.title,
+            timestamp: new Date().toISOString()
+          });
+        }, 0);
+      }
+      
       updateGlobalAndLocalState(prev => ({
         ...prev,
         assignments: [...prev.assignments, newAssignment],
@@ -523,7 +539,8 @@ export const usePlanner = () => {
       setError(error instanceof Error ? error.message : 'Failed to create assignment');
       return false;
     }
-  }, [setError, updateGlobalAndLocalState]);
+  }, [setError, updateGlobalAndLocalState, posthog]);
+
 
   const updateAssignment = useCallback(async (assignmentId: string, updates: Partial<Assignment>): Promise<boolean> => {
     if (!authAPI.isAuthenticated()) {

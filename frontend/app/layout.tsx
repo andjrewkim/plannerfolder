@@ -25,29 +25,50 @@ if (typeof window !== 'undefined') {
 interface RootLayoutProps { children: React.ReactNode; }
 
 const RootLayout: React.FC<RootLayoutProps> = ({ children }) => {
-  
-  // Add this useEffect here!
+    
   useEffect(() => {
-    // Disable zoom gestures
-    document.addEventListener('gesturestart', e => e.preventDefault());
-    document.addEventListener('gesturechange', e => e.preventDefault());
-    document.addEventListener('gestureend', e => e.preventDefault());
-    
-    // Prevent double-tap zoom
+    // -------------------------------
+    // Gesture prevention (existing)
+    // -------------------------------
+    const gestureHandler = (e: Event) => e.preventDefault();
+    document.addEventListener('gesturestart', gestureHandler);
+    document.addEventListener('gesturechange', gestureHandler);
+    document.addEventListener('gestureend', gestureHandler);
+
     let lastTouchEnd = 0;
-    document.addEventListener('touchend', (event) => {
-      const now = (new Date()).getTime();
-      if (now - lastTouchEnd <= 300) {
-        event.preventDefault();
-      }
+    const touchEndHandler = (event: TouchEvent) => {
+      const now = Date.now();
+      if (now - lastTouchEnd <= 300) event.preventDefault();
       lastTouchEnd = now;
-    }, false);
-    
-    // Cleanup function
+    };
+    document.addEventListener('touchend', touchEndHandler, false);
+
+    // -------------------------------
+    // Efficient timezone sending
+    // -------------------------------
+    if (!sessionStorage.getItem('timezoneSent')) {
+      const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
+      fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/update-timezone/`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${localStorage.getItem('access_token')}`, // adjust if using cookies instead
+        },
+        body: JSON.stringify({ timezone }),
+      }).catch((err) => console.error('Timezone update failed:', err));
+
+      sessionStorage.setItem('timezoneSent', 'true');
+    }
+
+    // -------------------------------
+    // Cleanup
+    // -------------------------------
     return () => {
-      document.removeEventListener('gesturestart', e => e.preventDefault());
-      document.removeEventListener('gesturechange', e => e.preventDefault());
-      document.removeEventListener('gestureend', e => e.preventDefault());
+      document.removeEventListener('gesturestart', gestureHandler);
+      document.removeEventListener('gesturechange', gestureHandler);
+      document.removeEventListener('gestureend', gestureHandler);
+      document.removeEventListener('touchend', touchEndHandler);
     };
   }, []);
 
