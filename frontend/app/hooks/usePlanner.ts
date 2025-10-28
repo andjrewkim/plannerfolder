@@ -1,8 +1,7 @@
 // hooks/usePlanner.ts - DATE-BASED VERSION WITH NO-WORK DAYS
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { authAPI } from '../../lib/auth';
-import { usePostHog } from 'posthog-js/react';
-import type { PostHog } from 'posthog-js';
+
 
 // Simple global state to prevent duplicate fetches across hook instances
 let globalPlannerState: {
@@ -535,17 +534,7 @@ export const usePlanner = () => {
       }
 
       const newAssignment: Assignment = await response.json();
-        
-      if (typeof window !== 'undefined' && (window as any).posthog) {
-        (window as any).posthog.capture('assignment_created', {
-          assignment_id: newAssignment.id,
-          class_id: assignmentData.planner_class,
-          date: assignmentData.date,
-          has_title: !!assignmentData.title,
-          timestamp: new Date().toISOString()
-        });
-      }
-      
+
       updateGlobalAndLocalState(prev => ({
         ...prev,
         assignments: [...prev.assignments, newAssignment],

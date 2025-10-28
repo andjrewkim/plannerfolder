@@ -574,6 +574,14 @@ const Planner: React.FC<PlannerProps> = ({
         }
       }
     }
+    if (success && posthog) {
+      posthog.capture('assignment_created', {
+        class_id: classId,
+        date: dateString,
+        has_title: !!title.trim(),
+        timestamp: new Date().toISOString()
+      });
+    }
   };
 
 
