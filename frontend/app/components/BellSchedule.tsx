@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 
-const DEV_MODE = true;
+const DEV_MODE = false;
 const MOCK_TIME = {
   hours: 8,
   minutes: 40,
