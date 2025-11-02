@@ -4,6 +4,7 @@ import FriendList from '../components/Friends/FriendList';
 import '../styles/container.css';
 import { authAPI } from '../../lib/auth';
 import { useAppState, EventDetails, TaskData } from '../hooks/useAppState';
+import BellSchedule from './BellSchedule';
 import { usePlanner, PlannerClass } from '../hooks/usePlanner';
 
 interface EventData {
@@ -81,7 +82,13 @@ const Sidebar: React.FC<SidebarProps> = ({
   const [eventError, setEventError] = useState<string | null>(null);
   const [isCreatingTask, setIsCreatingTask] = useState<boolean>(false);
   const [isResettingTasks, setIsResettingTasks] = useState<boolean>(false);
-  
+const [bellScheduleVisible, setBellScheduleVisible] = useState(() => {
+  const saved = localStorage.getItem('bellScheduleVisible');
+  return saved !== null ? JSON.parse(saved) : true; // defaults to true if not set
+});
+  useEffect(() => {
+    localStorage.setItem('bellScheduleVisible', JSON.stringify(bellScheduleVisible));
+  }, [bellScheduleVisible]);
   // Refs
   const taskInputRef = useRef<HTMLInputElement>(null);
   const isMountedRef = useRef<boolean>(true);
@@ -355,31 +362,65 @@ const Sidebar: React.FC<SidebarProps> = ({
     <div className="app-layout">
       <aside
         className="app-sidebar bg-[hsl(var(--background))] text-[hsl(var(--foreground))]"
-        style={{ display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden' }}
+        style={{ display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'auto' }}
       >
-        {/* ===== FRIENDS SECTION ===== */}
-        <section style={{ flex: '2', minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden', marginTop: '8px' }}>
+<section style={{ minHeight: '55vh', display: 'flex', flexDirection: 'column', marginTop: '10px', }}>
+  <h3 className="section-title" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+    Bell Schedule
+    <span style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '9px', color: 'hsl(var(--muted-foreground))', fontWeight: '400' }}>
+      GHCHS Bell Schedule
+      <button 
+        onClick={() => setBellScheduleVisible(!bellScheduleVisible)}
+        style={{ 
+          background: 'none', 
+          border: 'none', 
+          cursor: 'pointer', 
+          padding: '2px',
+          display: 'flex',
+          color: 'hsl(var(--muted-foreground))'
+        }}
+      >
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          {bellScheduleVisible ? (
+            <>
+              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+              <circle cx="12" cy="12" r="3"/>
+            </>
+          ) : (
+            <>
+              <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/>
+              <line x1="1" y1="1" x2="23" y2="23"/>
+            </>
+          )}
+        </svg>
+      </button>
+    </span>
+  </h3>
+  <div className="section-content" style={{ padding: 0, display: bellScheduleVisible ? 'block' : 'none' }}>
+    <BellSchedule />
+  </div>
+</section>
+
+
+        <section style={{ minHeight: '400px', display: 'flex', flexDirection: 'column', marginTop: '8px' }}>
           <h3 className="section-title">Friends</h3>
-          <div className="section-content" style={{ flex: 1, overflow: 'auto' }}>
+          <div className="section-content">
             <FriendList />
           </div>
         </section>
 
-        {/* ===== TASKS SECTION ===== */}
-        <section style={{ flex: '1', minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+
+        {/* 
+        <section style={{ minHeight: '300px', display: 'flex', flexDirection: 'column' }}>
           <h3 className="section-title">
             Tasks
             {isResettingTasks && (
-              <span style={{
-                marginLeft: '8px',
-                fontSize: '12px',
-                color: '#007bff',
-                fontWeight: 'normal'
-              }}>
+              <span style={{ marginLeft: '8px', fontSize: '12px', color: '#007bff', fontWeight: 'normal' }}>
                 (Resetting...)
               </span>
             )}
           </h3>
+
           <div 
             className="section-content clickable-area"
             onClick={handleTaskAreaClick}
@@ -470,6 +511,8 @@ const Sidebar: React.FC<SidebarProps> = ({
             )}
           </div>
         </section>
+        */}
+        
       </aside>
 
       <main className="app-content">
