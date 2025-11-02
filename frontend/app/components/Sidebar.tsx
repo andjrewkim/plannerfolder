@@ -82,13 +82,20 @@ const Sidebar: React.FC<SidebarProps> = ({
   const [eventError, setEventError] = useState<string | null>(null);
   const [isCreatingTask, setIsCreatingTask] = useState<boolean>(false);
   const [isResettingTasks, setIsResettingTasks] = useState<boolean>(false);
-const [bellScheduleVisible, setBellScheduleVisible] = useState(() => {
-  const saved = localStorage.getItem('bellScheduleVisible');
-  return saved !== null ? JSON.parse(saved) : true; // defaults to true if not set
-});
+  const [bellScheduleVisible, setBellScheduleVisible] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('bellScheduleVisible');
+      return saved !== null ? JSON.parse(saved) : true;
+    }
+    return true;
+  });
+
   useEffect(() => {
-    localStorage.setItem('bellScheduleVisible', JSON.stringify(bellScheduleVisible));
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('bellScheduleVisible', JSON.stringify(bellScheduleVisible));
+    }
   }, [bellScheduleVisible]);
+  
   // Refs
   const taskInputRef = useRef<HTMLInputElement>(null);
   const isMountedRef = useRef<boolean>(true);
