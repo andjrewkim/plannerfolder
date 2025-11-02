@@ -127,6 +127,7 @@
 
 /* Title Section - Perfectly Centered */
 .title-section {
+  margin-top: 10px;
   grid-column: 2;
   justify-self: center;
   min-width: 0;

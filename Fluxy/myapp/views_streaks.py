@@ -57,9 +57,6 @@ def get_week_activity(user, today, user_tz):
 
 
 class StreakDataView(APIView):
-    """
-    GET endpoint to retrieve current streak data for the authenticated user
-    """
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
@@ -71,7 +68,26 @@ class StreakDataView(APIView):
             # Get or create user streak
             streak, created = UserStreak.objects.get_or_create(user=user)
             
-            # Get today's activity
+            # ✅ ADD THIS: Check if streak should be reset due to inactivity
+            if streak.last_active_date and streak.last_active_date < today:
+                days_diff = (today - streak.last_active_date).days
+                
+                # Count weekend days
+                weekend_days = 0
+                check_date = streak.last_active_date + timedelta(days=1)
+                while check_date < today:
+                    if check_date.weekday() in [5, 6]:
+                        weekend_days += 1
+                    check_date += timedelta(days=1)
+                
+                expected_active_days = days_diff - weekend_days
+                
+                if expected_active_days > 1:
+                    # Streak broken - reset to 0
+                    streak.current_streak = 0
+                    streak.save()
+            
+            # Rest of your existing code...
             today_activity = DailyActivity.objects.filter(
                 user=user,
                 date=today

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 
 const DEV_MODE = false;
 const MOCK_TIME = {
-  hours: 8,
+  hours: 16,
   minutes: 40,
   seconds: 54,
   day: 2
@@ -278,7 +278,7 @@ const BellSchedule: React.FC = () => {
         }
         
         .bell-periods {
-          margin-top:-7px;
+          margin-top:-9px;
 
           flex: 1;
           overflow-y: auto;
