@@ -219,7 +219,7 @@ const BellSchedule: React.FC = () => {
     <div className="bell-schedule-wrapper">
       <style>{`
         .bell-schedule-wrapper {
-          margin-top:-10px;
+          margin-top:-7px;
           display: flex;
           flex-direction: column;
           height: 100%;
@@ -236,6 +236,7 @@ const BellSchedule: React.FC = () => {
         }
         
         .bell-countdown-content {
+    
           display: flex;
           justify-content: space-between;
           align-items: center;
@@ -250,6 +251,7 @@ const BellSchedule: React.FC = () => {
         }
         
         .bell-time {
+        
           margin-bottom: 2px;
           font-size: clamp(24px, 3vh, 32px);
           font-weight: 600;
@@ -276,6 +278,8 @@ const BellSchedule: React.FC = () => {
         }
         
         .bell-periods {
+          margin-top:-7px;
+
           flex: 1;
           overflow-y: auto;
           scrollbar-width: none;
