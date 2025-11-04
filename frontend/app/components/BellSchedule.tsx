@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 
-const DEV_MODE = false;
+const DEV_MODE = true;
 const MOCK_TIME = {
-  hours: 16,
+  hours: 12,
   minutes: 40,
   seconds: 54,
   day: 2
@@ -36,6 +36,23 @@ const SCHEDULES: BellSchedule[] = [
       { name: 'Period 5', startTime: '1:29 PM', endTime: '2:26 PM' },
       { name: 'Period 6', startTime: '2:33 PM', endTime: '3:30 PM' },
       { name: 'Period 7', startTime: '3:38 PM', endTime: '4:35 PM' },
+    ],
+  },
+  {
+    id: 'tuesday',
+    name: 'Tuesday Prof Dev Schedule',
+    periods: [
+      { name: 'Period 0', startTime: '7:25 AM', endTime: '8:13 AM' },
+      { name: 'Prof Dev', startTime: '8:20 AM', endTime: '9:17 AM', isBreak: true },
+      { name: 'Period 1', startTime: '9:24 AM', endTime: '10:12 AM' },
+      { name: 'Period 2', startTime: '10:19 AM', endTime: '11:12 AM' },
+      { name: 'Nutrition', startTime: '11:12 AM', endTime: '11:20 AM', isBreak: true },
+      { name: 'Period 3', startTime: '11:27 AM', endTime: '12:15 PM' },
+      { name: 'Period 4', startTime: '12:22 PM', endTime: '1:10 PM' },
+      { name: 'Lunch', startTime: '1:10 PM', endTime: '1:40 PM', isBreak: true },
+      { name: 'Period 5', startTime: '1:47 PM', endTime: '2:35 PM' },
+      { name: 'Period 6', startTime: '2:42 PM', endTime: '3:30 PM' },
+      { name: 'Period 7', startTime: '3:35 PM', endTime: '4:23 PM' },
     ],
   },
 ];
@@ -88,6 +105,11 @@ const timeToMinutes = (time: string): number => {
 const isWeekend = (): boolean => {
   const day = getCurrentDay();
   return day === 0 || day === 6;
+};
+
+const isTuesday = (): boolean => {
+  const day = getCurrentDay();
+  return day === 2;
 };
 
 const isCurrentPeriod = (start: string, end: string): boolean => {
@@ -156,7 +178,8 @@ const getProgressPercentage = (startTime: string, endTime: string): number => {
 };
 
 const BellSchedule: React.FC = () => {
-  const [currentSchedule] = useState<BellSchedule>(SCHEDULES[0]);
+  const tuesday = isTuesday();
+  const [currentSchedule] = useState<BellSchedule>(tuesday ? SCHEDULES[1] : SCHEDULES[0]);
   const [currentTime, setCurrentTime] = useState(getCurrentTime());
   const [isVisible, setIsVisible] = useState(true);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -253,7 +276,7 @@ const BellSchedule: React.FC = () => {
         .bell-time {
         
           margin-bottom: 2px;
-          font-size: clamp(24px, 3vh, 32px);
+          font-size: clamp(20px, 3vh, 28px);
           font-weight: 600;
           color: hsl(var(--foreground));
           font-variant-numeric: tabular-nums;
