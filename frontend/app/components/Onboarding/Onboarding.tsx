@@ -28,6 +28,14 @@ const onboardingSteps: OnboardingStep[] = [
     position: 'center'
   },
   {
+    id: 'bell-schedule',
+    title: 'Bell Schedule',
+    description: 'Check to see how much time’s left in each class and your bell schedule.',
+    target: '.bell-schedule-wrapper',
+    position: 'right',
+
+  },
+  {
     id: 'edit-class-name',
     title: 'Click the edit button to rename this',
     description: 'Change "Class 1" to one of your actual classes. Click the pencil icon.',
