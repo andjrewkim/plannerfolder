@@ -178,12 +178,13 @@ const getProgressPercentage = (startTime: string, endTime: string): number => {
 };
 
 const BellSchedule: React.FC = () => {
-  const tuesday = isTuesday();
-  const [currentSchedule] = useState<BellSchedule>(tuesday ? SCHEDULES[1] : SCHEDULES[0]);
   const [currentTime, setCurrentTime] = useState(getCurrentTime());
   const [isVisible, setIsVisible] = useState(true);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const activeItemRef = useRef<HTMLDivElement>(null);
+  
+  // Recalculate schedule based on current day
+  const currentSchedule = isTuesday() ? SCHEDULES[1] : SCHEDULES[0];
   
   useEffect(() => {
     const timer = setInterval(() => {
