@@ -28,6 +28,7 @@ interface SidebarProps {
 }
 
 const LAST_RESET_KEY = 'tasks_last_reset_date';
+const VIEW_PREFERENCE_KEY = 'sidebar_view_preference';
 
 // Helper function to get today's date in local timezone (YYYY-MM-DD)
 const getTodayLocal = (): string => {
@@ -73,6 +74,22 @@ const Sidebar: React.FC<SidebarProps> = ({
     initialized: plannerInitialized
   } = usePlanner();
 
+  // View toggle state - default to tasks
+  const [activeView, setActiveView] = useState<'bell' | 'tasks'>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem(VIEW_PREFERENCE_KEY);
+      return (saved === 'tasks' || saved === 'bell') ? saved : 'tasks';
+    }
+    return 'tasks';
+  });
+
+  // Save view preference
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(VIEW_PREFERENCE_KEY, activeView);
+    }
+  }, [activeView]);
+
   // Local state
   const [localError, setLocalError] = useState<string | null>(null);
   const [deletingTasks, setDeletingTasks] = useState<Set<string>>(new Set());
@@ -82,19 +99,6 @@ const Sidebar: React.FC<SidebarProps> = ({
   const [eventError, setEventError] = useState<string | null>(null);
   const [isCreatingTask, setIsCreatingTask] = useState<boolean>(false);
   const [isResettingTasks, setIsResettingTasks] = useState<boolean>(false);
-  const [bellScheduleVisible, setBellScheduleVisible] = useState(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('bellScheduleVisible');
-      return saved !== null ? JSON.parse(saved) : true;
-    }
-    return true;
-  });
-
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('bellScheduleVisible', JSON.stringify(bellScheduleVisible));
-    }
-  }, [bellScheduleVisible]);
   
   // Refs
   const taskInputRef = useRef<HTMLInputElement>(null);
@@ -371,13 +375,19 @@ const Sidebar: React.FC<SidebarProps> = ({
         className="app-sidebar bg-[hsl(var(--background))] text-[hsl(var(--foreground))]"
         style={{ display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'auto' }}
       >
-<section style={{ minHeight: '55vh', display: 'flex', flexDirection: 'column', marginTop: '10px', }}>
-  <h3 className="section-title" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-    Bell Schedule
+<section style={{ flex: '0 0 50%', display: 'flex', flexDirection: 'column', marginTop: '10px', overflow: 'hidden' }}>
+  <h3 className="section-title" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
+    {activeView === 'bell' ? 'Bell Schedule' : 'Tasks'}
+    {activeView === 'tasks' && isResettingTasks && (
+      <span style={{ marginLeft: '8px', fontSize: '12px', color: '#007bff', fontWeight: 'normal' }}>
+        (Resetting...)
+      </span>
+    )}
     <span style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '9px', color: 'hsl(var(--muted-foreground))', fontWeight: '400' }}>
-      GHCHS Bell Schedule
+      {activeView === 'bell' ? 'GHCHS Bell Schedule' : 'See Bell Schedule'}
       <button 
-        onClick={() => setBellScheduleVisible(!bellScheduleVisible)}
+        onClick={() => setActiveView(activeView === 'bell' ? 'tasks' : 'bell')}
+        title={activeView === 'bell' ? 'Switch to Tasks' : 'Switch to Bell Schedule'}
         style={{ 
           background: 'none', 
           border: 'none', 
@@ -387,138 +397,122 @@ const Sidebar: React.FC<SidebarProps> = ({
           color: 'hsl(var(--muted-foreground))'
         }}
       >
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-          {bellScheduleVisible ? (
-            <>
-              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-              <circle cx="12" cy="12" r="3"/>
-            </>
-          ) : (
-            <>
-              <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/>
-              <line x1="1" y1="1" x2="23" y2="23"/>
-            </>
-          )}
-        </svg>
+        {activeView === 'bell' ? (
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M9 11l3 3L22 4"></path>
+            <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>
+          </svg>
+        ) : (
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <circle cx="12" cy="12" r="10"></circle>
+            <polyline points="12 6 12 12 16 14"></polyline>
+          </svg>
+        )}
       </button>
     </span>
   </h3>
-  <div className="section-content" style={{ padding: 0, display: bellScheduleVisible ? 'block' : 'none' }}>
+  <div className="section-content" style={{ padding: 0, display: activeView === 'bell' ? 'block' : 'none', flex: 1, overflow: 'auto' }}>
     <BellSchedule />
+  </div>
+  
+  <div 
+    className="section-content clickable-area"
+    onClick={handleTaskAreaClick}
+    style={{ flex: 1, overflow: 'auto', display: activeView === 'tasks' ? 'flex' : 'none', flexDirection: 'column' }}
+  >
+    {!initialized ? (
+      <div className="loading-message"></div>
+    ) : (
+      <>
+        {regularTasks.length > 0 && (
+          <ul className="task-list">
+            {regularTasks.map((task) => (
+              <li 
+                key={task.id} 
+                className={`task-item ${deletingTasks.has(task.id || '') ? 'deleting' : ''}`}
+                style={{
+                  opacity: deletingTasks.has(task.id || '') ? 0.5 : 1,
+                  transition: 'opacity 0.3s ease'
+                }}
+              >
+                <label className="task-label">
+                  <input
+                    type="checkbox"
+                    onChange={() => task.id && handleTaskComplete(task.id)}
+                    className="task-checkbox"
+                    disabled={deletingTasks.has(task.id || '') || isResettingTasks}
+                  />
+                  <span className="task-text">
+                    {task.event}
+                  </span>
+                </label>
+              </li>
+            ))}
+          </ul>
+        )}
+        
+        {isAddingTask ? (
+          <div className="task-form">
+            <input
+              type="text"
+              ref={taskInputRef}
+              value={newTaskText}
+              onChange={(e) => setNewTaskText(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  handleCreateTask(e as any);
+                }
+              }}
+              placeholder="Enter new task..."
+              className="task-input"
+              disabled={isCreatingTask || isResettingTasks}
+            />
+            <div className="task-form-buttons" style={{ marginTop: '8px' }}>
+              <button 
+                type="button"
+                onClick={(e) => handleCreateTask(e as any)}
+                className="btn btn-save"
+                disabled={isCreatingTask || !newTaskText.trim() || isResettingTasks}
+              >
+                {isCreatingTask ? 'Saving...' : 'Save'}
+              </button>
+              <button 
+                type="button" 
+                className="btn btn-cancel"
+                onClick={handleCancelTask}
+                disabled={isCreatingTask || isResettingTasks}
+              >
+                Cancel
+              </button>
+            </div>
+            {localError && (
+              <div className="error-message">
+                {localError}
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="empty-state">
+            {regularTasks.length === 0 ? (
+              isResettingTasks ? 'Resetting tasks...' : 'Click here to add tasks'
+            ) : (
+              isResettingTasks ? 'Resetting tasks...' : 'Click here to add more tasks'
+            )}
+          </div>
+        )}
+      </>
+    )}
   </div>
 </section>
 
 
-        <section style={{ minHeight: '400px', display: 'flex', flexDirection: 'column', marginTop: '8px' }}>
-          <h3 className="section-title">Friends</h3>
-          <div className="section-content">
+        <section style={{ flex: '0 0 50%', display: 'flex', flexDirection: 'column', marginTop: '8px', overflow: 'hidden' }}>
+          <h3 className="section-title" style={{ flexShrink: 0 }}>Friends</h3>
+          <div className="section-content" style={{ flex: 1, overflow: 'auto' }}>
             <FriendList />
           </div>
         </section>
-
-
-        {/* 
-        <section style={{ minHeight: '300px', display: 'flex', flexDirection: 'column' }}>
-          <h3 className="section-title">
-            Tasks
-            {isResettingTasks && (
-              <span style={{ marginLeft: '8px', fontSize: '12px', color: '#007bff', fontWeight: 'normal' }}>
-                (Resetting...)
-              </span>
-            )}
-          </h3>
-
-          <div 
-            className="section-content clickable-area"
-            onClick={handleTaskAreaClick}
-            style={{ flex: 1, overflow: 'auto' }}
-          >
-            {!initialized ? (
-              <div className="loading-message"></div>
-            ) : (
-              <>
-                {regularTasks.length > 0 && (
-                  <ul className="task-list">
-                    {regularTasks.map((task) => (
-                      <li 
-                        key={task.id} 
-                        className={`task-item ${deletingTasks.has(task.id || '') ? 'deleting' : ''}`}
-                        style={{
-                          opacity: deletingTasks.has(task.id || '') ? 0.5 : 1,
-                          transition: 'opacity 0.3s ease'
-                        }}
-                      >
-                        <label className="task-label">
-                          <input
-                            type="checkbox"
-                            onChange={() => task.id && handleTaskComplete(task.id)}
-                            className="task-checkbox"
-                            disabled={deletingTasks.has(task.id || '') || isResettingTasks}
-                          />
-                          <span className="task-text">
-                            {task.event}
-                          </span>
-                        </label>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-                
-                {isAddingTask ? (
-                  <div className="task-form">
-                    <input
-                      type="text"
-                      ref={taskInputRef}
-                      value={newTaskText}
-                      onChange={(e) => setNewTaskText(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          e.preventDefault();
-                          handleCreateTask(e as any);
-                        }
-                      }}
-                      placeholder="Enter new task..."
-                      className="task-input"
-                      disabled={isCreatingTask || isResettingTasks}
-                    />
-                    <div className="task-form-buttons" style={{ marginTop: '8px' }}>
-                      <button 
-                        type="button"
-                        onClick={(e) => handleCreateTask(e as any)}
-                        className="btn btn-save"
-                        disabled={isCreatingTask || !newTaskText.trim() || isResettingTasks}
-                      >
-                        {isCreatingTask ? 'Saving...' : 'Save'}
-                      </button>
-                      <button 
-                        type="button" 
-                        className="btn btn-cancel"
-                        onClick={handleCancelTask}
-                        disabled={isCreatingTask || isResettingTasks}
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                    {localError && (
-                      <div className="error-message">
-                        {localError}
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <div className="empty-state">
-                    {regularTasks.length === 0 ? (
-                      isResettingTasks ? 'Resetting tasks...' : 'Click here to add tasks'
-                    ) : (
-                      isResettingTasks ? 'Resetting tasks...' : 'Click here to add more tasks'
-                    )}
-                  </div>
-                )}
-              </>
-            )}
-          </div>
-        </section>
-        */}
         
       </aside>
 
