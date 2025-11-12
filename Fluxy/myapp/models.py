@@ -185,20 +185,27 @@ class PlannerClass(models.Model):
         return f"{self.user.username} - {self.name}"
 
 class Assignment(models.Model):
-
-    planner_class = models.ForeignKey(PlannerClass, on_delete=models.CASCADE, related_name='assignments')
+    planner_class = models.ForeignKey(
+        PlannerClass, on_delete=models.CASCADE, related_name='assignments'
+    )
     title = models.CharField(max_length=500)
-    date = models.DateField()
+    start_date = models.DateField()  # Now required
+    end_date = models.DateField()    # Now required
     completed = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    order = models.IntegerField(default=0)  # For maintaining assignment order within a day
+    order = models.IntegerField(default=0)
 
     class Meta:
-        ordering = ['date', 'order', 'created_at']
+        ordering = ['start_date', 'order', 'created_at']
 
     def __str__(self):
-        return f"{self.planner_class.name} - {self.title} ({self.date})"
+        return f"{self.planner_class.name} - {self.title} ({self.start_date} to {self.end_date})"
+
+    def is_active_on(self, day):
+        """Check if the assignment is active on a given date."""
+        return self.start_date <= day <= self.end_date
+    
     
 class NoWorkDay(models.Model):
     planner_class = models.ForeignKey(PlannerClass, on_delete=models.CASCADE, related_name='no_work_days')

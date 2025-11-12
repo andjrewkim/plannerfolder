@@ -19,12 +19,14 @@ export interface Assignment {
   id: string;
   title: string;
   completed: boolean;
-  date: string; // Changed from day_of_week to date (YYYY-MM-DD format)
+  start_date: string;
+  end_date: string;
   planner_class: string;
   order: number;
   created_at?: string;
   updated_at?: string;
-  isEditing?: boolean; // Frontend only
+  // Legacy field for backward compatibility
+  date?: string;
 }
 
 export interface PlannerClass {
@@ -57,6 +59,7 @@ interface PlannerState {
 const debugLog = (message: string, data?: any) => {
   const timestamp = new Date().toISOString();
 };
+
 
 // Helper to get default date range (4 days past + 1 week future)
 const getDefaultDateRange = () => {
@@ -776,27 +779,39 @@ export const usePlanner = () => {
     const organized: Record<string, Record<string, Assignment[]>> = {};
     
     state.assignments.forEach(assignment => {
-      if (!organized[assignment.planner_class]) {
-        organized[assignment.planner_class] = {};
+      const classId = assignment.planner_class;
+      
+      if (!organized[classId]) {
+        organized[classId] = {};
       }
-      if (!organized[assignment.planner_class][assignment.date]) {
-        organized[assignment.planner_class][assignment.date] = [];
+      
+      // Parse start and end dates
+      const startDate = new Date(assignment.start_date);
+      const endDate = new Date(assignment.end_date);
+      
+      // Add assignment to ALL dates within its range
+      const currentDate = new Date(startDate);
+      while (currentDate <= endDate) {
+        const dateString = currentDate.toISOString().split('T')[0]; // YYYY-MM-DD format
+        
+        if (!organized[classId][dateString]) {
+          organized[classId][dateString] = [];
+        }
+        
+        organized[classId][dateString].push(assignment);
+        
+        // Move to next day
+        currentDate.setDate(currentDate.getDate() + 1);
       }
-      organized[assignment.planner_class][assignment.date].push(assignment);
     });
-
-    // Sort assignments within each date by order, then by created_at
+    
+    // Sort assignments by order within each date
     Object.keys(organized).forEach(classId => {
-      Object.keys(organized[classId]).forEach(date => {
-        organized[classId][date].sort((a, b) => {
-          if (a.order !== b.order) {
-            return a.order - b.order;
-          }
-          return (a.created_at || '').localeCompare(b.created_at || '');
-        });
+      Object.keys(organized[classId]).forEach(dateString => {
+        organized[classId][dateString].sort((a, b) => a.order - b.order);
       });
     });
-
+    
     return organized;
   }, [state.assignments]);
 

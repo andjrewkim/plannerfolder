@@ -474,7 +474,7 @@
   width: 99%;
   max-width: 100%;
   box-sizing: border-box;
-  position: relative;
+  position: relative !important;
   overflow: hidden;
   margin-bottom: 1px;
   padding: 2px 3px !important;  /* Force vertical padding */
@@ -503,7 +503,7 @@
 }
 
 .assignment-title {
-  font-size: 5;
+  font-size: 15px;
   color: hsl(var(--foreground));
   flex: 1;
   line-height: 1.2 !important;
@@ -545,7 +545,7 @@
 .assignment-edit-input {
   flex: 1;
   background: none;
-  font-size: 14px;
+  font-size: 15px !important;
   color: hsl(var(--foreground));
   padding: 0;
   outline: none;

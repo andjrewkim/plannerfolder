@@ -1,15 +1,23 @@
 import React from 'react';
 
 interface NewAssignmentInputProps {
-  value: string;
-  onChange: (value: string) => void;
+  titleValue: string;
+  startDateValue: string;
+  endDateValue: string;
+  onTitleChange: (value: string) => void;
+  onStartDateChange: (value: string) => void;
+  onEndDateChange: (value: string) => void;
   onCreate: () => void;
   onCancel: () => void;
 }
 
 const NewAssignmentInput: React.FC<NewAssignmentInputProps> = ({
-  value,
-  onChange,
+  titleValue,
+  startDateValue,
+  endDateValue,
+  onTitleChange,
+  onStartDateChange,
+  onEndDateChange,
   onCreate,
   onCancel
 }) => {
@@ -30,8 +38,8 @@ const NewAssignmentInput: React.FC<NewAssignmentInputProps> = ({
       />
       <input
         type="text"
-        value={value || ''}
-        onChange={(e) => onChange(e.target.value)}
+        value={titleValue || ''}
+        onChange={(e) => onTitleChange(e.target.value)}
         onKeyDown={handleKeyDown}
         onBlur={onCreate}
         className="assignment-edit-input"

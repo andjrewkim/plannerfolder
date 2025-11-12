@@ -252,7 +252,10 @@ from .timezone_utils import parse_date_in_user_timezone, get_user_local_date
 class AssignmentSerializer(serializers.ModelSerializer):
     class Meta:
         model = Assignment
-        fields = ['id', 'title', 'date', 'planner_class', 'completed', 'order', 'created_at', 'updated_at']
+        fields = [
+            'id', 'title', 'start_date', 'end_date', 'planner_class', 
+            'completed', 'order', 'created_at', 'updated_at'
+        ]
         read_only_fields = ['created_at', 'updated_at']
 
     def validate_planner_class(self, value):
@@ -271,31 +274,68 @@ class AssignmentSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Assignment title cannot be empty.")
         return value.strip()
     
-    def validate_date(self, value):
+    def validate_start_date(self, value):
         """
-        Ensure date is parsed correctly in user's timezone.
-        This is CRITICAL for "today's assignments" queries to work correctly.
+        Ensure start_date is parsed correctly in user's timezone.
         """
         if value is None:
-            raise serializers.ValidationError("Date is required.")
+            raise serializers.ValidationError("Start date is required.")
         
-        # Parse the date in user's timezone context
         request = self.context.get('request')
         if not request:
-            # If no request in context, log warning but continue with the value as-is
-            print("⚠️ WARNING: No request in AssignmentSerializer.validate_date context")
+            print("⚠️ WARNING: No request in AssignmentSerializer.validate_start_date context")
             return value
             
         return parse_date_in_user_timezone(value, request)
     
+    def validate_end_date(self, value):
+        """
+        Ensure end_date is parsed correctly in user's timezone.
+        """
+        if value is None:
+            raise serializers.ValidationError("End date is required.")
+        
+        request = self.context.get('request')
+        if not request:
+            print("⚠️ WARNING: No request in AssignmentSerializer.validate_end_date context")
+            return value
+            
+        return parse_date_in_user_timezone(value, request)
+    
+    def validate(self, data):
+        """
+        Validate that end_date is not before start_date.
+        This runs after individual field validation.
+        """
+        start_date = data.get('start_date')
+        end_date = data.get('end_date')
+        
+        # If we're updating and only one date is provided, get the other from instance
+        if self.instance:
+            if not start_date:
+                start_date = self.instance.start_date
+            if not end_date:
+                end_date = self.instance.end_date
+        
+        if start_date and end_date and end_date < start_date:
+            raise serializers.ValidationError({
+                'end_date': 'End date cannot be before start date.'
+            })
+        
+        return data
+    
     def to_representation(self, instance):
         """
-        Override to ensure date is always returned in consistent ISO format
+        Override to ensure dates are always returned in consistent ISO format
         """
         data = super().to_representation(instance)
-        # Ensure date is in YYYY-MM-DD format
-        if instance.date:
-            data['date'] = instance.date.isoformat()
+        
+        # Ensure dates are in YYYY-MM-DD format
+        if instance.start_date:
+            data['start_date'] = instance.start_date.isoformat()
+        if instance.end_date:
+            data['end_date'] = instance.end_date.isoformat()
+        
         return data
 
 
@@ -457,8 +497,8 @@ class UserProfileSerializer(serializers.ModelSerializer):
         Calculate assignment stats with caching.
         TIMEZONE SAFE: Uses user's local date from request timezone.
         
-        The key is that we're comparing Assignment.date (naive date field) 
-        with today's date calculated in the user's timezone.
+        Now handles assignments that span multiple days - an assignment
+        is counted for "today" if today falls within its date range.
         """
         user_id = user.id
         if user_id in self._stats_cache:
@@ -467,13 +507,14 @@ class UserProfileSerializer(serializers.ModelSerializer):
         # Get user's local date based on timezone from request
         today = self._get_today()
         
-        # Query today's assignments
-        # Assignment.date is a DateField (timezone-naive), so direct comparison works
+        # Query today's assignments (assignments active on today)
+        # An assignment is active today if: start_date <= today <= end_date
         today_stats = Assignment.objects.filter(
-            planner_class__user=user, 
-            date=today
+            planner_class__user=user,
+            start_date__lte=today,
+            end_date__gte=today
         ).aggregate(
-            total=Count('id'), 
+            total=Count('id'),
             completed=Count('id', filter=Q(completed=True))
         )
         
@@ -481,7 +522,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
         overall_stats = Assignment.objects.filter(
             planner_class__user=user
         ).aggregate(
-            total=Count('id'), 
+            total=Count('id'),
             completed=Count('id', filter=Q(completed=True))
         )
         

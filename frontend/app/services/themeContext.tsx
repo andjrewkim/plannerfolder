@@ -514,7 +514,6 @@ export const ThemeProvider: React.FC<{children: React.ReactNode}> = ({ children 
   }, [updateSettings, isDarkMode]);
 
   useEffect(() => {
-    if (!settings) return;
     
     const root = document.documentElement;
     

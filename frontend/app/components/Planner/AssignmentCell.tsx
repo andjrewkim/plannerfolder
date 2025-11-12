@@ -10,22 +10,27 @@ interface AssignmentCellProps {
   isToday: boolean;
   isAuthenticated: boolean;
   settingsUnlocked: boolean;
-  editingAssignment: string | null;
+  editingAssignment: {id: string; date: string} | null;
   editingAssignmentValue: string;
-  newAssignmentInput?: string;
+  newAssignmentInput?: {
+    title: string;
+    startDate: string;
+    endDate: string;
+  };
   showStripePattern: boolean;
-  onStartEditAssignment: (assignmentId: string, currentTitle: string) => void;
+  onStartEditAssignment: (assignmentId: string, currentTitle: string, dateString: string) => void;
   onUpdateAssignmentEdit: (value: string) => void;
   onSaveAssignmentEdit: () => void;
   onCancelAssignmentEdit: () => void;
   onAddAssignment: (classId: string, dateString: string) => void;
-  onNewAssignmentChange: (classId: string, dateString: string, value: string) => void;
+  onNewAssignmentChange: (classId: string, dateString: string, field: 'title' | 'startDate' | 'endDate', value: string) => void;
   onCreateAssignment: (classId: string, dateString: string) => void;
   onCancelNewAssignment: (classId: string, dateString: string) => void;
   onKeyPress: (e: React.KeyboardEvent, action: () => void) => void;
   onToggleStripePattern: (classId: string, dateString: string) => void;
   onToggleAssignment: (assignmentId: string, currentCompleted: boolean) => void;
   onDeleteAssignment: (assignmentId: string) => void;
+  onUpdateDateRange?: (assignmentId: string, newEndDate: string) => void;
 }
 
 const AssignmentCell: React.FC<AssignmentCellProps> = ({
@@ -50,7 +55,8 @@ const AssignmentCell: React.FC<AssignmentCellProps> = ({
   onKeyPress,
   onToggleStripePattern,
   onToggleAssignment,
-  onDeleteAssignment
+  onDeleteAssignment,
+  onUpdateDateRange
 }) => {
   const { 
     updateAssignment, 
@@ -99,7 +105,42 @@ const AssignmentCell: React.FC<AssignmentCellProps> = ({
     }
   };
 
-  // Show button only when settings are unlocked (user has friends)
+  const handleUpdateDateRange = async (assignmentId: string, newEndDate: string) => {
+    const assignment = assignments.find(a => a.id === assignmentId);
+    if (!assignment) {
+      console.error('Assignment not found:', assignmentId);
+      return;
+    }
+
+    if (assignment.end_date === newEndDate) {
+      return;
+    }
+
+    if (onUpdateDateRange) {
+      onUpdateDateRange(assignmentId, newEndDate);
+    }
+
+    try {
+      const success = await updateAssignment(assignmentId, { 
+        end_date: newEndDate 
+      });
+      
+      if (!success) {
+        console.error('Failed to update assignment date range');
+        setError('Failed to update assignment date');
+        if (onUpdateDateRange) {
+          onUpdateDateRange(assignmentId, assignment.end_date);
+        }
+      }
+    } catch (error) {
+      console.error('Error updating assignment date range:', error);
+      setError('Failed to update assignment date');
+      if (onUpdateDateRange) {
+        onUpdateDateRange(assignmentId, assignment.end_date);
+      }
+    }
+  };
+
   const shouldShowNoWorkButton = isAuthenticated && !showTempClass && hasNoAssignments && settingsUnlocked;
 
   return (
@@ -115,11 +156,12 @@ const AssignmentCell: React.FC<AssignmentCellProps> = ({
       <div className="assignments-list">
         {assignments?.map((assignment) => (
           <AssignmentItem
-            key={assignment.id}
+            key={`${assignment.id}-${dateString}`}
             assignment={assignment}
-            isEditing={editingAssignment === assignment.id}
+            isEditing={editingAssignment?.id === assignment.id && editingAssignment?.date === dateString}
             editValue={editingAssignmentValue}
             isAuthenticated={isAuthenticated && !showTempClass}
+            dateString={dateString}
             onToggleComplete={handleToggleAssignment}
             onStartEdit={onStartEditAssignment}
             onUpdateEdit={onUpdateAssignmentEdit}
@@ -127,13 +169,18 @@ const AssignmentCell: React.FC<AssignmentCellProps> = ({
             onCancelEdit={onCancelAssignmentEdit}
             onDelete={handleDeleteAssignment}
             onKeyPress={onKeyPress}
+            onUpdateDateRange={handleUpdateDateRange}
           />
         ))}
         
-        {newAssignmentInput !== undefined && (
+        {newAssignmentInput && (
           <NewAssignmentInput
-            value={newAssignmentInput}
-            onChange={(value) => onNewAssignmentChange(classId, dateString, value)}
+            titleValue={newAssignmentInput.title}
+            startDateValue={newAssignmentInput.startDate}
+            endDateValue={newAssignmentInput.endDate}
+            onTitleChange={(value) => onNewAssignmentChange(classId, dateString, 'title', value)}
+            onStartDateChange={(value) => onNewAssignmentChange(classId, dateString, 'startDate', value)}
+            onEndDateChange={(value) => onNewAssignmentChange(classId, dateString, 'endDate', value)}
             onCreate={() => onCreateAssignment(classId, dateString)}
             onCancel={() => onCancelNewAssignment(classId, dateString)}
           />
@@ -141,7 +188,6 @@ const AssignmentCell: React.FC<AssignmentCellProps> = ({
       </div>
       
       <div className={`cell-buttons ${hasNoAssignments ? 'empty-cell' : 'has-content'}`}>
-        {/* No Work button - only shows when user has friends (settingsUnlocked) */}
         {shouldShowNoWorkButton && (
           <button
             onClick={() => onToggleStripePattern(classId, dateString)}

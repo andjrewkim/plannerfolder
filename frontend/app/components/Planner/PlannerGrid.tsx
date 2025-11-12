@@ -1,14 +1,6 @@
 import React from 'react';
 import AssignmentCell from './AssignmentCell';
-
-interface Assignment {
-  id: string;
-  title: string;
-  completed: boolean;
-  date: string;
-  planner_class: string;
-  order: number;
-}
+import { Assignment } from '../../hooks/usePlanner'; 
 
 interface Class {
   id: string;
@@ -36,25 +28,30 @@ interface PlannerGridProps {
   days: DayInfo[];
   organizedAssignments: Record<string, Record<string, Assignment[]>>;
   isAuthenticated: boolean;
-  settingsUnlocked: boolean;  // Add this line
+  settingsUnlocked: boolean;
   dragState: DragState;
-  editingAssignment: string | null;
+  editingAssignment: { id: string; date: string; } | null;  // Already updated
   editingAssignmentValue: string;
-  newAssignmentInputs: Record<string, string>;
+  newAssignmentInputs: Record<string, {
+    title: string;
+    startDate: string;
+    endDate: string;
+  }>;
   stripedCells: Set<string>;
   getRowHeight: (classId: string) => number;
   onToggleAssignment: (assignmentId: string, currentCompleted: boolean) => void;
-  onStartEditAssignment: (assignmentId: string, currentTitle: string) => void;
+  onStartEditAssignment: (assignmentId: string, currentTitle: string, dateString: string) => void;  // Add dateString parameter
   onUpdateAssignmentEdit: (value: string) => void;
   onSaveAssignmentEdit: () => void;
   onCancelAssignmentEdit: () => void;
   onDeleteAssignment: (assignmentId: string) => void;
   onAddAssignment: (classId: string, dateString: string) => void;
-  onNewAssignmentChange: (classId: string, dateString: string, value: string) => void;
+  onNewAssignmentChange: (classId: string, dateString: string, field: 'title' | 'startDate' | 'endDate', value: string) => void;
   onCreateAssignment: (classId: string, dateString: string) => void;
   onCancelNewAssignment: (classId: string, dateString: string) => void;
   onKeyPress: (e: React.KeyboardEvent, action: () => void) => void;
   onToggleStripePattern: (classId: string, dateString: string) => void;
+  onUpdateDateRange?: (assignmentId: string, newEndDate: string) => void;
 }
 
 const PlannerGrid: React.FC<PlannerGridProps> = ({
@@ -62,7 +59,7 @@ const PlannerGrid: React.FC<PlannerGridProps> = ({
   days,
   organizedAssignments,
   isAuthenticated,
-  settingsUnlocked,  // Add this line
+  settingsUnlocked,
   dragState,
   editingAssignment,
   editingAssignmentValue,
@@ -80,7 +77,8 @@ const PlannerGrid: React.FC<PlannerGridProps> = ({
   onCreateAssignment,
   onCancelNewAssignment,
   onKeyPress,
-  onToggleStripePattern
+  onToggleStripePattern,
+  onUpdateDateRange
 }) => {
   return (
     <div className="main-grid">
@@ -130,6 +128,8 @@ const PlannerGrid: React.FC<PlannerGridProps> = ({
                   onCancelNewAssignment={onCancelNewAssignment}
                   onKeyPress={onKeyPress}
                   onToggleStripePattern={onToggleStripePattern}
+                  onUpdateDateRange={onUpdateDateRange}
+
                 />
               );
             })}
