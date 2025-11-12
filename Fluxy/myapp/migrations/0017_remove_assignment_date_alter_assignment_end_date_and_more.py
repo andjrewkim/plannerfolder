@@ -11,7 +11,7 @@ def copy_old_date(apps, schema_editor):
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('myapp', '0016_auto_20251109_1926'),  # your last migration
+        ('myapp', '0016_alter_assignment_options_assignment_end_date_and_more'),  # your last migration
     ]
 
     operations = [
