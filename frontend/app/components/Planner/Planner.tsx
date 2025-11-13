@@ -740,7 +740,7 @@ const Planner: React.FC<PlannerProps> = ({
       return context.measureText(text).width;
     };
 
-    const containerWidth = 148.56; // adjust to your grid column width
+    const containerWidth = 151; // adjust to your grid column width
     let maxHeight = 0;
 
     daysToShow.forEach(day => {
