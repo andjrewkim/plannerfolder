@@ -32,7 +32,7 @@ interface AssignmentCellProps {
   onDeleteAssignment: (assignmentId: string) => void;
   onUpdateDateRange?: (assignmentId: string, newEndDate: string) => void;
 }
-//comment
+
 const AssignmentCell: React.FC<AssignmentCellProps> = ({
   classId,
   dateString,
@@ -143,6 +143,23 @@ const AssignmentCell: React.FC<AssignmentCellProps> = ({
 
   const shouldShowNoWorkButton = isAuthenticated && !showTempClass && hasNoAssignments && settingsUnlocked;
 
+  // Sort assignments: recurring (multi-day) first, then single-day events
+  const sortedAssignments = React.useMemo(() => {
+    if (!assignments) return [];
+    
+    return [...assignments].sort((a, b) => {
+      const aIsRecurring = a.start_date !== a.end_date;
+      const bIsRecurring = b.start_date !== b.end_date;
+      
+      // If one is recurring and the other isn't, recurring comes first
+      if (aIsRecurring && !bIsRecurring) return -1;
+      if (!aIsRecurring && bIsRecurring) return 1;
+      
+      // If both are the same type, maintain original order
+      return 0;
+    });
+  }, [assignments]);
+
   return (
     <div 
       className={`assignment-cell ${isToday ? 'today-cell' : ''} ${shouldShowNoWorkPattern ? 'no-work-day' : ''}`}
@@ -154,7 +171,7 @@ const AssignmentCell: React.FC<AssignmentCellProps> = ({
       )}
       
       <div className="assignments-list">
-        {assignments?.map((assignment) => (
+        {sortedAssignments?.map((assignment) => (
           <AssignmentItem
             key={`${assignment.id}-${dateString}`}
             assignment={assignment}

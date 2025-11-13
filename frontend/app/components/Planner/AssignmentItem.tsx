@@ -224,7 +224,7 @@ const AssignmentItem: React.FC<AssignmentItemProps> = ({
             top: '0',
             bottom: '0',
             width: '5px',
-            backgroundColor: 'hsl(var(--accent))',
+            backgroundColor: 'hsl(var(--accent)/0.3)',
             borderRadius: '5px 0 0 5px',
             pointerEvents: 'none'
           }}
