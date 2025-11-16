@@ -27,6 +27,7 @@ const onboardingSteps: OnboardingStep[] = [
     target: 'body',
     position: 'center'
   },
+/*
   {
     id: 'bell-schedule',
     title: 'Bell Schedule',
@@ -35,6 +36,7 @@ const onboardingSteps: OnboardingStep[] = [
     position: 'right',
 
   },
+*/
   {
     id: 'edit-class-name',
     title: 'Click the edit button to rename this',
