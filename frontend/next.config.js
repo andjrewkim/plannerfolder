@@ -18,6 +18,7 @@ const nextConfig = {
       }
     ];
   },
+  // Removed rewrites - not needed and doesn't work with output: 'export'
   eslint: { ignoreDuringBuilds: true },
 };
 

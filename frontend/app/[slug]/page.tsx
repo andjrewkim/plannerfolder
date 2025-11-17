@@ -1,12 +1,25 @@
-import React from 'react';
+import type { Metadata } from 'next';
+import { landingPages } from '../data/landingPages';
 
-export const metadata = {
-  title: 'Free Online Homework Tracker for High School Students',
-  description:
-    'Stay organized with this free online homework tracker for high school students. Track assignments, class schedules, and exams with ease using our web app.',
-};
+export async function generateStaticParams() {
+  return Object.keys(landingPages).map((slug) => ({ slug }));
+}
 
-export default function LandingPage() {
+export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
+  const { slug } = await params;
+  const page = landingPages[slug as keyof typeof landingPages];
+  if (!page) return { title: 'Page not found' };
+  return {
+    title: page.title,
+    description: page.description,
+  };
+}
+
+export default async function LandingPage({ params }: { params: Promise<{ slug: string }> }) {
+  const { slug } = await params;
+  const page = landingPages[slug as keyof typeof landingPages];
+  if (!page) return <div>Page not found</div>;
+
   const animationStyle = `
     @keyframes fadeInRight {
       from { opacity: 0; transform: translateX(30px); }
@@ -72,10 +85,9 @@ export default function LandingPage() {
             animationDelay: '0.3s',
           }}
         >
-          Free Online Homework Tracker for High School Students
+          {page.title}
         </h1>
 
-        {/* Divider line */}
         <div
           style={{
             width: '50px',
@@ -100,10 +112,9 @@ export default function LandingPage() {
             animationDelay: '0.6s',
           }}
         >
-          Stay on top of your weekly classes, assignments, and exams with this simple online homework tracker. Designed specifically for high school students who want a clean and effective way to manage their school tasks.
+          {page.description}
         </p>
 
-        {/* Divider line */}
         <div
           style={{
             width: '50px',
@@ -143,16 +154,14 @@ export default function LandingPage() {
             animationDelay: '1.2s',
           }}
         >
-          <li>Track all homework assignments in one place online</li>
-          <li>Organize weekly class schedules easily</li>
-          <li>Keep exam and project deadlines clearly visible</li>
-          <li>Completely free and accessible from any device</li>
+          {page.bullets.map((b, i) => (
+            <li key={i}>{b}</li>
+          ))}
         </ul>
 
         {/* Call-to-action */}
         <a
           href="/userlogin"
-          className="cta-button"
           style={{
             display: 'inline-block',
             padding: '0.55rem 1.2rem',
