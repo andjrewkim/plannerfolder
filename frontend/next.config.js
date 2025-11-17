@@ -4,6 +4,9 @@ const nextConfig = {
   env: {
     NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000',
   },
+  images: {
+    unoptimized: true, // Required for static export
+  },
   async headers() {
     return [
       {
@@ -18,7 +21,6 @@ const nextConfig = {
       }
     ];
   },
-  // Removed rewrites - not needed and doesn't work with output: 'export'
   eslint: { ignoreDuringBuilds: true },
 };
 
