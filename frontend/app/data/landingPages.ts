@@ -307,7 +307,6 @@ Notion is an incredible tool. But for the specific task of tracking high school 
 If you're reading this, you probably already know Notion isn't working for you. That's okay. Your homework tracker shouldn't be complicated. It should just work.
 `,
     bullets: [
-      "Loads 5x faster than Notion—under 2 seconds vs. 8+ seconds per page load",
       "Add assignments in 10 seconds without databases, blocks, or complex setups",
       "Zero learning curve—use immediately instead of watching tutorial videos",
       "Optimized for quick homework tracking, not building elaborate life systems"
