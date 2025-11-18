@@ -1,6 +1,6 @@
 // app/(landing)/layout.tsx
 import type { Metadata } from 'next';
-import { landingPages } from '../data/landingPages';
+import { landingPages } from '../../data/landingPages';
 
 export const metadata: Metadata = {
   icons: {

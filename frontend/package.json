@@ -5,11 +5,10 @@
   "description": "Next.js frontend application",
   "scripts": {
     "dev": "next dev --hostname 127.0.0.1",
-    "build": "next build",
+    "build": "next build && next export",
     "start": "next start",
     "lint": "next lint",
     "postbuild": "next-sitemap"
-
   },
   "dependencies": {
     "@fullcalendar/core": "^6.1.15",
@@ -36,7 +35,6 @@
     "lucide-react": "^0.471.0",
     "next": "^15.5.4",
     "next-auth": "^4.24.11",
-    "next-sitemap": "^4.2.3",
     "posthog-js": "^1.260.1",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
