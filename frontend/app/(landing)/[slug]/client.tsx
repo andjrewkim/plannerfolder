@@ -87,7 +87,7 @@ export default function LandingPageClient({ page }: { page: PageData }) {
           top: 0;
           right: 0;
           height: 100%;
-          width: 35%;
+          width: 30%;
           display: flex;
           flex-direction: column;
           justify-content: center;
@@ -98,7 +98,7 @@ export default function LandingPageClient({ page }: { page: PageData }) {
 
         .hero-title {
           font-size: 2.5rem;
-          font-weight: 600;
+          font-weight: 400;
           margin-bottom: 1.5rem;
           line-height: 1.2;
           color: #ffffff;

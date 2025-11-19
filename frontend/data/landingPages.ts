@@ -996,7 +996,7 @@ The tracker works where you are, not where some ideal student who isn't an athle
     ]
   },
 
-  "always-confused-about-homework-assignments": {
+  "confused-about-homework-assignments": {
     title: "Always Confused What Homework Was Actually Assigned? Clear Up Assignment Confusion",
     description: "Walk into class wondering if you did the right homework? Confused whether the essay is due tomorrow or next week? This tracker captures exactly what was assigned so you stop second-guessing yourself about what you're supposed to do.",
     h1: "Stop Being Confused About What Homework Is Actually Due",
@@ -1076,8 +1076,7 @@ Your grades improve because you stop losing points for misunderstanding assignme
     bullets: [
       "Write down assignments in 10 seconds the moment they're announced, before you forget details",
       "Stop texting classmates to verify what homework was actually assigned",
-      "Capture what teachers say in class plus Google Classroom details in one place",
-      "Walk into class confident you did the right assignment instead of second-guessing yourself"
+      "It's made for students. Its not just a todo list."
     ]
   },
 
