@@ -38,6 +38,7 @@
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "react-parallax-tilt": "^1.7.301",
+    "resend": "^6.5.2",
     "rrule": "^2.8.1",
     "shadcn-ui": "^0.9.4",
     "tailwind-merge": "^2.6.0",
