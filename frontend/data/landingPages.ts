@@ -468,7 +468,7 @@ High school throws a lot of homework at you from a lot of different directions. 
   "stop-procrastinating-homework-tracker":{
     title: "How to Stop Procrastinating on Homework with a Simple Tracking System for High School Students",
     description: "Procrastination killing your grades? This homework tracker makes it impossible to ignore what's due. See everything at once, no more 'I forgot' excuses. Works on your phone and school computer so assignments stay visible all day.",
-    h1: "Stop Procrastinating on Homework (Without Willpower)",
+    h1: "Stop Procrastinating on Homework",
     content: `Procrastination isn't about being lazy. It's not about lacking discipline or motivation. The real reason you procrastinate on homework has nothing to do with your character—it's about visibility. When your assignments are scattered across Google Classroom, Schoology, three different teacher websites, sticky notes in your backpack, and half-remembered announcements from class, your brain simply can't process what needs to happen. So it defaults to "I'll do it later."
 
 The procrastination trap happens when homework exists in too many places. Your English teacher posts on Google Classroom. Your math teacher only announces homework verbally in class. Your history teacher uses a separate website. Your science teacher writes assignments on the board that you're supposed to photograph. By the time you get home, you genuinely don't remember everything that's due because you never had it all in one place to begin with.
@@ -662,7 +662,7 @@ Strategic rest makes busy schedules sustainable. You can handle practices, clubs
   "digital-homework-planner-high-school" :{
     title: "Switch from Paper Planner to Digital Homework Tracker - Best Digital Planner for High School Students",
     description: "Paper planners work until you lose them, forget them at home, or can't read your own writing. This digital tracker backs up automatically, works on all your devices, and actually saves time. Perfect for high school students ready to go digital.",
-    h1: "Finally Ditch Your Paper Planner (Without the Chaos)",
+    h1: "Finally Ditch Your Paper Planner",
     content: `Paper planners feel safe. They're tangible. You write assignments down during class, you see them later, it works. You've probably been using paper planners since middle school. The tactile act of writing feels productive. Until it doesn't.
 
 Until you leave your planner in your locker and can't check homework at home. Until your handwriting is completely illegible because you rushed to copy the assignment off the board before the bell rang. Until you run out of room in the tiny squares because three teachers assigned big projects on the same day. Until you lose the entire planner and with it, every assignment you've written down for the past month.

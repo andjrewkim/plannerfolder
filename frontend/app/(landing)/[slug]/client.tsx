@@ -14,7 +14,6 @@ interface PageData {
 }
 
 export default function LandingPageClient({ page }: { page: PageData }) {
-  // Set page metadata dynamically
   useEffect(() => {
     document.title = page.title;
     
@@ -40,17 +39,13 @@ export default function LandingPageClient({ page }: { page: PageData }) {
           from { opacity: 0; transform: translateX(30px); }
           to { opacity: 1; transform: translateX(0); }
         }
-        @keyframes fadeInUp {
-          from { opacity: 0; transform: translateY(20px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
 
-        /* Hero Section */
         .hero-section {
           position: relative;
           width: 100%;
-          height: 100vh;
-          min-height: 600px;
+          min-height: 100vh;
+          display: flex;
+          align-items: center;
           overflow: hidden;
           font-family: Inter, system-ui, -apple-system, sans-serif;
         }
@@ -78,26 +73,31 @@ export default function LandingPageClient({ page }: { page: PageData }) {
 
         .hero-content {
           position: relative;
-          height: 100%;
+          width: 100%;
           z-index: 2;
+          padding: 0;
+          display: flex;
+          justify-content: flex-end;
+          align-items: stretch;
+          min-height: 100vh;
         }
 
         .hero-sidebar {
-          position: absolute;
-          top: 0;
-          right: 0;
-          height: 100%;
-          width: 30%;
+          width: 100%;
+          max-width: 500px;
           display: flex;
           flex-direction: column;
           justify-content: center;
-          padding: 0 3rem;
+          padding: 2.5rem;
           backdrop-filter: blur(4px);
-          background: rgba(0, 0, 0, 0.1);
+          background: rgba(0, 0, 0, 0.3);
+          border-radius: 0;
+          margin: 0;
+          box-shadow: -20px 0 40px rgba(0, 0, 0, 0.3);
         }
 
         .hero-title {
-          font-size: 2.5rem;
+          font-size: clamp(1.5rem, 4vw, 2.5rem);
           font-weight: 400;
           margin-bottom: 1.5rem;
           line-height: 1.2;
@@ -118,8 +118,8 @@ export default function LandingPageClient({ page }: { page: PageData }) {
         }
 
         .hero-description {
-          font-size: 1.05rem;
-          margin-bottom: 2.5rem;
+          font-size: clamp(0.95rem, 2vw, 1.05rem);
+          margin-bottom: 2rem;
           line-height: 1.6;
           color: rgba(255, 255, 255, 0.9);
           opacity: 0;
@@ -128,7 +128,7 @@ export default function LandingPageClient({ page }: { page: PageData }) {
         }
 
         .features-title {
-          font-size: 1.1rem;
+          font-size: clamp(1rem, 2vw, 1.1rem);
           font-weight: 600;
           margin-bottom: 1rem;
           color: #ffffff;
@@ -138,15 +138,19 @@ export default function LandingPageClient({ page }: { page: PageData }) {
         }
 
         .features-list {
-          font-size: 0.95rem;
+          font-size: clamp(0.9rem, 1.8vw, 0.95rem);
           line-height: 1.9;
-          margin-bottom: 2.5rem;
+          margin-bottom: 2rem;
           list-style-type: disc;
           padding-left: 1.2rem;
           color: rgba(255, 255, 255, 0.85);
           opacity: 0;
           animation: fadeInRight 1s forwards;
           animation-delay: 1.2s;
+        }
+
+        .features-list li {
+          margin-bottom: 0.5rem;
         }
 
         .cta-button {
@@ -157,13 +161,14 @@ export default function LandingPageClient({ page }: { page: PageData }) {
           font-weight: 600;
           border-radius: 8px;
           text-decoration: none;
-          font-size: 1rem;
+          font-size: clamp(0.95rem, 2vw, 1rem);
           box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
           opacity: 0;
           animation: fadeInRight 1s forwards;
           animation-delay: 1.5s;
           width: fit-content;
           transition: transform 0.2s, box-shadow 0.2s;
+          text-align: center;
         }
 
         .cta-button:hover {
@@ -171,184 +176,283 @@ export default function LandingPageClient({ page }: { page: PageData }) {
           box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
         }
 
-        /* SEO Content Section */
         .seo-content {
-          background: #ffffff;
-          padding: 4rem 2rem;
+          background: #fff;
+          padding: 48px 20px;
         }
 
         .content-wrapper {
-          max-width: 900px;
+          max-width: 760px;
           margin: 0 auto;
-          opacity: 0;
-          animation: fadeInUp 1s forwards;
-          animation-delay: 0.5s;
         }
 
         .content-title {
-          font-size: 2.5rem;
-          font-weight: 700;
-          margin-bottom: 2rem;
-          color: #1a1a1a;
-          line-height: 1.3;
-        }
-
-        .content-wrapper .content-h2 {
-          font-size: 2rem;
+          font-size: 32px;
           font-weight: 600;
-          margin-top: 3rem;
-          margin-bottom: 1rem;
-          color: #2c2c2c;
-          border-bottom: 2px solid #ff9557;
-          padding-bottom: 0.5rem;
+          margin-bottom: 8px;
+          color: #1f2328;
+          line-height: 1.25;
+          letter-spacing: -0.5px;
         }
 
-        .content-wrapper .content-h3 {
-          font-size: 1.5rem;
+        .content-wrapper h2 {
+          font-size: 24px;
           font-weight: 600;
-          margin-top: 2rem;
-          margin-bottom: 0.75rem;
-          color: #333333;
+          margin: 32px 0 16px 0;
+          color: #1f2328;
+          padding-bottom: 8px;
+          border-bottom: 1px solid #d8dee4;
         }
 
-        .content-wrapper .content-p {
-          margin-bottom: 1.5rem;
-          line-height: 1.8;
-          font-size: 1.1rem;
-          color: #444444;
+        .content-wrapper h3 {
+          font-size: 20px;
+          font-weight: 600;
+          margin: 24px 0 12px 0;
+          color: #1f2328;
         }
 
-        .content-wrapper .content-ul,
-        .content-wrapper .content-ol {
-          margin-bottom: 1.5rem;
-          padding-left: 2rem;
-          line-height: 1.8;
+        .content-wrapper p {
+          margin: 0 0 16px 0;
+          line-height: 1.6;
+          font-size: 16px;
+          color: #59636e;
         }
 
-        .content-wrapper .content-ul {
-          list-style-type: disc;
+        .content-wrapper ul,
+        .content-wrapper ol {
+          margin: 0 0 16px 0;
+          padding-left: 32px;
         }
 
-        .content-wrapper .content-ol {
-          list-style-type: decimal;
+        .content-wrapper li {
+          margin: 4px 0;
+          line-height: 1.6;
+          color: #59636e;
         }
 
-        .content-wrapper .content-li {
-          margin-bottom: 0.75rem;
-          font-size: 1.05rem;
-          color: #444444;
+        .content-wrapper strong {
+          font-weight: 600;
+          color: #1f2328;
         }
 
-        .content-wrapper .content-strong {
-          font-weight: 700;
-          color: #2c2c2c;
-        }
-
-        .content-wrapper .content-link {
+        .content-wrapper a {
           color: #b6683aff;
+          text-decoration: none;
+        }
+
+        .content-wrapper a:hover {
           text-decoration: underline;
         }
 
-        .content-wrapper .content-link:hover {
-          color: #9f4116ff;
-        }
-
         .key-features {
-          margin-top: 3rem;
-          padding: 2rem;
-          background: #f9fafb;
-          border-radius: 12px;
-          border-left: 4px solid #ff9557;
+          margin: 32px 0;
+          padding: 16px;
+          background: #f6f8fa;
+          border: 1px solid #d8dee4;
+          border-radius: 6px;
         }
 
         .key-features h3 {
-          font-size: 1.75rem;
+          margin: 0 0 12px 0;
+          font-size: 16px;
           font-weight: 600;
-          margin-bottom: 1rem;
-          color: #2c2c2c;
+          color: #1f2328;
         }
 
         .key-features ul {
-          padding-left: 2rem;
+          margin: 0;
+          padding-left: 24px;
           list-style-type: disc;
         }
 
         .key-features li {
-          margin-bottom: 0.75rem;
-          line-height: 1.7;
-          font-size: 1.05rem;
-          color: #444444;
+          margin: 4px 0;
+          color: #59636e;
         }
 
         .cta-section {
-          margin-top: 4rem;
+          margin: 48px 0 0 0;
+          padding: 0;
+          background: transparent;
+          border: none;
           text-align: center;
-          padding: 3rem 0;
         }
 
         .cta-button-large {
           display: inline-block;
-          padding: 1rem 2.5rem;
+          padding: 14px 32px;
           background: linear-gradient(135deg, #b6683aff 0%, #9f4116ff 100%);
-          color: #ffffff;
+          color: #ffffff !important;
           font-weight: 600;
-          border-radius: 12px;
+          border-radius: 6px;
           text-decoration: none;
-          font-size: 1.2rem;
-          box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
-          transition: transform 0.2s, box-shadow 0.2s;
+          font-size: 16px;
+          text-align: center;
+          border: none;
+          transition: all 0.2s ease;
+          box-shadow: 0 2px 8px rgba(182, 104, 58, 0.25);
         }
 
         .cta-button-large:hover {
-          transform: translateY(-3px);
-          box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
+          color: #ffffff !important;
+          transform: translateY(-2px);
+          box-shadow: 0 4px 12px rgba(182, 104, 58, 0.35);
         }
 
-        /* Mobile Responsive */
         @media (max-width: 1024px) {
           .hero-sidebar {
-            width: 45%;
-            padding: 0 2rem;
-          }
-
-          .hero-title {
-            font-size: 2rem;
+            max-width: 450px;
+            padding: 2rem;
           }
         }
 
         @media (max-width: 768px) {
           .hero-section {
-            height: auto;
+            min-height: 100vh;
+          }
+
+          .hero-content {
+            justify-content: center;
+            align-items: center;
+            padding: 1rem;
             min-height: 100vh;
           }
 
           .hero-sidebar {
-            position: relative;
-            width: 100%;
-            padding: 2rem;
+            max-width: 100%;
+            margin: 0;
+            padding: 2rem 1.5rem;
             backdrop-filter: blur(8px);
-            background: rgba(0, 0, 0, 0.7);
+            background: rgba(0, 0, 0, 0.75);
+            border-radius: 8px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
           }
 
-          .hero-title {
-            font-size: 1.75rem;
+          .hero-gradient {
+            background: linear-gradient(to bottom, rgba(0,0,0,0.3), rgba(0,0,0,0.6));
           }
 
-          .hero-description {
-            font-size: 1rem;
+          .seo-content {
+            padding: 56px 20px;
           }
 
           .content-title {
-            font-size: 2rem;
+            font-size: 32px;
           }
 
-          .content-wrapper .content-h2 {
-            font-size: 1.5rem;
+          .content-wrapper h2 {
+            font-size: 24px;
+            margin-top: 40px;
+          }
+
+          .content-wrapper h3 {
+            font-size: 18px;
+            margin-top: 28px;
+          }
+
+          .key-features {
+            padding: 24px 20px;
+          }
+
+          .key-features ul {
+            padding-left: 0;
+          }
+
+          .content-wrapper ul,
+          .content-wrapper ol {
+            padding-left: 24px;
+          }
+
+          .cta-section {
+            padding: 32px 20px;
+          }
+        }
+
+        @media (max-width: 640px) {
+          .hero-sidebar {
+            padding: 1.5rem 1.25rem;
+            margin: 0.5rem;
+          }
+
+          .features-list {
+            padding-left: 1rem;
+          }
+
+          .cta-button {
+            width: 100%;
+            text-align: center;
+          }
+
+          .cta-button-large {
+            width: 100%;
+            max-width: 300px;
+          }
+
+          .seo-content {
+            padding: 48px 16px;
+          }
+
+          .content-title {
+            font-size: 28px;
+          }
+        }
+
+        @media (max-width: 480px) {
+          .hero-sidebar {
+            padding: 1.25rem 1rem;
+            margin: 0.5rem;
+          }
+
+          .hero-content {
+            padding: 0.5rem;
+          }
+
+          .seo-content {
+            padding: 40px 16px;
+          }
+
+          .key-features {
+            padding: 20px 16px;
+          }
+
+          .cta-section {
+            padding: 28px 16px;
+          }
+        }
+
+        @media (max-height: 500px) and (orientation: landscape) {
+          .hero-section {
+            min-height: auto;
+          }
+
+          .hero-content {
+            min-height: auto;
+            padding: 2rem 1rem;
+          }
+
+          .hero-sidebar {
+            margin: 1rem;
+            padding: 1.5rem;
+          }
+
+          .hero-title {
+            margin-bottom: 1rem;
+          }
+
+          .hero-description {
+            margin-bottom: 1rem;
+          }
+
+          .features-list {
+            margin-bottom: 1rem;
+          }
+
+          .hero-divider {
+            margin-bottom: 1rem;
           }
         }
       ` }} />
 
-      {/* Hero Section - Visible to both users and crawlers */}
       <section className="hero-section">
         <div className="hero-background">
           <div className="hero-gradient" />
@@ -380,31 +484,18 @@ export default function LandingPageClient({ page }: { page: PageData }) {
         </div>
       </section>
 
-      {/* Main SEO Content - Fully accessible */}
       <article className="seo-content">
         <div className="content-wrapper">
           <header>
             <h1 className="content-title">{page.title}</h1>
           </header>
 
-          <ReactMarkdown 
-            remarkPlugins={[remarkGfm]}
-            components={{
-              h2: ({node, ...props}) => <h2 className="content-h2" {...props} />,
-              h3: ({node, ...props}) => <h3 className="content-h3" {...props} />,
-              p: ({node, ...props}) => <p className="content-p" {...props} />,
-              ul: ({node, ...props}) => <ul className="content-ul" {...props} />,
-              ol: ({node, ...props}) => <ol className="content-ol" {...props} />,
-              li: ({node, ...props}) => <li className="content-li" {...props} />,
-              strong: ({node, ...props}) => <strong className="content-strong" {...props} />,
-              a: ({node, ...props}) => <a className="content-link" {...props} />,
-            }}
-          >
+          <ReactMarkdown remarkPlugins={[remarkGfm]}>
             {page.content}
           </ReactMarkdown>
 
           <section className="key-features">
-            <h3>Key Features:</h3>
+            <h3>Key Features</h3>
             <ul>
               {page.bullets.map((bullet, i) => (
                 <li key={i}>{bullet}</li>
