@@ -2,11 +2,12 @@ import csv
 import os
 import django
 
-# setup Django environment manually
+# setup Django environment
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "Fluxy.settings")
 django.setup()
 
-from django.contrib.auth.models import User
+from django.contrib.auth import get_user_model
+User = get_user_model()
 
 with open("users.csv", "w", newline="") as f:
     writer = csv.writer(f)
