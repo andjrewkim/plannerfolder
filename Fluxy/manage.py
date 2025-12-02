@@ -3,12 +3,11 @@
 import os
 import sys
 
-
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'Fluxy.settings')
 
 import builtins
 
-DEBUG = True
+DEBUG = False
 
 if not DEBUG:
     builtins.print = lambda *args, **kwargs: None
@@ -16,7 +15,6 @@ if not DEBUG:
 
 def main():
     """Run administrative tasks."""
-    #!/os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'Fluxy.settings')
     try:
         from django.core.management import execute_from_command_line
     except ImportError as exc:
@@ -29,20 +27,15 @@ def main():
 
 
 if __name__ == '__main__':
-    from django.core.management import execute_from_command_line
-    execute_from_command_line(sys.argv)
-    main()
+    main()  # Only call main() once
 
 
-
-
-# Add this near the bottom of manage.py or wsgi.py — right before the main execution starts
-
+# Create superuser if it doesn't exist
 import django
-from django.contrib.auth import get_user_model
 
-os.environ.setdefault("DJANGO_SETTINGS_MODULE", "Fluxy.settings")
 django.setup()
+
+from django.contrib.auth import get_user_model
 
 User = get_user_model()
 if not User.objects.filter(username="admin").exists():
