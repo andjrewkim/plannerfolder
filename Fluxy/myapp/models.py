@@ -27,6 +27,10 @@ class CustomUser(AbstractUser):
     has_seen_onboarding = models.BooleanField(default=False)
     friends = models.ManyToManyField('self', symmetrical=True, blank=True)
     has_unlocked_features = models.BooleanField(default=False)
+    email_notifications = models.BooleanField(
+        default=True,
+        help_text="Receive marketing and re-engagement emails"
+    )
     timezone = models.CharField(
         max_length=50,
         default='UTC',
@@ -35,6 +39,7 @@ class CustomUser(AbstractUser):
 
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = []
+    
 
 
 class CalendarEvent(models.Model):

@@ -12,7 +12,8 @@ from myapp.views_llm_text import llm_text
 from .views_notes import NoteTabListCreateView, NoteTabDetailView
 from .views_user import update_feature_unlock, mark_onboarding_seen, google_auth, get_user_status
 from .views_no_work import delete_no_work_day, no_work_days_list_create
-from.views_update_timezone import UpdateTimezoneView
+from .views_unsubscribe import unsubscribe_api, unsubscribe
+from .views_update_timezone import UpdateTimezoneView
 
 from .user_settings import UserSettingsView
 from rest_framework.routers import DefaultRouter
@@ -55,8 +56,8 @@ urlpatterns = [
     path('api/user/features/unlock/', update_feature_unlock, name='update_feature_unlock'),
     path('api/user/status/', get_user_status, name='user_status'),
     path('api/update-timezone/', UpdateTimezoneView.as_view(), name='update-timezone'),
-
-
+    path('unsubscribe/', unsubscribe, name='unsubscribe'),
+    path('api/unsubscribe/', unsubscribe_api, name='unsubscribe_api'),  
 ]
 
 

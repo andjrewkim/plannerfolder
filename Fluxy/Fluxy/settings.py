@@ -4,6 +4,7 @@ import sys
 import dj_database_url
 from pathlib import Path
 from dotenv import load_dotenv
+load_dotenv()  # Load from .env file
 
 
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
@@ -15,7 +16,6 @@ EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD')
 DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
 
 
-load_dotenv()  # Load from .env file
 
 
 PORT = os.getenv('PORT', 8080)
