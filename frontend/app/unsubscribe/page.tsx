@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 
-export default function UnsubscribePage() {
+function UnsubscribeContent() {
   const searchParams = useSearchParams();
   const email = searchParams.get('email');
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
@@ -78,7 +78,7 @@ export default function UnsubscribePage() {
           <h2>You're unsubscribed</h2>
           <p>{message}</p>
           <p style={{ color: '#666', fontSize: '14px', marginTop: '20px' }}>
-            You'll still receive important account-related emails.
+
           </p>
           <a 
             href="/"
@@ -114,5 +114,13 @@ export default function UnsubscribePage() {
         </>
       )}
     </div>
+  );
+}
+
+export default function UnsubscribePage() {
+  return (
+    <Suspense fallback={<div style={{ textAlign: 'center', marginTop: '50px' }}>Loading...</div>}>
+      <UnsubscribeContent />
+    </Suspense>
   );
 }
