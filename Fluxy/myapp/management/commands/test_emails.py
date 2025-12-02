@@ -15,6 +15,15 @@ class Command(BaseCommand):
         parser.add_argument('--name', type=str, default='', help='Optional first name for personalization')
 
     def handle(self, *args, **options):
+        import sys
+        import traceback
+        
+        # Debug: Print stack trace to see where this is being called from
+        print(f"\n=== COMMAND STARTING (PID: {os.getpid()}) ===")
+        print("Call stack:")
+        traceback.print_stack()
+        print("=== END STACK ===\n")
+        
         test_email = options['email']
         first_name = options['name']
         
