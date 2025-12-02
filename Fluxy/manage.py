@@ -8,7 +8,7 @@ os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'Fluxy.settings')
 
 import builtins
 
-DEBUG = False
+DEBUG = True
 
 if not DEBUG:
     builtins.print = lambda *args, **kwargs: None
