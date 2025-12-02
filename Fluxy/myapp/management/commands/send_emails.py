@@ -1,41 +1,29 @@
 from django.core.management.base import BaseCommand
 from django.core.mail import send_mail
-from django.contrib.auth import get_user_model
-from django.utils import timezone
-from datetime import timedelta
-from django.conf import settings
 from dotenv import load_dotenv
-import time
+from pathlib import Path
 import os
 
-# Load environment variables
-load_dotenv()
-
-User = get_user_model()
+BASE_DIR = Path(__file__).resolve().parent.parent.parent.parent
+load_dotenv(BASE_DIR / '.env')
 
 class Command(BaseCommand):
-    help = 'Send re-engagement emails to inactive users'
+    help = 'Send a test email to yourself'
 
     def add_arguments(self, parser):
-        parser.add_argument(
-            '--dry-run',
-            action='store_true',
-            help='Preview emails without sending',
-        )
-        parser.add_argument(
-            '--days',
-            type=int,
-            default=10,
-            help='Number of days of inactivity (default: 30)',
-        )
+        parser.add_argument('email', type=str, help='Your email address')
+        parser.add_argument('--name', type=str, default='', help='Optional first name for personalization')
 
     def handle(self, *args, **options):
-        dry_run = options['dry_run']
-        inactive_days = options['days']
+        test_email = options['email']
+        first_name = options['name']
         
         subject = "Still here when you need us"
         
-        html_message = """
+        # Personalize the greeting
+        greeting = f"Hey {first_name}," if first_name else "Hey,"
+        
+        html_message = f"""
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -145,14 +133,14 @@ class Command(BaseCommand):
         
         <div class="footer">
             <p>Your school organization tool</p>
-            <p><a href="https://fluxplanner.netlify.app/unsubscribe?email={email}">Unsubscribe from these emails</a></p>
+            <p><a href="https://fluxplanner.netlify.app/unsubscribe?email={test_email}">Unsubscribe from these emails</a></p>
         </div>
     </div>
 </body>
 </html>
 """
         
-        plain_message = """
+        plain_message = f"""
 {greeting}
 
 We noticed you haven't checked your planner in a bit. Just wanted to let you know it's still here waiting for you.
@@ -171,106 +159,35 @@ Open your planner: https://fluxplanner.netlify.app
 
 ---
 Your school organization tool
-Unsubscribe: https://fluxplanner.netlify.app/unsubscribe?email={email}
-
+Unsubscribe: https://fluxplanner.netlify.app/unsubscribe?email={test_email}
 """
-        
-        # Filter for inactive users only (who haven't opted out)
-        cutoff_date = timezone.now() - timedelta(days=inactive_days)
-        
-        # Check if email_notifications field exists
-        if hasattr(User, 'email_notifications'):
-            inactive_users = User.objects.filter(
-                last_login__lt=cutoff_date,
-                email_notifications=True
-            ).exclude(email='').exclude(email__isnull=True)
-        else:
-            self.stdout.write(self.style.WARNING(
-                'Warning: email_notifications field not found. Sending to all inactive users.'
-            ))
-            inactive_users = User.objects.filter(
-                last_login__lt=cutoff_date
-            ).exclude(email='').exclude(email__isnull=True)
-        
-        self.stdout.write(
-            f"{'[DRY RUN] ' if dry_run else ''}Found {inactive_users.count()} "
-            f"inactive users (no login in {inactive_days}+ days)"
-        )
-        self.stdout.write(f"Cutoff date: {cutoff_date.strftime('%Y-%m-%d %H:%M')}")
-        
-        if inactive_users.count() == 0:
-            self.stdout.write(self.style.SUCCESS("No inactive users to email. Exiting."))
-            return
-        
-        # Show preview of who will receive emails
-        self.stdout.write("\nUsers who will receive emails:")
-        for user in inactive_users[:5]:
-            last_login = user.last_login.strftime('%Y-%m-%d') if user.last_login else 'Never'
-            self.stdout.write(f"  - {user.email} (last login: {last_login})")
-        
-        if inactive_users.count() > 5:
-            self.stdout.write(f"  ... and {inactive_users.count() - 5} more")
-        
-        # Safety confirmation
-        if not dry_run:
-            confirm = input(f"\nSend emails to {inactive_users.count()} users? Type 'yes' to confirm: ")
-            if confirm.lower() != 'yes':
-                self.stdout.write(self.style.WARNING("Cancelled."))
-                return
-        
-        # Send emails with error handling
-        success_count = 0
-        failed_count = 0
-        failed_emails = []
         
         from_email = os.getenv('EMAIL_HOST_USER')
         
-        for user in inactive_users:
-            if not user.email:
-                continue
-            
-            # Personalize the greeting
-            greeting = f"Hey {user.first_name}," if user.first_name else "Hey,"
-            
-            # Update the HTML and plain messages with personalization
-            personalized_html = html_message.format(greeting=greeting, email=user.email)
-            personalized_plain = plain_message.format(greeting=greeting, email=user.email)
-            
-            try:
-                if not dry_run:
-                    send_mail(
-                        subject, 
-                        personalized_plain,
-                        from_email, 
-                        [user.email],
-                        html_message=personalized_html,
-                        fail_silently=False
-                    )
-                    time.sleep(1)  # Rate limiting
-                
-                self.stdout.write(
-                    f"{'[DRY RUN] Would send' if dry_run else '✓ Sent'} email to {user.email}"
-                )
-                success_count += 1
-                
-            except Exception as e:
-                self.stdout.write(
-                    self.style.ERROR(f"✗ Failed to send to {user.email}: {str(e)}")
-                )
-                failed_count += 1
-                failed_emails.append((user.email, str(e)))
+        if not from_email:
+            self.stdout.write(self.style.ERROR('EMAIL_HOST_USER not set in .env file'))
+            return
         
-        # Summary
-        self.stdout.write(f"\n{'--- DRY RUN SUMMARY ---' if dry_run else '--- SUMMARY ---'}")
-        self.stdout.write(f"{'Would send' if dry_run else 'Sent'}: {success_count}")
-        self.stdout.write(f"Failed: {failed_count}")
-        
-        if failed_emails:
-            self.stdout.write("\nFailed emails:")
-            for email, error in failed_emails:
-                self.stdout.write(f"  - {email}: {error}")
-        
-        if dry_run:
-            self.stdout.write(
-                self.style.SUCCESS("\n💡 Run without --dry-run to actually send emails")
+        try:
+            send_mail(
+                subject,
+                plain_message,
+                from_email,
+                [test_email],
+                html_message=html_message,
+                fail_silently=False
             )
+            self.stdout.write(self.style.SUCCESS(f'✓ Test email sent to {test_email}'))
+            self.stdout.write('')
+            self.stdout.write('Next steps:')
+            self.stdout.write('1. Check your inbox (and spam folder)')
+            self.stdout.write('2. Click the unsubscribe link')
+            self.stdout.write('3. Test the unsubscribe button works')
+            self.stdout.write('4. Verify you see the success page')
+        except Exception as e:
+            self.stdout.write(self.style.ERROR(f'✗ Failed to send: {str(e)}'))
+            self.stdout.write('')
+            self.stdout.write('Common issues:')
+            self.stdout.write('- Check EMAIL_HOST_PASSWORD is set correctly in .env')
+            self.stdout.write('- Make sure you\'re using a Gmail App Password, not regular password')
+            self.stdout.write('- Verify 2-Step Verification is enabled on your Google account')
