@@ -108,7 +108,7 @@ CORS_ALLOWED_ORIGINS = [
     "http://127.0.0.1:3000",
     "https://fluxcalendar.vercel.app",
     "https://fluxplanner.netlify.app",
-    "https://flux-backend-w0hm.onrender.com"
+    "https://flux-backend-w0hm.onrender.com",
     "https://planner15.netlify.app"
 ]
 
