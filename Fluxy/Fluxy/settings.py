@@ -44,7 +44,7 @@ SECRET_KEY = 'django-insecure-o$6dky9m&k81lced^&l+93@g4bgsjh&&#6thp$_%w#63)@4@e&
 DEBUG = True
 
 ALLOWED_HOSTS = ['fluxcalendar.vercel.app', '127.0.0.1', 'localhost', "flux-backend-ggea.onrender.com", "flux-backend-production-e861.up.railway.app", 
-                 "fluxplanner.netlify.app", "flux-backend-w0hm.onrender.com"]
+                 "fluxplanner.netlify.app", "flux-backend-w0hm.onrender.com","planner15.netlify.app"]
 
 # CSRF and CORS settings
 CSRF_COOKIE_NAME = "csrftoken"
@@ -56,6 +56,7 @@ CSRF_TRUSTED_ORIGINS = [
     "https://flux-backend-production-e861.up.railway.app",
     "https://fluxplanner.netlify.app",
     "https://flux-backend-w0hm.onrender.com",
+    "https://planner15.netlify.app"
 ]
 #DUCKLING STUFF
 DUCKLING_URL = os.environ.get('DUCKLING_URL', 'http://127.0.0.1:8080')
@@ -108,6 +109,7 @@ CORS_ALLOWED_ORIGINS = [
     "https://fluxcalendar.vercel.app",
     "https://fluxplanner.netlify.app",
     "https://flux-backend-w0hm.onrender.com"
+    "https://planner15.netlify.app"
 ]
 
 CORS_ALLOW_METHODS = [
