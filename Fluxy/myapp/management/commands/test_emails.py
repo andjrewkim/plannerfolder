@@ -18,7 +18,7 @@ class Command(BaseCommand):
         import sys
         import traceback
         
-        # Debug: Print stack trace to see where this is being called from
+        # Debug: Print stack trace t o see where this is being called from
         print(f"\n=== COMMAND STARTING (PID: {os.getpid()}) ===")
         print("Call stack:")
         traceback.print_stack()
