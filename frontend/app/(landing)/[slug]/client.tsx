@@ -1,4 +1,3 @@
-// app/(landing)/[slug]/client.tsx
 'use client';
 
 import ReactMarkdown from 'react-markdown';
@@ -35,481 +34,499 @@ export default function LandingPageClient({ page }: { page: PageData }) {
   return (
     <>
       <style dangerouslySetInnerHTML={{ __html: `
-        @keyframes fadeInRight {
-          from { opacity: 0; transform: translateX(30px); }
-          to { opacity: 1; transform: translateX(0); }
+        * {
+          margin: 0;
+          padding: 0;
+          box-sizing: border-box;
         }
 
-        .hero-section {
-          position: relative;
-          width: 100%;
-          min-height: 100vh;
+        body {
+          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', sans-serif;
+          line-height: 1.7;
+          color: #2d3748;
+          background: #ffffff;
+          -webkit-font-smoothing: antialiased;
+        }
+
+        .article-container {
+          max-width: 740px;
+          margin: 0 auto;
+          padding: 48px 24px 100px;
+        }
+
+        header {
+          margin-bottom: 40px;
+          padding-bottom: 24px;
+          border-bottom: 1px solid #e2e8f0;
+        }
+
+        h1 {
+          font-size: 34px;
+          font-weight: 700;
+          line-height: 1.25;
+          color: #1a202c;
+          margin-bottom: 16px;
+          letter-spacing: -0.01em;
+        }
+
+        .subtitle {
+          font-size: 19px;
+          line-height: 1.6;
+          color: #4a5568;
+          margin-bottom: 20px;
+        }
+
+        .article-meta {
           display: flex;
           align-items: center;
-          overflow: hidden;
-          font-family: Inter, system-ui, -apple-system, sans-serif;
+          gap: 12px;
+          font-size: 14px;
+          color: #718096;
+          margin-top: 20px;
         }
 
-        .hero-background {
-          position: absolute;
-          inset: 0;
-        }
-
-        .hero-gradient {
-          position: absolute;
-          inset: 0;
-          background: linear-gradient(to left, rgba(0,0,0,0.5), rgba(0,0,0,0) 40%);
-          z-index: 1;
-        }
-
-        .hero-image {
-          position: absolute;
-          inset: 0;
-          width: 100%;
-          height: 100%;
-          object-fit: cover;
-          object-position: top center;
-        }
-
-        .hero-content {
-          position: relative;
-          width: 100%;
-          z-index: 2;
-          padding: 0;
+        .meta-item {
           display: flex;
-          justify-content: flex-end;
-          align-items: stretch;
-          min-height: 100vh;
+          align-items: center;
+          gap: 4px;
         }
 
-        .hero-sidebar {
-          width: 100%;
-          max-width: 500px;
-          display: flex;
-          flex-direction: column;
-          justify-content: center;
-          padding: 2.5rem;
-          backdrop-filter: blur(4px);
-          background: rgba(0, 0, 0, 0.3);
-          border-radius: 0;
+        .meta-divider {
+          color: #cbd5e0;
+        }
+
+        article h2 {
+          font-size: 26px;
+          font-weight: 600;
+          color: #1a202c;
+          margin: 56px 0 20px 0;
+          line-height: 1.3;
+          letter-spacing: -0.01em;
+        }
+
+        article h3 {
+          font-size: 21px;
+          font-weight: 600;
+          color: #2d3748;
+          margin: 40px 0 16px 0;
+          line-height: 1.4;
+        }
+
+        article p {
+          margin: 0 0 22px 0;
+          font-size: 17px;
+          line-height: 1.75;
+          color: #2d3748;
+        }
+
+        article ul,
+        article ol {
+          margin: 0 0 24px 0;
+          padding-left: 28px;
+        }
+
+        article li {
+          margin: 12px 0;
+          line-height: 1.7;
+          color: #2d3748;
+          font-size: 17px;
+        }
+
+        article strong {
+          font-weight: 600;
+          color: #1a202c;
+        }
+
+        article a {
+          color: #2563eb;
+          text-decoration: none;
+          border-bottom: 1px solid #bfdbfe;
+          transition: border-color 0.2s;
+        }
+
+        article a:hover {
+          border-bottom-color: #2563eb;
+        }
+
+        .stat-callout {
+          background: #f0f9ff;
+          border-left: 3px solid #0284c7;
+          padding: 24px 28px;
+          margin: 32px 0;
+          font-size: 17px;
+          line-height: 1.6;
+        }
+
+        .stat-callout p {
           margin: 0;
-          box-shadow: -20px 0 40px rgba(0, 0, 0, 0.3);
+          color: #0c4a6e;
         }
 
-        .hero-title {
-          font-size: clamp(1.5rem, 4vw, 2.5rem);
-          font-weight: 400;
-          margin-bottom: 1.5rem;
-          line-height: 1.2;
-          color: #ffffff;
-          opacity: 0;
-          animation: fadeInRight 1s forwards;
-          animation-delay: 0.3s;
+        .research-note {
+          background: #fefce8;
+          border-left: 3px solid #ca8a04;
+          padding: 24px 28px;
+          margin: 32px 0;
         }
 
-        .hero-divider {
-          width: 50px;
-          height: 2px;
-          background-color: #ff9557;
-          margin-bottom: 1.5rem;
-          opacity: 0;
-          animation: fadeInRight 1s forwards;
-          animation-delay: 0.5s;
-        }
-
-        .hero-description {
-          font-size: clamp(0.95rem, 2vw, 1.05rem);
-          margin-bottom: 2rem;
-          line-height: 1.6;
-          color: rgba(255, 255, 255, 0.9);
-          opacity: 0;
-          animation: fadeInRight 1s forwards;
-          animation-delay: 0.6s;
-        }
-
-        .features-title {
-          font-size: clamp(1rem, 2vw, 1.1rem);
-          font-weight: 600;
-          margin-bottom: 1rem;
-          color: #ffffff;
-          opacity: 0;
-          animation: fadeInRight 1s forwards;
-          animation-delay: 0.9s;
-        }
-
-        .features-list {
-          font-size: clamp(0.9rem, 1.8vw, 0.95rem);
-          line-height: 1.9;
-          margin-bottom: 2rem;
-          list-style-type: disc;
-          padding-left: 1.2rem;
-          color: rgba(255, 255, 255, 0.85);
-          opacity: 0;
-          animation: fadeInRight 1s forwards;
-          animation-delay: 1.2s;
-        }
-
-        .features-list li {
-          margin-bottom: 0.5rem;
-        }
-
-        .cta-button {
-          display: inline-block;
-          padding: 0.75rem 1.5rem;
-          background: linear-gradient(135deg, #b6683aff 0%, #9f4116ff 100%);
-          color: #ffffff;
-          font-weight: 600;
-          border-radius: 8px;
-          text-decoration: none;
-          font-size: clamp(0.95rem, 2vw, 1rem);
-          box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
-          opacity: 0;
-          animation: fadeInRight 1s forwards;
-          animation-delay: 1.5s;
-          width: fit-content;
-          transition: transform 0.2s, box-shadow 0.2s;
-          text-align: center;
-        }
-
-        .cta-button:hover {
-          transform: translateY(-2px);
-          box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
-        }
-
-        .seo-content {
-          background: #fff;
-          padding: 48px 20px;
-        }
-
-        .content-wrapper {
-          max-width: 760px;
-          margin: 0 auto;
-        }
-
-        .content-title {
-          font-size: 32px;
-          font-weight: 600;
-          margin-bottom: 8px;
-          color: #1f2328;
-          line-height: 1.25;
-          letter-spacing: -0.5px;
-        }
-
-        .content-wrapper h2 {
-          font-size: 24px;
-          font-weight: 600;
-          margin: 32px 0 16px 0;
-          color: #1f2328;
-          padding-bottom: 8px;
-          border-bottom: 1px solid #d8dee4;
-        }
-
-        .content-wrapper h3 {
-          font-size: 20px;
-          font-weight: 600;
-          margin: 24px 0 12px 0;
-          color: #1f2328;
-        }
-
-        .content-wrapper p {
-          margin: 0 0 16px 0;
-          line-height: 1.6;
+        .research-note p {
+          margin: 0 0 12px 0;
           font-size: 16px;
-          color: #59636e;
+          color: #713f12;
         }
 
-        .content-wrapper ul,
-        .content-wrapper ol {
-          margin: 0 0 16px 0;
-          padding-left: 32px;
+        .research-note p:last-child {
+          margin: 0;
         }
 
-        .content-wrapper li {
-          margin: 4px 0;
-          line-height: 1.6;
-          color: #59636e;
+        .research-note strong {
+          color: #713f12;
         }
 
-        .content-wrapper strong {
+        .practical-example {
+          background: #f8fafc;
+          border: 1px solid #cbd5e0;
+          padding: 28px;
+          margin: 32px 0;
+        }
+
+        .practical-example h4 {
+          font-size: 18px;
           font-weight: 600;
-          color: #1f2328;
+          color: #1e293b;
+          margin: 0 0 16px 0;
         }
 
-        .content-wrapper a {
-          color: #b6683aff;
+        .practical-example p {
+          margin: 0 0 14px 0;
+          font-size: 16px;
+          color: #475569;
+        }
+
+        .practical-example p:last-child {
+          margin: 0;
+        }
+
+        .quick-summary {
+          background: #f0fdf4;
+          border: 1px solid #86efac;
+          padding: 28px 32px;
+          margin: 48px 0;
+        }
+
+        .quick-summary h3 {
+          font-size: 19px;
+          font-weight: 600;
+          color: #166534;
+          margin: 0 0 16px 0;
+        }
+
+        .quick-summary ul {
+          margin: 0;
+          padding-left: 24px;
+        }
+
+        .quick-summary li {
+          color: #15803d;
+          font-size: 16px;
+          margin: 10px 0;
+          line-height: 1.6;
+        }
+
+        .tool-mention {
+          background: #fafafa;
+          border-top: 1px solid #e5e7eb;
+          border-bottom: 1px solid #e5e7eb;
+          padding: 32px 28px;
+          margin: 48px 0;
+        }
+
+        .tool-mention p {
+          margin: 0 0 18px 0;
+          font-size: 17px;
+          color: #374151;
+        }
+
+        .tool-mention a {
+          display: inline-block;
+          padding: 11px 24px;
+          background: #2563eb;
+          color: #ffffff;
+          font-weight: 500;
+          font-size: 16px;
           text-decoration: none;
+          border: none;
+          transition: background 0.2s;
         }
 
-        .content-wrapper a:hover {
+        .tool-mention a:hover {
+          background: #1d4ed8;
+        }
+
+        .comparison-table {
+          overflow-x: auto;
+          margin: 36px 0;
+        }
+
+        table {
+          width: 100%;
+          border-collapse: collapse;
+          font-size: 15px;
+        }
+
+        th, td {
+          text-align: left;
+          padding: 14px 16px;
+          border-bottom: 1px solid #e5e7eb;
+        }
+
+        th {
+          background: #f9fafb;
+          font-weight: 600;
+          color: #374151;
+          font-size: 15px;
+        }
+
+        td {
+          color: #4b5563;
+          line-height: 1.6;
+        }
+
+        tbody tr:hover {
+          background: #f9fafb;
+        }
+
+        blockquote {
+          margin: 36px 0;
+          padding: 20px 28px;
+          border-left: 3px solid #cbd5e0;
+          background: #f9fafb;
+          font-style: italic;
+          color: #4b5563;
+          font-size: 17px;
+        }
+
+        blockquote p {
+          margin: 0;
+        }
+
+        .image-placeholder {
+          background: #f3f4f6;
+          border: 1px solid #d1d5db;
+          padding: 48px 24px;
+          margin: 36px 0;
+          text-align: center;
+          color: #6b7280;
+          font-size: 15px;
+        }
+
+        .related-content {
+          margin: 72px 0 0 0;
+          padding: 36px 0 0 0;
+          border-top: 2px solid #e5e7eb;
+        }
+
+        .related-content h3 {
+          font-size: 21px;
+          font-weight: 600;
+          color: #1a202c;
+          margin: 0 0 24px 0;
+        }
+
+        .related-content ul {
+          list-style: none;
+          padding: 0;
+          margin: 0;
+        }
+
+        .related-content li {
+          margin: 14px 0;
+        }
+
+        .related-content a {
+          color: #2563eb;
+          text-decoration: none;
+          font-size: 17px;
+          border: none;
+          transition: color 0.2s;
+        }
+
+        .related-content a:hover {
+          color: #1d4ed8;
           text-decoration: underline;
         }
 
-        .key-features {
-          margin: 32px 0;
-          padding: 16px;
-          background: #f6f8fa;
-          border: 1px solid #d8dee4;
-          border-radius: 6px;
+        .external-link {
+          color: #059669;
+          border-bottom-color: #a7f3d0;
         }
 
-        .key-features h3 {
-          margin: 0 0 12px 0;
-          font-size: 16px;
-          font-weight: 600;
-          color: #1f2328;
-        }
-
-        .key-features ul {
-          margin: 0;
-          padding-left: 24px;
-          list-style-type: disc;
-        }
-
-        .key-features li {
-          margin: 4px 0;
-          color: #59636e;
-        }
-
-        .cta-section {
-          margin: 48px 0 0 0;
-          padding: 0;
-          background: transparent;
-          border: none;
-          text-align: center;
-        }
-
-        .cta-button-large {
-          display: inline-block;
-          padding: 14px 32px;
-          background: linear-gradient(135deg, #b6683aff 0%, #9f4116ff 100%);
-          color: #ffffff !important;
-          font-weight: 600;
-          border-radius: 6px;
-          text-decoration: none;
-          font-size: 16px;
-          text-align: center;
-          border: none;
-          transition: all 0.2s ease;
-          box-shadow: 0 2px 8px rgba(182, 104, 58, 0.25);
-        }
-
-        .cta-button-large:hover {
-          color: #ffffff !important;
-          transform: translateY(-2px);
-          box-shadow: 0 4px 12px rgba(182, 104, 58, 0.35);
-        }
-
-        @media (max-width: 1024px) {
-          .hero-sidebar {
-            max-width: 450px;
-            padding: 2rem;
-          }
+        .external-link:hover {
+          border-bottom-color: #059669;
         }
 
         @media (max-width: 768px) {
-          .hero-section {
-            min-height: 100vh;
+          .article-container {
+            padding: 36px 18px 80px;
           }
 
-          .hero-content {
-            justify-content: center;
-            align-items: center;
-            padding: 1rem;
-            min-height: 100vh;
+          h1 {
+            font-size: 29px;
           }
 
-          .hero-sidebar {
-            max-width: 100%;
-            margin: 0;
-            padding: 2rem 1.5rem;
-            backdrop-filter: blur(8px);
-            background: rgba(0, 0, 0, 0.75);
-            border-radius: 8px;
-            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
-          }
-
-          .hero-gradient {
-            background: linear-gradient(to bottom, rgba(0,0,0,0.3), rgba(0,0,0,0.6));
-          }
-
-          .seo-content {
-            padding: 56px 20px;
-          }
-
-          .content-title {
-            font-size: 32px;
-          }
-
-          .content-wrapper h2 {
-            font-size: 24px;
-            margin-top: 40px;
-          }
-
-          .content-wrapper h3 {
+          .subtitle {
             font-size: 18px;
-            margin-top: 28px;
           }
 
-          .key-features {
-            padding: 24px 20px;
+          article h2 {
+            font-size: 24px;
+            margin: 48px 0 18px 0;
           }
 
-          .key-features ul {
-            padding-left: 0;
+          article h3 {
+            font-size: 20px;
+            margin: 36px 0 14px 0;
           }
 
-          .content-wrapper ul,
-          .content-wrapper ol {
-            padding-left: 24px;
+          article p,
+          article li {
+            font-size: 16px;
           }
 
-          .cta-section {
-            padding: 32px 20px;
-          }
-        }
-
-        @media (max-width: 640px) {
-          .hero-sidebar {
-            padding: 1.5rem 1.25rem;
-            margin: 0.5rem;
+          .stat-callout,
+          .research-note,
+          .practical-example,
+          .tool-mention {
+            padding: 20px 22px;
           }
 
-          .features-list {
-            padding-left: 1rem;
+          .article-meta {
+            flex-wrap: wrap;
           }
 
-          .cta-button {
-            width: 100%;
-            text-align: center;
-          }
-
-          .cta-button-large {
-            width: 100%;
-            max-width: 300px;
-          }
-
-          .seo-content {
-            padding: 48px 16px;
-          }
-
-          .content-title {
-            font-size: 28px;
+          th, td {
+            padding: 12px 10px;
+            font-size: 14px;
           }
         }
 
         @media (max-width: 480px) {
-          .hero-sidebar {
-            padding: 1.25rem 1rem;
-            margin: 0.5rem;
+          .article-container {
+            padding: 28px 16px 70px;
           }
 
-          .hero-content {
-            padding: 0.5rem;
+          h1 {
+            font-size: 26px;
           }
 
-          .seo-content {
-            padding: 40px 16px;
-          }
-
-          .key-features {
-            padding: 20px 16px;
-          }
-
-          .cta-section {
-            padding: 28px 16px;
-          }
-        }
-
-        @media (max-height: 500px) and (orientation: landscape) {
-          .hero-section {
-            min-height: auto;
-          }
-
-          .hero-content {
-            min-height: auto;
-            padding: 2rem 1rem;
-          }
-
-          .hero-sidebar {
-            margin: 1rem;
-            padding: 1.5rem;
-          }
-
-          .hero-title {
-            margin-bottom: 1rem;
-          }
-
-          .hero-description {
-            margin-bottom: 1rem;
-          }
-
-          .features-list {
-            margin-bottom: 1rem;
-          }
-
-          .hero-divider {
-            margin-bottom: 1rem;
+          .subtitle {
+            font-size: 17px;
           }
         }
       ` }} />
 
-      <section className="hero-section">
-        <div className="hero-background">
-          <div className="hero-gradient" />
-          <img 
-            src="/screenshots/screenshot.png" 
-            alt="Homework tracker interface"
-            className="hero-image"
-          />
-        </div>
-
-        <div className="hero-content">
-          <div className="hero-sidebar">
-            <h1 className="hero-title">{page.h1}</h1>
-            <div className="hero-divider" />
-            <p className="hero-description">{page.description}</p>
-            <div className="hero-divider" />
-            
-            <h2 className="features-title">Why Students Use This Tracker</h2>
-            <ul className="features-list">
-              {page.bullets.map((bullet, i) => (
-                <li key={i}>{bullet}</li>
-              ))}
-            </ul>
-
-            <a href="/userlogin" className="cta-button">
-              Get Started
-            </a>
+      <div className="article-container">
+        <header>
+          <h1>{page.h1}</h1>
+          <p className="subtitle">{page.description}</p>
+          <div className="article-meta">
+            <span className="meta-item">By Student Success Team</span>
+            <span className="meta-divider">•</span>
+            <span className="meta-item">Updated December 2024</span>
+            <span className="meta-divider">•</span>
+            <span className="meta-item">9 min read</span>
           </div>
-        </div>
-      </section>
+        </header>
 
-      <article className="seo-content">
-        <div className="content-wrapper">
-          <header>
-            <h1 className="content-title">{page.title}</h1>
-          </header>
-
-          <ReactMarkdown remarkPlugins={[remarkGfm]}>
+        <article>
+          <ReactMarkdown 
+            remarkPlugins={[remarkGfm]}
+            components={{
+              h2: ({node, ...props}) => {
+                const isFirstH2 = node?.position?.start.line && node.position.start.line < 150;
+                
+                return (
+                  <>
+                    <h2 {...props} />
+                    {isFirstH2 && (
+                      <>
+                        <div className="stat-callout">
+                          <p>Research from Inside Higher Ed shows that <strong>over 40% of students</strong> say combining syllabi to organize deadlines would most improve their time management.</p>
+                        </div>
+                        <div className="tool-mention">
+                          <p>That's exactly what a good assignment tracker does—it pulls everything into one place so you're not hunting through five different syllabi.</p>
+                          <a href="/userlogin">Try our assignment tracker</a>
+                        </div>
+                      </>
+                    )}
+                  </>
+                );
+              }
+            }}
+          >
             {page.content}
           </ReactMarkdown>
 
-          <section className="key-features">
-            <h3>Key Features</h3>
+          <div className="research-note">
+            <p><strong>The Research Backs This Up:</strong></p>
+            <p>Studies show nearly half of college students cite time management as their biggest academic challenge. A 2024 Kahoot report found 47% of students struggle with managing their time effectively.</p>
+          </div>
+
+          <div className="practical-example">
+            <h4>Real Example: The Sunday Setup Method</h4>
+            <p>Take 20 minutes every Sunday evening to review all your syllabi and upcoming deadlines. Enter them into your tracker, then look at the week ahead. This simple habit helps you spot conflicts early and plan accordingly.</p>
+            <p>Students who use weekly planning methods like this report feeling significantly less overwhelmed during busy academic periods.</p>
+          </div>
+
+          <div className="comparison-table">
+            <table>
+              <thead>
+                <tr>
+                  <th>Method</th>
+                  <th>Pros</th>
+                  <th>Cons</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Paper Planner</td>
+                  <td>Tactile, no distractions</td>
+                  <td>Easy to lose, can't access everywhere</td>
+                </tr>
+                <tr>
+                  <td>Phone Notes</td>
+                  <td>Always with you</td>
+                  <td>Disorganized, no reminders</td>
+                </tr>
+                <tr>
+                  <td>Digital Tracker</td>
+                  <td>Accessible anywhere, automatic reminders</td>
+                  <td>Requires device</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div className="quick-summary">
+            <h3>Key Takeaways</h3>
             <ul>
               {page.bullets.map((bullet, i) => (
                 <li key={i}>{bullet}</li>
               ))}
             </ul>
-          </section>
-
-          <div className="cta-section">
-            <a href="/userlogin" className="cta-button-large">
-              Start Tracking Your Homework Now
-            </a>
           </div>
+        </article>
+
+        <div className="related-content">
+          <h3>Continue Reading</h3>
+          <ul>
+            <li><a href="#">The 168-Hour Planning Method for College Students</a></li>
+            <li><a href="#">Why 52% of Students Submit Assignments Late (And How to Fix It)</a></li>
+            <li><a href="#">Digital vs. Paper Planners: What the Research Actually Shows</a></li>
+            <li><a href="#" className="external-link">Time Management Strategies from Dartmouth Academic Skills Center</a></li>
+          </ul>
         </div>
-      </article>
+      </div>
     </>
   );
 }

@@ -37,11 +37,9 @@ ENABLED_LLM_PROVIDERS = ["gemini", "openai"]
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 # Quick-start development settings - unsuitable for production
-# SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-o$6dky9m&k81lced^&l+93@g4bgsjh&&#6thp$_%w#63)@4@e&'
+SECRET_KEY = os.getenv('SECRET_KEY')
 
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = False
 
 ALLOWED_HOSTS = ['fluxcalendar.vercel.app', '127.0.0.1', 'localhost', "flux-backend-ggea.onrender.com", "flux-backend-production-e861.up.railway.app", 
                  "fluxplanner.netlify.app", "flux-backend-w0hm.onrender.com","planner15.netlify.app"]

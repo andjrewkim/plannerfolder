@@ -5,7 +5,7 @@ from rest_framework.response import Response
 from rest_framework import status
 
 @api_view(['POST'])
-@permission_classes([AllowAny])  # ← ADD THIS to override the global setting
+@permission_classes([IsAuthenticated])  # ← ADD THIS to override the global setting
 def logout_view(request):
     try:
         print(f"=== BEFORE LOGOUT ===")
