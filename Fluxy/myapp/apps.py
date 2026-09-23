@@ -6,8 +6,8 @@ import posthog
 
 class YourAppConfig(AppConfig):
     default_auto_field = 'django.db.models.BigAutoField'
-    name = 'Flux'  # Update if your app name is different
-    verbose_name = 'Flux'
+    name = 'myapp' 
+    verbose_name = 'Flux' 
 
     def ready(self):
         import myapp.signals
