@@ -3,12 +3,15 @@ from django.dispatch import receiver
 from django.contrib.auth.models import User
 from django.utils import timezone
 from datetime import datetime
+import logging
 import threading
 import zoneinfo
 
 from django.db.models.signals import post_delete, pre_delete
 from django.db import transaction
 from .models import Assignment, PlannerClass, AssignmentHistory
+
+logger = logging.getLogger('assignment_history')
 
 
 def _assignment_snapshot(assignment, class_name=None):
@@ -31,17 +34,29 @@ def _assignment_snapshot(assignment, class_name=None):
 
 def _log_history(action, snapshot, changes=None):
     """
-    Insert one immutable history row. Wrapped in on_commit so rows created by
-    the class-deletion handler below survive the cascade inside the same
-    transaction (on_commit runs after the transaction commits).
+    Insert one immutable history row after the surrounding transaction commits
+    (on_commit runs after the transaction commits, so rows created by the
+    class-deletion handler survive the cascade inside the same transaction).
+
+    Failures are swallowed and logged so a history-logging problem can NEVER
+    break a user request (e.g. during the deploy window before the migration
+    has run, or during a transient DB hiccup).
     """
-    transaction.on_commit(
-        lambda: AssignmentHistory.objects.create(
-            action=action,
-            changes=changes,
-            **snapshot,
-        )
-    )
+    def _write():
+        try:
+            AssignmentHistory.objects.create(
+                action=action,
+                changes=changes,
+                **snapshot,
+            )
+        except Exception:
+            logger.exception(
+                "assignment history write failed (action=%s, assignment_pk=%s)",
+                action,
+                snapshot.get('assignment_pk'),
+            )
+
+    transaction.on_commit(_write)
 
 
 def _diff(old, new):
