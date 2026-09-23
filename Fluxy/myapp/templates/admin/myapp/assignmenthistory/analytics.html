@@ -1,0 +1,112 @@
+{% extends "admin/base_site.html" %}
+
+{% block extrastyle %}
+  {{ block.super }}
+  <style>
+    .analytics-wrap { max-width: 1100px; }
+    .stat-cards {
+      display: flex; flex-wrap: wrap; gap: 12px; margin: 16px 0 24px;
+    }
+    .stat-card {
+      background: var(--darkened-bg, #f8f8f8);
+      border: 1px solid var(--hairline-color, #e0e0e0);
+      border-radius: 8px; padding: 12px 18px; min-width: 150px;
+    }
+    .stat-card .stat-value { font-size: 1.6em; font-weight: 700; }
+    .stat-card .stat-label { color: var(--body-quiet-color, #666); font-size: 0.85em; }
+    .chart-container {
+      background: var(--darkened-bg, #f8f8f8);
+      border: 1px solid var(--hairline-color, #e0e0e0);
+      border-radius: 8px; padding: 16px; margin-bottom: 24px;
+    }
+    .totals-table td .dot {
+      display: inline-block; width: 10px; height: 10px;
+      border-radius: 50%; margin-right: 6px;
+    }
+  </style>
+{% endblock %}
+
+{% block breadcrumbs %}
+  <div class="breadcrumbs">
+    <a href="{% url 'admin:index' %}">Home</a>
+    &rsaquo; <a href="{% url 'admin:myapp_assignmenthistory_changelist' %}">Assignment histories</a>
+    &rsaquo; Analytics
+  </div>
+{% endblock %}
+
+{% block content %}
+  <div class="analytics-wrap">
+    <div class="stat-cards">
+      <div class="stat-card">
+        <div class="stat-value">{{ total_events }}</div>
+        <div class="stat-label">Total logged events (all time)</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value">{{ total_created }}</div>
+        <div class="stat-label">Assignments ever created</div>
+      </div>
+      {% for label, count, color in totals_by_action %}
+        <div class="stat-card">
+          <div class="stat-value" style="color: {{ color }};">{{ count }}</div>
+          <div class="stat-label">{{ label }}</div>
+        </div>
+      {% endfor %}
+    </div>
+
+    <div class="chart-container">
+      <h2>Assignment events per day (last 30 days)</h2>
+      <canvas id="analyticsChart" height="110"></canvas>
+    </div>
+
+    <div class="chart-container">
+      <h2>Recent events</h2>
+      <table class="totals-table">
+        <thead>
+          <tr>
+            <th>When</th><th>Action</th><th>Title</th>
+            <th>Class</th><th>User</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for event in recent %}
+            <tr>
+              <td>{{ event.changed_at }}</td>
+              <td>{{ event.get_action_display }}</td>
+              <td>{{ event.title|default:"&mdash;" }}</td>
+              <td>{{ event.class_name|default:"&mdash;" }}</td>
+              <td>{{ event.username|default:"&mdash;" }}</td>
+            </tr>
+          {% empty %}
+            <tr><td colspan="5">No events logged yet.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script>
+    (function () {
+      var ctx = document.getElementById('analyticsChart');
+      if (!ctx || typeof Chart === 'undefined') return;
+      new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: {{ chart_labels|safe }},
+          datasets: {{ chart_datasets|safe }}
+        },
+        options: {
+          responsive: true,
+          scales: {
+            x: { stacked: true },
+            y: { stacked: true, beginAtZero: true, ticks: { precision: 0 } }
+          },
+          plugins: {
+            legend: { position: 'bottom' },
+            tooltip: { mode: 'index', intersect: false }
+          }
+        }
+      });
+    })();
+  </script>
+{% endblock %}

@@ -212,6 +212,58 @@ class Assignment(models.Model):
         return self.start_date <= day <= self.end_date
     
     
+class AssignmentHistory(models.Model):
+    """
+    Permanent, append-only audit log of every assignment ever created.
+
+    Intentionally NOT a ForeignKey to Assignment or PlannerClass — it stores
+    denormalized copies of the data so the history survives even when the
+    assignment and its class are deleted (cascade or otherwise).
+
+    Rows are never updated or deleted by application code.
+    """
+
+    ACTION_CHOICES = [
+        ('created', 'Created'),
+        ('updated', 'Updated'),
+        ('completed', 'Completed'),
+        ('uncompleted', 'Marked Not Completed'),
+        ('deleted', 'Deleted'),
+        ('purged_by_class_deletion', 'Purged by Class Deletion'),
+    ]
+
+    # What happened
+    action = models.CharField(max_length=30, choices=ACTION_CHOICES)
+    changed_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    # Denormalized copies — survive deletion of the originals
+    assignment_pk = models.BigIntegerField(null=True, blank=True, db_index=True)
+    class_pk = models.BigIntegerField(null=True, blank=True, db_index=True)
+    class_name = models.CharField(max_length=200, null=True, blank=True)
+    user_pk = models.BigIntegerField(null=True, blank=True, db_index=True)
+    username = models.CharField(max_length=150, null=True, blank=True)
+    user_email = models.EmailField(null=True, blank=True)
+
+    # Assignment snapshot
+    title = models.CharField(max_length=500, null=True, blank=True)
+    start_date = models.DateField(null=True, blank=True)
+    end_date = models.DateField(null=True, blank=True)
+    completed = models.BooleanField(null=True, blank=True)
+
+    # Optional extra detail (e.g. which fields changed on update)
+    changes = models.JSONField(null=True, blank=True)
+
+    class Meta:
+        ordering = ['-changed_at']
+        indexes = [
+            models.Index(fields=['changed_at']),
+            models.Index(fields=['assignment_pk', 'action']),
+        ]
+
+    def __str__(self):
+        return f"{self.action}: {self.title or self.assignment_pk} at {self.changed_at}"
+
+
 class NoWorkDay(models.Model):
     planner_class = models.ForeignKey(PlannerClass, on_delete=models.CASCADE, related_name='no_work_days')
     date = models.DateField()
