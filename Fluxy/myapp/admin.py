@@ -4,8 +4,10 @@ import json
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
 from django.core.exceptions import PermissionDenied
+from datetime import date, datetime, time as dtime
+
 from django.db.models import Count
-from django.db.models.functions import TruncDate
+from django.db.models.functions import TruncMonth
 from django.urls import path
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
@@ -100,58 +102,87 @@ class AssignmentHistoryAdmin(admin.ModelAdmin):
         if not request.user.has_perm('myapp.view_assignmenthistory'):
             raise PermissionDenied
 
-        days = 30
-        start = (timezone.now() - timedelta(days=days - 1)).replace(
-            hour=0, minute=0, second=0, microsecond=0
-        )
+        range_key = request.GET.get('range', '3m')
+        range_options = [
+            ('3m', 'Last 3 Months'),
+            ('6m', 'Last 6 Months'),
+            ('1y', 'Last 12 Months'),
+            ('all', 'All Time'),
+        ]
+        months_back = {'3m': 3, '6m': 6, '1y': 12}.get(range_key)
 
-        per_day_rows = (
-            AssignmentHistory.objects
-            .filter(changed_at__gte=start)
-            .annotate(day=TruncDate('changed_at'))
-            .values('day', 'action')
-            .annotate(total=Count('id'))
-        )
-        row_map = {(r['day'], r['action']): r['total'] for r in per_day_rows}
+        today = timezone.localdate()
 
-        day_list = [start.date() + timedelta(days=i) for i in range(days)]
-        action_labels = dict(AssignmentHistory.ACTION_CHOICES)
-        action_colors = {
-            'created': '#22c55e',
-            'updated': '#3b82f6',
-            'completed': '#14b8a6',
-            'uncompleted': '#f97316',
-            'deleted': '#ef4444',
-            'purged_by_class_deletion': '#991b1b',
-        }
+        def month_start(d, back):
+            """First day of the month `back` months from d (negative = forward)."""
+            total = d.year * 12 + (d.month - 1) - back
+            y, m = divmod(total, 12)
+            return date(y, m + 1, 1)
 
-        datasets = []
-        for action, label in AssignmentHistory.ACTION_CHOICES:
-            datasets.append({
-                'label': label,
-                'data': [row_map.get((d, action), 0) for d in day_list],
-                'backgroundColor': action_colors.get(action, '#94a3b8'),
-                'stack': 'events',
-            })
+        if months_back is None:  # all time
+            earliest = (
+                AssignmentHistory.objects.order_by('changed_at')
+                .values_list('changed_at', flat=True).first()
+            )
+            if earliest is None:
+                start = month_start(today, 0)
+            else:
+                e = timezone.localtime(earliest).date()
+                span = (today.year - e.year) * 12 + (today.month - e.month)
+                start = month_start(today, max(span, 0))
+        else:
+            start = month_start(today, months_back - 1)
 
-        totals_by_action = {
-            row['action']: row['total']
-            for row in AssignmentHistory.objects.values('action').annotate(total=Count('id'))
-        }
+        def per_month(action):
+            start_dt = timezone.make_aware(datetime.combine(start, dtime.min))
+            rows = (
+                AssignmentHistory.objects
+                .filter(action=action, changed_at__gte=start_dt)
+                .annotate(month=TruncMonth('changed_at'))
+                .values('month')
+                .annotate(total=Count('id'))
+            )
+            return {r['month'].date().replace(day=1): r['total'] for r in rows}
+
+        created_map = per_month('created')
+        completed_map = per_month('completed')
+
+        labels, created_data, completed_data = [], [], []
+        cursor = start
+        while cursor <= today:
+            labels.append(cursor.strftime('%b %Y'))
+            created_data.append(created_map.get(cursor, 0))
+            completed_data.append(completed_map.get(cursor, 0))
+            cursor = month_start(cursor, -1)
+
+        datasets = [
+            {
+                'label': 'Created',
+                'data': created_data,
+                'backgroundColor': '#22c55e',
+                'borderWidth': 0,
+            },
+            {
+                'label': 'Completed',
+                'data': completed_data,
+                'backgroundColor': '#64748b',
+                'borderWidth': 0,
+            },
+        ]
+
+        total_created = AssignmentHistory.objects.filter(action='created').count()
 
         context = {
             **self.admin_site.each_context(request),
-            'title': 'Assignment Analytics (last 30 days)',
+            'title': 'Assignment Stats',
             'opts': self.model._meta,
-            'chart_labels': json.dumps([d.strftime('%b %d') for d in day_list]),
+            'range_key': range_key,
+            'range_options': range_options,
+            'chart_labels': json.dumps(labels),
             'chart_datasets': json.dumps(datasets),
-            'totals_by_action': [
-                (label, totals_by_action.get(action, 0), action_colors.get(action, '#94a3b8'))
-                for action, label in AssignmentHistory.ACTION_CHOICES
-            ],
-            'total_events': AssignmentHistory.objects.count(),
-            'total_created': totals_by_action.get('created', 0),
-            'recent': AssignmentHistory.objects.all()[:15],
+            'total_created': total_created,
+            'range_created': sum(created_data),
+            'range_completed': sum(completed_data),
         }
         from django.shortcuts import render
         return render(request, 'admin/myapp/assignmenthistory/analytics.html', context)

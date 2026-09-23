@@ -163,11 +163,25 @@ class AdminAnalyticsTests(TransactionTestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIn(b"analyticsChart", response.content)
 
+    def test_analytics_range_views(self):
+        self._seed_data()
+        for rng in ("3m", "6m", "1y", "all"):
+            response = self.client.get(f"/admin/myapp/assignmenthistory/analytics/?range={rng}")
+            self.assertEqual(response.status_code, 200, rng)
+        # invalid range falls back to default
+        response = self.client.get("/admin/myapp/assignmenthistory/analytics/?range=bogus")
+        self.assertEqual(response.status_code, 200)
+
     def test_changelist_renders_with_history_rows(self):
         self._seed_data()
         response = self.client.get("/admin/myapp/assignmenthistory/")
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Chart HW")
+
+    def test_changelist_has_analytics_button(self):
+        self._seed_data()
+        response = self.client.get("/admin/myapp/assignmenthistory/")
+        self.assertContains(response, "analytics/")
 
     def test_add_view_is_blocked(self):
         response = self.client.get("/admin/myapp/assignmenthistory/add/")

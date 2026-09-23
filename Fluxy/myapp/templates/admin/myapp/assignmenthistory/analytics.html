@@ -3,26 +3,33 @@
 {% block extrastyle %}
   {{ block.super }}
   <style>
-    .analytics-wrap { max-width: 1100px; }
-    .stat-cards {
-      display: flex; flex-wrap: wrap; gap: 12px; margin: 16px 0 24px;
+    .stats-wrap { max-width: 980px; }
+    .range-nav { margin: 12px 0 20px; }
+    .range-nav a {
+      display: inline-block; margin-right: 14px; padding: 4px 8px;
+      text-decoration: none; border: 1px solid var(--hairline-color, #ccc);
     }
-    .stat-card {
-      background: var(--darkened-bg, #f8f8f8);
-      border: 1px solid var(--hairline-color, #e0e0e0);
-      border-radius: 8px; padding: 12px 18px; min-width: 150px;
+    .range-nav a.active {
+      background: var(--button-bg, #79aec8); color: #fff;
+      border-color: var(--button-bg, #79aec8);
     }
-    .stat-card .stat-value { font-size: 1.6em; font-weight: 700; }
-    .stat-card .stat-label { color: var(--body-quiet-color, #666); font-size: 0.85em; }
-    .chart-container {
-      background: var(--darkened-bg, #f8f8f8);
-      border: 1px solid var(--hairline-color, #e0e0e0);
-      border-radius: 8px; padding: 16px; margin-bottom: 24px;
+    .stats-grid {
+      display: flex; flex-wrap: wrap; gap: 0;
+      border: 1px solid var(--hairline-color, #ccc); margin-bottom: 24px;
     }
-    .totals-table td .dot {
-      display: inline-block; width: 10px; height: 10px;
-      border-radius: 50%; margin-right: 6px;
+    .stat {
+      flex: 1 1 180px; padding: 14px 16px;
+      border-right: 1px solid var(--hairline-color, #ccc);
     }
+    .stat:last-child { border-right: none; }
+    .stat .v { font-size: 2em; font-weight: 700; line-height: 1.2; }
+    .stat .k { color: var(--body-quiet-color, #666); font-size: 0.75em;
+               text-transform: uppercase; letter-spacing: 1px; }
+    .chart-box {
+      border: 1px solid var(--hairline-color, #ccc);
+      padding: 16px; margin-bottom: 24px;
+    }
+    .chart-box h2 { margin-top: 0; }
   </style>
 {% endblock %}
 
@@ -30,57 +37,41 @@
   <div class="breadcrumbs">
     <a href="{% url 'admin:index' %}">Home</a>
     &rsaquo; <a href="{% url 'admin:myapp_assignmenthistory_changelist' %}">Assignment histories</a>
-    &rsaquo; Analytics
+    &rsaquo; Stats
   </div>
 {% endblock %}
 
 {% block content %}
-  <div class="analytics-wrap">
-    <div class="stat-cards">
-      <div class="stat-card">
-        <div class="stat-value">{{ total_events }}</div>
-        <div class="stat-label">Total logged events (all time)</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-value">{{ total_created }}</div>
-        <div class="stat-label">Assignments ever created</div>
-      </div>
-      {% for label, count, color in totals_by_action %}
-        <div class="stat-card">
-          <div class="stat-value" style="color: {{ color }};">{{ count }}</div>
-          <div class="stat-label">{{ label }}</div>
-        </div>
+  <div class="stats-wrap">
+    <div class="range-nav">
+      {% for key, label in range_options %}
+        <a href="?range={{ key }}" class="{% if key == range_key %}active{% endif %}">{{ label }}</a>
       {% endfor %}
     </div>
 
-    <div class="chart-container">
-      <h2>Assignment events per day (last 30 days)</h2>
-      <canvas id="analyticsChart" height="110"></canvas>
+    <div class="stats-grid">
+      <div class="stat">
+        <div class="v">{{ total_created }}</div>
+        <div class="k">Assignments logged</div>
+      </div>
     </div>
 
-    <div class="chart-container">
-      <h2>Recent events</h2>
-      <table class="totals-table">
-        <thead>
-          <tr>
-            <th>When</th><th>Action</th><th>Title</th>
-            <th>Class</th><th>User</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for event in recent %}
-            <tr>
-              <td>{{ event.changed_at }}</td>
-              <td>{{ event.get_action_display }}</td>
-              <td>{{ event.title|default:"&mdash;" }}</td>
-              <td>{{ event.class_name|default:"&mdash;" }}</td>
-              <td>{{ event.username|default:"&mdash;" }}</td>
-            </tr>
-          {% empty %}
-            <tr><td colspan="5">No events logged yet.</td></tr>
-          {% endfor %}
-        </tbody>
-      </table>
+    <div class="stats-grid">
+      <div class="stat">
+        <div class="v">{{ range_created }}</div>
+        <div class="k">Created in selected range</div>
+      </div>
+      <div class="stat">
+        <div class="v">{{ range_completed }}</div>
+        <div class="k">Completed in selected range</div>
+      </div>
+    </div>
+
+    <div class="chart-box">
+      <h2>Per month</h2>
+      <div style="position: relative; height: 360px;">
+        <canvas id="analyticsChart"></canvas>
+      </div>
     </div>
   </div>
 
@@ -97,9 +88,10 @@
         },
         options: {
           responsive: true,
+          maintainAspectRatio: false,
           scales: {
-            x: { stacked: true },
-            y: { stacked: true, beginAtZero: true, ticks: { precision: 0 } }
+            x: { grid: { display: false } },
+            y: { beginAtZero: true, ticks: { precision: 0 } }
           },
           plugins: {
             legend: { position: 'bottom' },
