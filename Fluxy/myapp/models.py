@@ -102,6 +102,10 @@ class UserSettings(models.Model):
     dark_mode = models.BooleanField(default=True)
     theme = models.CharField(max_length=20, choices=THEME_CHOICES, default='classic')
 
+    class Meta:
+        verbose_name = 'User settings'
+        verbose_name_plural = 'User settings'
+
     def __str__(self):
         return f"Settings for {self.user.email}"
 
@@ -185,6 +189,8 @@ class PlannerClass(models.Model):
     class Meta:
         ordering = ['order', 'created_at']
         unique_together = ['user', 'name']
+        verbose_name = 'Planner class'
+        verbose_name_plural = 'Planner classes'
 
     def __str__(self):
         return f"{self.user.username} - {self.name}"
@@ -255,6 +261,8 @@ class AssignmentHistory(models.Model):
 
     class Meta:
         ordering = ['-changed_at']
+        verbose_name = 'Assignment history'
+        verbose_name_plural = 'Assignment histories'
         indexes = [
             models.Index(fields=['changed_at']),
             models.Index(fields=['assignment_pk', 'action']),

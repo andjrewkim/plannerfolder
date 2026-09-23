@@ -18,6 +18,15 @@ def make_user(i=0):
     )
 
 
+def run_backfill(*args):
+    from django.core.management import call_command
+    import io
+
+    buf = io.StringIO()
+    call_command("backfill_assignment_history", *args, stdout=buf)
+    return buf.getvalue()
+
+
 class AssignmentHistorySignalTests(TransactionTestCase):
     def _make_class(self, user, name="Math"):
         return PlannerClass.objects.create(user=user, name=name)
@@ -135,6 +144,67 @@ class AssignmentHistorySignalTests(TransactionTestCase):
         self.assertFalse(model_admin.has_add_permission(None))
         self.assertFalse(model_admin.has_change_permission(None, None))
         self.assertFalse(model_admin.has_delete_permission(None, None))
+
+
+class BackfillDateTests(TransactionTestCase):
+    """Backfilled rows must carry the assignment's real creation date."""
+
+    def test_backfill_stamps_true_created_at(self):
+        from datetime import timedelta
+
+        from django.utils import timezone as dj_tz
+
+        user = make_user(7)
+        planner_class = PlannerClass.objects.create(user=user, name="Date Class")
+        a = Assignment.objects.create(
+            planner_class=planner_class,
+            title="Dated HW",
+            start_date=date(2025, 1, 1),
+            end_date=date(2025, 1, 2),
+        )
+        AssignmentHistory.objects.all().delete()  # simulate pre-feature data
+
+        # Pretend the assignment was created 40 days ago
+        old = dj_tz.now() - timedelta(days=40)
+        Assignment.objects.filter(pk=a.pk).update(created_at=old)
+        a.refresh_from_db()
+
+        out = run_backfill()
+        self.assertIn("true creation dates", out)
+        row = AssignmentHistory.objects.get(assignment_pk=a.pk, action="created")
+        self.assertEqual(row.changed_at, a.created_at)  # NOT the backfill run time
+
+    def test_fix_dates_repairs_stale_stamps(self):
+        from datetime import timedelta
+
+        from django.utils import timezone as dj_tz
+
+        user = make_user(8)
+        planner_class = PlannerClass.objects.create(user=user, name="Fix Class")
+        a = Assignment.objects.create(
+            planner_class=planner_class,
+            title="Fix HW",
+            start_date=date(2025, 1, 1),
+            end_date=date(2025, 1, 2),
+        )
+        old = dj_tz.now() - timedelta(days=10)
+        Assignment.objects.filter(pk=a.pk).update(created_at=old)
+        a.refresh_from_db()  # pick up the DB value of created_at
+
+        # Simulate a bad backfill: row stamped with the wrong (recent) time
+        row = AssignmentHistory.objects.get(assignment_pk=a.pk, action="created")
+        AssignmentHistory.objects.filter(pk=row.pk).update(changed_at=dj_tz.now())
+
+        out = run_backfill("--fix-dates")
+        self.assertIn("Corrected changed_at on 1", out)
+        row.refresh_from_db()
+        self.assertEqual(row.changed_at, a.created_at)
+
+    def test_verbose_names_are_pluralized_correctly(self):
+        self.assertEqual(AssignmentHistory._meta.verbose_name_plural, "Assignment histories")
+        self.assertEqual(PlannerClass._meta.verbose_name_plural, "Planner classes")
+        from .models import UserSettings
+        self.assertEqual(UserSettings._meta.verbose_name_plural, "User settings")
 
 
 class AdminAnalyticsTests(TransactionTestCase):
