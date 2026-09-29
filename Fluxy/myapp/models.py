@@ -196,8 +196,12 @@ class PlannerClass(models.Model):
         return f"{self.user.username} - {self.name}"
 
 class Assignment(models.Model):
+    # SET_NULL (not CASCADE): deleting a class must NEVER delete its
+    # assignments. Rows survive as orphans (planner_class = NULL) — they stay
+    # in the database permanently and remain visible in the admin, but
+    # disappear from the app, which lists assignments through their class.
     planner_class = models.ForeignKey(
-        PlannerClass, on_delete=models.CASCADE, related_name='assignments'
+        PlannerClass, on_delete=models.SET_NULL, null=True, blank=True, related_name='assignments'
     )
     title = models.CharField(max_length=500)
     start_date = models.DateField()  # Now required
@@ -211,7 +215,8 @@ class Assignment(models.Model):
         ordering = ['start_date', 'order', 'created_at']
 
     def __str__(self):
-        return f"{self.planner_class.name} - {self.title} ({self.start_date} to {self.end_date})"
+        class_name = self.planner_class.name if self.planner_class else "No class"
+        return f"{class_name} - {self.title} ({self.start_date} to {self.end_date})"
 
     def is_active_on(self, day):
         """Check if the assignment is active on a given date."""

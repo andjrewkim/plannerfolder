@@ -4,12 +4,11 @@ from django.contrib.auth.models import User
 from django.utils import timezone
 from datetime import datetime
 import logging
-import threading
 import zoneinfo
 
-from django.db.models.signals import post_delete, pre_delete
+from django.db.models.signals import post_delete
 from django.db import transaction
-from .models import Assignment, PlannerClass, AssignmentHistory
+from .models import Assignment, AssignmentHistory
 
 logger = logging.getLogger('assignment_history')
 
@@ -98,43 +97,17 @@ def log_assignment_save(sender, instance, created, **kwargs):
         _log_history(action, snapshot, changes=changes or None)
 
 
-# Thread-local set of assignment pks that are about to be purged by a class
-# deletion, so the cascade's per-object post_delete doesn't ALSO log a
-# 'deleted' row for the same assignment (which would double-count removals).
-_purge_state = threading.local()
-
-
-def _pending_purges():
-    if not hasattr(_purge_state, 'pks'):
-        _purge_state.pks = set()
-    return _purge_state.pks
+# NOTE: There is no PlannerClass delete handler. Since the Assignment->
+# PlannerClass FK is on_delete=SET_NULL, deleting a class does NOT delete its
+# assignments (they are orphaned, not purged), so there is nothing to log.
 
 
 @receiver(post_delete, sender=Assignment)
 def log_assignment_delete(sender, instance, **kwargs):
-    """Log assignment deletions, except those already logged as purged by class deletion."""
-    if instance.pk in _pending_purges():
-        _pending_purges().discard(instance.pk)
-        return
+    """Log every assignment deletion (assignments orphaned by class deletion
+    are NOT deleted anymore — the FK is SET_NULL — so every post_delete here
+    is a genuine, user-initiated single-assignment deletion)."""
     _log_history('deleted', _assignment_snapshot(instance))
-
-
-@receiver(pre_delete, sender=PlannerClass)
-def log_assignments_on_class_delete(sender, instance, **kwargs):
-    """
-    When a class is deleted, log its assignments as 'purged_by_class_deletion'
-    BEFORE the cascade runs, so a permanent record survives for assignments
-    that vanish along with the class.
-    """
-    pending = _pending_purges()
-    pending.clear()
-    for assignment in instance.assignments.all():
-        pending.add(assignment.pk)
-        snapshot = _assignment_snapshot(assignment, class_name=instance.name)
-        _log_history('purged_by_class_deletion', snapshot)
-
-
-
 
 
 def get_user_timezone(user):

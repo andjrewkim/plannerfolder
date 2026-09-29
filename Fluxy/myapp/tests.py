@@ -2,7 +2,7 @@
 from datetime import date
 
 from django.contrib.auth import get_user_model
-from django.test import Client, TransactionTestCase
+from django.test import Client, TransactionTestCase, override_settings
 
 from .models import Assignment, AssignmentHistory, PlannerClass
 
@@ -83,7 +83,7 @@ class AssignmentHistorySignalTests(TransactionTestCase):
         self.assertEqual(row.user_email, "u2@test.com")
 
     def test_class_deletion_keeps_permanent_history(self):
-        """THE core guarantee: delete a class, its assignments' history survives."""
+        """THE core guarantee: delete a class — the assignment row itself SURVIVES."""
         user = make_user(3)
         planner_class = self._make_class(user, "History Class")
         a = Assignment.objects.create(
@@ -93,19 +93,16 @@ class AssignmentHistorySignalTests(TransactionTestCase):
             end_date=date(2025, 1, 2),
         )
         planner_class.delete()
-        self.assertFalse(Assignment.objects.filter(pk=a.pk).exists())  # gone
+        self.assertTrue(Assignment.objects.filter(pk=a.pk).exists())  # row survives
+        orphan = Assignment.objects.get(pk=a.pk)
+        self.assertIsNone(orphan.planner_class)  # orphaned: class ref cleared, not deleted
         actions = list(
             AssignmentHistory.objects.filter(assignment_pk=a.pk)
             .values_list("action", flat=True)
         )
         self.assertIn("created", actions)
-        self.assertIn("purged_by_class_deletion", actions)
-        # Snapshot data survived the class cascade
-        row = AssignmentHistory.objects.get(assignment_pk=a.pk, action="purged_by_class_deletion")
-        self.assertEqual(row.title, "Old Homework")
-        self.assertEqual(row.class_name, "History Class")
-        self.assertEqual(row.user_email, "u3@test.com")
-        # No duplicate 'deleted' row from the cascade itself
+        # No removal event — the assignment was never deleted, just orphaned
+        self.assertNotIn("purged_by_class_deletion", actions)
         self.assertNotIn("deleted", actions)
 
     def test_renamed_then_deleted_assignment_keeps_full_identity(self):
@@ -133,7 +130,40 @@ class AssignmentHistorySignalTests(TransactionTestCase):
         self.assertIn("Original Name", titles)
         self.assertIn("Renamed Twice", titles)
         actions = {r.action for r in rows}
-        self.assertEqual(actions, {"created", "updated", "purged_by_class_deletion"})
+        self.assertEqual(actions, {"created", "updated"})
+        # The live row itself survived the class deletion, orphaned
+        orphan = Assignment.objects.get(pk=a.pk)
+        self.assertIsNone(orphan.planner_class)
+        self.assertEqual(orphan.title, "Renamed Twice")
+
+    def test_assignment_survives_class_deletion(self):
+        """Class deletion must NEVER delete assignment rows (they orphan instead)."""
+        user = make_user(3)
+        planner_class = self._make_class(user, "Survivor Class")
+        a1 = Assignment.objects.create(
+            planner_class=planner_class, title="Kept 1",
+            start_date=date(2025, 1, 1), end_date=date(2025, 1, 2),
+        )
+        a2 = Assignment.objects.create(
+            planner_class=planner_class, title="Kept 2",
+            start_date=date(2025, 1, 2), end_date=date(2025, 1, 3),
+        )
+        Assignment.objects.filter(pk=a2.pk).update(completed=True)
+        a2.refresh_from_db()
+
+        planner_class.delete()
+
+        # Both rows still exist in the database
+        self.assertTrue(Assignment.objects.filter(pk=a1.pk).exists())
+        self.assertTrue(Assignment.objects.filter(pk=a2.pk).exists())
+        # Orphaned: class reference cleared, all other data intact
+        a1.refresh_from_db()
+        a2.refresh_from_db()
+        self.assertIsNone(a1.planner_class)
+        self.assertIsNone(a2.planner_class)
+        self.assertEqual(a1.title, "Kept 1")
+        self.assertEqual(a2.title, "Kept 2")
+        self.assertTrue(a2.completed)  # completed state survived too
 
     def test_admin_cannot_write_to_history(self):
         """Admin add/change/delete must be blocked so the log stays append-only."""
@@ -256,3 +286,250 @@ class AdminAnalyticsTests(TransactionTestCase):
     def test_add_view_is_blocked(self):
         response = self.client.get("/admin/myapp/assignmenthistory/add/")
         self.assertEqual(response.status_code, 403)
+
+
+def run_restore(*args):
+    from django.core.management import call_command
+    import io
+
+    buf = io.StringIO()
+    call_command("restore_purged_assignments", *args, stdout=buf)
+    return buf.getvalue()
+
+
+def simulate_old_cascade(assignment, planner_class):
+    """Delete an assignment the way the pre-0022 CASCADE did: per-row
+    'deleted' logging suppressed, one 'purged_by_class_deletion' row."""
+    user = planner_class.user
+    a_pk = assignment.pk  # capture BEFORE delete — Django nulls instance.pk
+    snapshot = dict(
+        assignment_pk=a_pk,
+        class_pk=planner_class.pk,
+        class_name=planner_class.name,
+        user_pk=user.pk,
+        username=user.username,
+        user_email=user.email,
+        title=assignment.title,
+        start_date=assignment.start_date,
+        end_date=assignment.end_date,
+        completed=assignment.completed,
+    )
+    assignment.delete()  # logs a 'deleted' row under the new SET_NULL signals
+    AssignmentHistory.objects.filter(
+        assignment_pk=a_pk, action="deleted"
+    ).delete()
+    AssignmentHistory.objects.create(
+        action="purged_by_class_deletion", **snapshot
+    )
+
+
+class RestorePurgedAssignmentsTests(TransactionTestCase):
+    """Recovery path: rebuild rows cascade-destroyed under the old CASCADE FK."""
+
+    def test_restores_cascade_victim_with_original_pk(self):
+        user = make_user(10)
+        planner_class = PlannerClass.objects.create(user=user, name="Lost Class")
+        a = Assignment.objects.create(
+            planner_class=planner_class,
+            title="Lost HW",
+            start_date=date(2025, 1, 1),
+            end_date=date(2025, 1, 2),
+        )
+        a_pk = a.pk
+        a.title = "Lost HW v2"
+        a.save()  # second snapshot must win over the creation snapshot
+        created_row = AssignmentHistory.objects.get(
+            assignment_pk=a_pk, action="created"
+        )
+
+        simulate_old_cascade(a, planner_class)
+        planner_class.delete()
+        self.assertFalse(Assignment.objects.filter(pk=a_pk).exists())
+
+        # Baseline AFTER the simulated cascade: the restore itself must add
+        # (or rewrite) zero history rows.
+        history_rows_before = AssignmentHistory.objects.filter(
+            assignment_pk=a_pk
+        ).count()
+
+        out = run_restore()
+        self.assertIn("Restored 1 assignment", out)
+
+        restored = Assignment.objects.get(pk=a_pk)  # original pk preserved
+        self.assertEqual(restored.title, "Lost HW v2")  # latest snapshot won
+        self.assertEqual(restored.start_date, date(2025, 1, 1))
+        self.assertEqual(restored.end_date, date(2025, 1, 2))
+        self.assertFalse(restored.completed)
+        self.assertIsNone(restored.planner_class)  # class gone → orphan
+        # True creation timestamp restamped from the 'created' history row
+        self.assertEqual(restored.created_at, created_row.changed_at)
+        # Append-only log untouched: no rows added or rewritten by the restore
+        self.assertEqual(
+            AssignmentHistory.objects.filter(assignment_pk=a_pk).count(),
+            history_rows_before,
+        )
+
+    def test_individually_deleted_assignments_are_not_restored_by_default(self):
+        user = make_user(11)
+        planner_class = PlannerClass.objects.create(user=user, name="Keep Class")
+        a = Assignment.objects.create(
+            planner_class=planner_class,
+            title="User Deleted This",
+            start_date=date(2025, 1, 1),
+            end_date=date(2025, 1, 2),
+        )
+        a_pk = a.pk
+        a.delete()  # genuine user-initiated delete → 'deleted' history row
+        planner_class.delete()
+
+        out = run_restore()
+        self.assertIn("NOT restored", out)
+        self.assertFalse(Assignment.objects.filter(pk=a_pk).exists())
+
+        run_restore("--include-deleted")
+        self.assertTrue(Assignment.objects.filter(pk=a_pk).exists())
+        self.assertEqual(
+            Assignment.objects.get(pk=a_pk).title, "User Deleted This"
+        )
+
+    def test_dry_run_writes_nothing(self):
+        user = make_user(12)
+        planner_class = PlannerClass.objects.create(user=user, name="Dry Class")
+        a = Assignment.objects.create(
+            planner_class=planner_class,
+            title="Dry HW",
+            start_date=date(2025, 1, 1),
+            end_date=date(2025, 1, 2),
+        )
+        a_pk = a.pk
+        simulate_old_cascade(a, planner_class)
+        planner_class.delete()
+
+        out = run_restore("--dry-run")
+        self.assertIn("Dry HW", out)
+        self.assertIn("Dry run: nothing was written", out)
+        self.assertFalse(Assignment.objects.filter(pk=a_pk).exists())
+
+    def test_recreate_classes_makes_rows_visible_again(self):
+        user = make_user(13)
+        planner_class = PlannerClass.objects.create(user=user, name="Chem")
+        old_class_pk = planner_class.pk
+        a1 = Assignment.objects.create(
+            planner_class=planner_class, title="Lab Report",
+            start_date=date(2025, 1, 1), end_date=date(2025, 1, 2),
+        )
+        a2 = Assignment.objects.create(
+            planner_class=planner_class, title="Reading",
+            start_date=date(2025, 1, 2), end_date=date(2025, 1, 3),
+        )
+        pks = (a1.pk, a2.pk)
+        simulate_old_cascade(a1, planner_class)
+        simulate_old_cascade(a2, planner_class)
+        planner_class.delete()
+
+        out = run_restore("--recreate-classes")
+        self.assertIn("Restored 2 assignment", out)
+
+        chem = PlannerClass.objects.get(user=user, name="Chem")
+        self.assertNotEqual(chem.pk, old_class_pk)  # a NEW class row
+        for pk in pks:
+            restored = Assignment.objects.get(pk=pk)
+            self.assertEqual(restored.planner_class, chem)
+
+    def test_never_clobbers_an_existing_row(self):
+        user = make_user(14)
+        planner_class = PlannerClass.objects.create(user=user, name="Clobber Class")
+        a = Assignment.objects.create(
+            planner_class=planner_class, title="Victim",
+            start_date=date(2025, 1, 1), end_date=date(2025, 1, 2),
+        )
+        a_pk = a.pk
+        simulate_old_cascade(a, planner_class)
+        planner_class.delete()
+
+        # The pk got reused by a newer assignment (possible on SQLite after
+        # deleting the highest row) — restore must leave it alone.
+        Assignment.objects.create(
+            id=a_pk, title="Live Now",
+            start_date=date(2025, 2, 1), end_date=date(2025, 2, 2),
+        )
+
+        out = run_restore()
+        self.assertIn("Nothing to restore", out)
+        reused = Assignment.objects.get(pk=a_pk)
+        self.assertEqual(reused.title, "Live Now")  # untouched
+
+
+def api_settings_without_throttles():
+    """REST_FRAMEWORK override for API tests: drop the 2/second user throttle."""
+    return {
+        "REST_FRAMEWORK": {
+            "DEFAULT_PERMISSION_CLASSES": [
+                "rest_framework.permissions.IsAuthenticated"
+            ],
+            "DEFAULT_AUTHENTICATION_CLASSES": [
+                "rest_framework.authentication.SessionAuthentication"
+            ],
+        }
+    }
+
+
+class RestoredRowsStayInvisibleInAppTests(TransactionTestCase):
+    """Restored (orphaned) rows are backend-only: they exist in the database
+    and the admin, but NO user-facing endpoint may ever return them."""
+
+    def _restore_a_cascade_victim(self, i):
+        user = make_user(i)
+        planner_class = PlannerClass.objects.create(user=user, name="Ghost Class")
+        today = date.today()
+        a = Assignment.objects.create(
+            planner_class=planner_class,
+            title="Ghost HW",
+            start_date=today,
+            end_date=today,
+        )
+        a_pk = a.pk
+        simulate_old_cascade(a, planner_class)
+        planner_class.delete()
+        run_restore()
+        restored = Assignment.objects.get(pk=a_pk)
+        self.assertIsNone(restored.planner_class)  # restored as an orphan
+        return user, restored
+
+    def test_restored_rows_absent_from_every_user_facing_endpoint(self):
+        user, ghost = self._restore_a_cascade_victim(20)
+        live_class = PlannerClass.objects.create(user=user, name="Live Class")
+        Assignment.objects.create(
+            planner_class=live_class,
+            title="Live HW",
+            start_date=ghost.start_date,
+            end_date=ghost.end_date,
+        )
+        self.client = Client()
+        self.client.force_login(user)
+
+        date_str = ghost.start_date.strftime("%Y-%m-%d")
+        endpoints = [
+            "/api/planner/assignments/",                        # full list
+            f"/api/planner/assignments/active_on_date/?date={date_str}",
+            "/api/planner/assignments/?days=14",                # rolling window
+        ]
+        with override_settings(**api_settings_without_throttles()):
+            responses = [self.client.get(url) for url in endpoints]
+
+        for url, response in zip(endpoints, responses):
+            self.assertEqual(response.status_code, 200, url)
+            titles = [row["title"] for row in response.json()]
+            self.assertIn("Live HW", titles, url)      # healthy data still served
+            self.assertNotIn("Ghost HW", titles, url)  # restored orphan never leaks
+
+    def test_restored_rows_are_still_visible_in_admin(self):
+        _, ghost = self._restore_a_cascade_victim(21)
+        User = get_user_model()
+        admin_user = User.objects.create_superuser("boss", "boss@test.com", "pw12345!")
+        self.client = Client()
+        self.client.force_login(admin_user)
+        with override_settings(**api_settings_without_throttles()):
+            response = self.client.get("/admin/myapp/assignment/")
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Ghost HW")
