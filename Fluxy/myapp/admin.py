@@ -4,10 +4,9 @@ import json
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
 from django.core.exceptions import PermissionDenied
-from datetime import date, datetime, time as dtime
 
 from django.db.models import Count
-from django.db.models.functions import TruncMonth
+from django.db.models.functions import ExtractIsoWeekDay, TruncWeek
 from django.urls import path
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
@@ -109,68 +108,124 @@ class AssignmentHistoryAdmin(admin.ModelAdmin):
             ('1y', 'Last 12 Months'),
             ('all', 'All Time'),
         ]
-        months_back = {'3m': 3, '6m': 6, '1y': 12}.get(range_key)
+        weeks_back = {'3m': 13, '6m': 26, '1y': 52}.get(range_key)
 
         today = timezone.localdate()
 
-        def month_start(d, back):
-            """First day of the month `back` months from d (negative = forward)."""
-            total = d.year * 12 + (d.month - 1) - back
-            y, m = divmod(total, 12)
-            return date(y, m + 1, 1)
+        def week_start(d):
+            """Monday of the week containing d."""
+            return d - timedelta(days=d.weekday())
 
-        if months_back is None:  # all time
+        def week_label(d):
+            """e.g. 'Feb 3' — avoids %-d, which is not portable."""
+            return f"{d.strftime('%b')} {d.day}"
+
+        # Exactly one 'created' row exists per assignment, and it carries a
+        # snapshot of the assignment's own start_date. Bucketing by that date
+        # (not by changed_at) shows when the work is actually for.
+        created = AssignmentHistory.objects.filter(
+            action='created', start_date__isnull=False,
+        )
+
+        if weeks_back is None:  # all time
             earliest = (
-                AssignmentHistory.objects.order_by('changed_at')
-                .values_list('changed_at', flat=True).first()
+                created.order_by('start_date')
+                .values_list('start_date', flat=True).first()
             )
-            if earliest is None:
-                start = month_start(today, 0)
-            else:
-                e = timezone.localtime(earliest).date()
-                span = (today.year - e.year) * 12 + (today.month - e.month)
-                start = month_start(today, max(span, 0))
+            range_start = week_start(earliest) if earliest else week_start(today)
         else:
-            start = month_start(today, months_back - 1)
+            range_start = week_start(today) - timedelta(weeks=weeks_back - 1)
 
-        def per_month(action):
-            start_dt = timezone.make_aware(datetime.combine(start, dtime.min))
-            rows = (
-                AssignmentHistory.objects
-                .filter(action=action, changed_at__gte=start_dt)
-                .annotate(month=TruncMonth('changed_at'))
-                .values('month')
-                .annotate(total=Count('id'))
-            )
-            return {r['month'].date().replace(day=1): r['total'] for r in rows}
+        in_range = created.filter(start_date__gte=range_start)
 
-        created_map = per_month('created')
-        completed_map = per_month('completed')
+        # Chart runs from range_start through the current week, extended
+        # forward to include planned (future-dated) assignments — capped at
+        # 12 weeks ahead so one far-future date can't stretch the axis.
+        current_week = week_start(today)
+        latest = (
+            in_range.order_by('-start_date')
+            .values_list('start_date', flat=True).first()
+        )
+        chart_end = current_week
+        if latest is not None and week_start(latest) > chart_end:
+            chart_end = min(week_start(latest), current_week + timedelta(weeks=12))
 
-        labels, created_data, completed_data = [], [], []
-        cursor = start
-        while cursor <= today:
-            labels.append(cursor.strftime('%b %Y'))
-            created_data.append(created_map.get(cursor, 0))
-            completed_data.append(completed_map.get(cursor, 0))
-            cursor = month_start(cursor, -1)
+        week_rows = (
+            in_range.annotate(wk=TruncWeek('start_date'))
+            .values('wk').annotate(total=Count('id'))
+        )
+        week_map = {r['wk']: r['total'] for r in week_rows}
 
-        datasets = [
-            {
-                'label': 'Created',
-                'data': created_data,
-                'backgroundColor': '#22c55e',
-                'borderWidth': 0,
-            },
-            {
-                'label': 'Completed',
-                'data': completed_data,
-                'backgroundColor': '#64748b',
-                'borderWidth': 0,
-            },
-        ]
+        labels, weekly_data = [], []
+        cursor = range_start
+        last_year = None
+        while cursor <= chart_end:
+            lbl = week_label(cursor)
+            if range_start.year != chart_end.year and cursor.year != last_year:
+                lbl = f"{lbl} '{cursor.strftime('%y')}"
+            last_year = cursor.year
+            labels.append(lbl)
+            weekly_data.append(week_map.get(cursor, 0))
+            cursor += timedelta(weeks=1)
 
+        weekday_rows = (
+            in_range.annotate(wd=ExtractIsoWeekDay('start_date'))
+            .values('wd').annotate(total=Count('id'))
+        )
+        wd_map = {r['wd']: r['total'] for r in weekday_rows}
+        weekday_labels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+        weekday_data = [wd_map.get(i, 0) for i in range(1, 8)]
+
+        class_rows = list(
+            in_range.values('class_name').annotate(total=Count('id'))
+            .order_by('-total')[:6]
+        )
+        class_labels = [r['class_name'] or 'No class' for r in class_rows]
+        class_data = [r['total'] for r in class_rows]
+
+        # --- Headline numbers ---
         total_created = AssignmentHistory.objects.filter(action='created').count()
+        in_range_total = in_range.count()
+        n_weeks = max((chart_end - range_start).days // 7 + 1, 1)
+
+        if week_map:
+            peak_week, peak_count = max(week_map.items(), key=lambda kv: kv[1])
+        else:
+            peak_week, peak_count = None, 0
+
+        top_class_row = class_rows[0] if class_rows else None
+        top_user_row = (
+            in_range.values('username').annotate(total=Count('id'))
+            .order_by('-total').first()
+        )
+        scheduled_ahead = created.filter(start_date__gt=today).count()
+
+        ACCENT = '#2563eb'
+
+        def bar_dataset(data, max_thickness):
+            return [{
+                'label': 'Assignments',
+                'data': data,
+                'backgroundColor': ACCENT,
+                'hoverBackgroundColor': '#1d4ed8',
+                'borderWidth': 0,
+                'borderRadius': 3,
+                'maxBarThickness': max_thickness,
+                'categoryPercentage': 0.75,
+            }]
+
+        datasets = bar_dataset(weekly_data, 30)
+        weekday_datasets = bar_dataset(weekday_data, 36)
+        class_datasets = [{
+            'label': 'Assignments',
+            'data': class_data,
+            'backgroundColor': ACCENT,
+            'hoverBackgroundColor': '#1d4ed8',
+            'borderWidth': 0,
+            'borderRadius': 3,
+            'maxBarThickness': 20,
+            'barPercentage': 0.7,
+        }]
 
         context = {
             **self.admin_site.each_context(request),
@@ -180,9 +235,21 @@ class AssignmentHistoryAdmin(admin.ModelAdmin):
             'range_options': range_options,
             'chart_labels': json.dumps(labels),
             'chart_datasets': json.dumps(datasets),
+            'weekday_labels': json.dumps(weekday_labels),
+            'weekday_datasets': json.dumps(weekday_datasets),
+            'class_labels': json.dumps(class_labels),
+            'class_datasets': json.dumps(class_datasets),
+            'has_class_data': bool(class_rows),
             'total_created': total_created,
-            'range_created': sum(created_data),
-            'range_completed': sum(completed_data),
+            'range_created': in_range_total,
+            'avg_per_week': round(in_range_total / n_weeks, 1),
+            'peak_label': f"Week of {week_label(peak_week)}" if peak_week else '—',
+            'peak_count': peak_count,
+            'top_class_name': (top_class_row['class_name'] or 'No class') if top_class_row else '—',
+            'top_class_count': top_class_row['total'] if top_class_row else 0,
+            'top_user_name': (top_user_row['username'] or '—') if top_user_row else '—',
+            'top_user_count': top_user_row['total'] if top_user_row else 0,
+            'scheduled_ahead': scheduled_ahead,
         }
         from django.shortcuts import render
         return render(request, 'admin/myapp/assignmenthistory/analytics.html', context)
