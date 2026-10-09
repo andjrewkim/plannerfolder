@@ -2,11 +2,13 @@ from datetime import timedelta
 import json
 
 from django.contrib import admin
+from django.contrib import messages
 from django.contrib.auth.admin import UserAdmin
 from django.core.exceptions import PermissionDenied
 
 from django.db.models import Count
 from django.db.models.functions import ExtractIsoWeekDay, TruncWeek
+from django.shortcuts import render
 from django.urls import path
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
@@ -84,6 +86,44 @@ class AssignmentHistoryAdmin(admin.ModelAdmin):
 
     def has_delete_permission(self, request, obj=None):
         return False
+
+    # --- Bulk cleanup: superuser-only mass removal of history rows ---
+    # The log is normally permanent and staff cannot delete from it; this
+    # deliberate exception exists so a superuser can purge demo/test rows.
+    actions = ['mass_delete_history']
+    actions_on_bottom = True
+
+    @admin.action(description='Mass delete selected history rows')
+    def mass_delete_history(self, request, queryset):
+        if not request.user.is_superuser:
+            self.message_user(
+                request,
+                'Only superusers can mass delete assignment history rows.',
+                level=messages.ERROR,
+            )
+            return
+        if request.POST.get('post') != 'yes':
+            # Intermediate confirmation page, like the built-in delete action.
+            context = {
+                **self.admin_site.each_context(request),
+                'title': 'Are you sure?',
+                'opts': self.model._meta,
+                'queryset': queryset,
+                'count': queryset.count(),
+                'action_checkbox_name': admin.helpers.ACTION_CHECKBOX_NAME,
+            }
+            return render(
+                request,
+                'admin/myapp/assignmenthistory/mass_delete_confirmation.html',
+                context,
+            )
+        count = queryset.count()
+        queryset.delete()
+        self.message_user(
+            request,
+            f'Mass deleted {count} assignment history row(s).',
+            level=messages.SUCCESS,
+        )
 
     # --- Analytics dashboard ---
     def get_urls(self):
@@ -176,29 +216,10 @@ class AssignmentHistoryAdmin(admin.ModelAdmin):
         weekday_labels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
         weekday_data = [wd_map.get(i, 0) for i in range(1, 8)]
 
-        class_rows = list(
-            in_range.values('class_name').annotate(total=Count('id'))
-            .order_by('-total')[:6]
-        )
-        class_labels = [r['class_name'] or 'No class' for r in class_rows]
-        class_data = [r['total'] for r in class_rows]
-
         # --- Headline numbers ---
         total_created = AssignmentHistory.objects.filter(action='created').count()
         in_range_total = in_range.count()
         n_weeks = max((chart_end - range_start).days // 7 + 1, 1)
-
-        if week_map:
-            peak_week, peak_count = max(week_map.items(), key=lambda kv: kv[1])
-        else:
-            peak_week, peak_count = None, 0
-
-        top_class_row = class_rows[0] if class_rows else None
-        top_user_row = (
-            in_range.values('username').annotate(total=Count('id'))
-            .order_by('-total').first()
-        )
-        scheduled_ahead = created.filter(start_date__gt=today).count()
 
         ACCENT = '#2563eb'
 
@@ -216,16 +237,6 @@ class AssignmentHistoryAdmin(admin.ModelAdmin):
 
         datasets = bar_dataset(weekly_data, 30)
         weekday_datasets = bar_dataset(weekday_data, 36)
-        class_datasets = [{
-            'label': 'Assignments',
-            'data': class_data,
-            'backgroundColor': ACCENT,
-            'hoverBackgroundColor': '#1d4ed8',
-            'borderWidth': 0,
-            'borderRadius': 3,
-            'maxBarThickness': 20,
-            'barPercentage': 0.7,
-        }]
 
         context = {
             **self.admin_site.each_context(request),
@@ -237,21 +248,10 @@ class AssignmentHistoryAdmin(admin.ModelAdmin):
             'chart_datasets': json.dumps(datasets),
             'weekday_labels': json.dumps(weekday_labels),
             'weekday_datasets': json.dumps(weekday_datasets),
-            'class_labels': json.dumps(class_labels),
-            'class_datasets': json.dumps(class_datasets),
-            'has_class_data': bool(class_rows),
             'total_created': total_created,
             'range_created': in_range_total,
             'avg_per_week': round(in_range_total / n_weeks, 1),
-            'peak_label': f"Week of {week_label(peak_week)}" if peak_week else '—',
-            'peak_count': peak_count,
-            'top_class_name': (top_class_row['class_name'] or 'No class') if top_class_row else '—',
-            'top_class_count': top_class_row['total'] if top_class_row else 0,
-            'top_user_name': (top_user_row['username'] or '—') if top_user_row else '—',
-            'top_user_count': top_user_row['total'] if top_user_row else 0,
-            'scheduled_ahead': scheduled_ahead,
         }
-        from django.shortcuts import render
         return render(request, 'admin/myapp/assignmenthistory/analytics.html', context)
 
 

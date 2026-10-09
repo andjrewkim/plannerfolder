@@ -287,6 +287,50 @@ class AdminAnalyticsTests(TransactionTestCase):
         response = self.client.get("/admin/myapp/assignmenthistory/add/")
         self.assertEqual(response.status_code, 403)
 
+    def test_mass_delete_action_superuser_only(self):
+        self._seed_data()
+        changelist = "/admin/myapp/assignmenthistory/"
+
+        # Regular staff users cannot even see the action.
+        from django.contrib.auth.models import Permission
+        staff = make_user(8)
+        staff.is_staff = True
+        staff.save()
+        staff.user_permissions.set(
+            Permission.objects.filter(codename__in=["view_assignmenthistory"])
+        )
+        c2 = Client()
+        c2.force_login(staff)
+        resp = c2.post(changelist, {
+            "action": "mass_delete_history",
+            "_selected_action": [str(AssignmentHistory.objects.first().pk)],
+            "post": "yes",
+        }, follow=True)
+        self.assertEqual(AssignmentHistory.objects.count(), 1)
+        self.assertContains(resp, "Only superusers", status_code=200)
+
+        # Superuser gets a confirmation page first; nothing is deleted yet.
+        resp = self.client.post(changelist, {
+            "action": "mass_delete_history",
+            "_selected_action": [
+                str(pk) for pk in AssignmentHistory.objects.values_list("pk", flat=True)
+            ],
+        })
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, "Are you sure")
+        self.assertEqual(AssignmentHistory.objects.count(), 1)
+
+        # Confirming the intermediate page performs the mass delete.
+        resp = self.client.post(changelist, {
+            "action": "mass_delete_history",
+            "_selected_action": [
+                str(pk) for pk in AssignmentHistory.objects.values_list("pk", flat=True)
+            ],
+            "post": "yes",
+        })
+        self.assertRedirects(resp, changelist, fetch_redirect_response=False)
+        self.assertEqual(AssignmentHistory.objects.count(), 0)
+
 
 def run_restore(*args):
     from django.core.management import call_command

@@ -35,7 +35,6 @@
       font-variant-numeric: tabular-nums;
       overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
     }
-    .card .sub { margin-top: 3px; font-size: 11.5px; color: var(--body-quiet-color, #666); }
 
     .panel {
       border: 1px solid var(--hairline-color, #ccc);
@@ -49,11 +48,6 @@
       color: var(--body-quiet-color, #666);
       margin: 0 0 14px;
     }
-    .panel .note { font-size: 11.5px; color: var(--body-quiet-color, #666); margin: 10px 0 0; }
-    .cols { display: flex; gap: 16px; flex-wrap: wrap; }
-    .cols .panel { flex: 1 1 320px; }
-
-    .footnote { font-size: 11.5px; color: var(--body-quiet-color, #666); margin: 0 0 24px; }
   </style>
 {% endblock %}
 
@@ -77,73 +71,30 @@
       <div class="card">
         <div class="k">Total assignments</div>
         <div class="v">{{ total_created }}</div>
-        <div class="sub">All time</div>
       </div>
       <div class="card">
         <div class="k">In selected range</div>
         <div class="v">{{ range_created }}</div>
-        <div class="sub">By assignment date</div>
       </div>
       <div class="card">
         <div class="k">Avg per week</div>
         <div class="v">{{ avg_per_week }}</div>
-        <div class="sub">Selected range</div>
-      </div>
-    </div>
-
-    <div class="cards">
-      <div class="card">
-        <div class="k">Peak week</div>
-        <div class="v">{{ peak_count }}</div>
-        <div class="sub">{{ peak_label }}</div>
-      </div>
-      <div class="card">
-        <div class="k">Top class</div>
-        <div class="v">{{ top_class_count }}</div>
-        <div class="sub">{{ top_class_name }}</div>
-      </div>
-      <div class="card">
-        <div class="k">Top user</div>
-        <div class="v">{{ top_user_count }}</div>
-        <div class="sub">{{ top_user_name }}</div>
-      </div>
-      <div class="card">
-        <div class="k">Scheduled ahead</div>
-        <div class="v">{{ scheduled_ahead }}</div>
-        <div class="sub">Start date in the future</div>
       </div>
     </div>
 
     <div class="panel">
       <h2>Assignments per week</h2>
-      <div style="position: relative; height: 320px;">
+      <div style="position: relative; height: 340px;">
         <canvas id="analyticsChart"></canvas>
       </div>
-      <p class="note">Each assignment is counted in the week of its own start date, not the date it was logged. Weeks after today show scheduled workload.</p>
     </div>
 
-    <div class="cols">
-      <div class="panel">
-        <h2>By weekday</h2>
-        <div style="position: relative; height: 240px;">
-          <canvas id="weekdayChart"></canvas>
-        </div>
-      </div>
-      <div class="panel">
-        <h2>Top classes</h2>
-        {% if has_class_data %}
-          <div style="position: relative; height: 240px;">
-            <canvas id="classChart"></canvas>
-          </div>
-        {% else %}
-          <p class="note">No assignments in this range.</p>
-        {% endif %}
+    <div class="panel">
+      <h2>By weekday</h2>
+      <div style="position: relative; height: 240px;">
+        <canvas id="weekdayChart"></canvas>
       </div>
     </div>
-
-    <p class="footnote">
-      Source: permanent assignment history — one row per assignment (creation snapshot).
-    </p>
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
@@ -195,15 +146,6 @@
       });
 
       makeChart('weekdayChart', {{ weekday_labels|safe }}, {{ weekday_datasets|safe }});
-
-      makeChart('classChart', {{ class_labels|safe }}, {{ class_datasets|safe }}, {
-        indexAxis: 'y',
-        scales: {
-          x: { beginAtZero: true, ticks: { precision: 0, color: '#888' },
-               grid: { color: 'rgba(127,127,127,0.15)' }, border: { display: false } },
-          y: { ticks: { color: '#888' }, grid: { display: false }, border: { color: 'transparent' } }
-        }
-      });
     })();
   </script>
 {% endblock %}

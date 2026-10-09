@@ -1,0 +1,27 @@
+{% extends "admin/base_site.html" %}
+
+{% block content %}
+  <form method="post">
+    {% csrf_token %}
+    <p>
+      Are you sure you want to mass delete the selected
+      {{ count }} assignment histor{{ count|pluralize:"y,ies" }}?
+      This cannot be undone.
+    </p>
+    <ul>
+      {% for obj in queryset|slice:":20" %}
+        <li>{{ obj.changed_at|date:"Y-m-d H:i" }} — {{ obj.title }}{% if obj.class_name %} ({{ obj.class_name }}){% endif %}</li>
+      {% endfor %}
+      {% if count > 20 %}<li>… and {{ count|add:"-20" }} more</li>{% endif %}
+    </ul>
+    <div class="submit-row">
+      <input type="hidden" name="post" value="yes">
+      <input type="hidden" name="action" value="mass_delete_history">
+      {% for obj in queryset %}
+        <input type="hidden" name="{{ action_checkbox_name }}" value="{{ obj.pk }}">
+      {% endfor %}
+      <input type="submit" value="Yes, I'm sure">
+      <a href="{% url 'admin:myapp_assignmenthistory_changelist' %}" class="button cancel-link">No, take me back</a>
+    </div>
+  </form>
+{% endblock %}
