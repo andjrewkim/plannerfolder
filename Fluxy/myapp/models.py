@@ -241,7 +241,7 @@ class AssignmentHistory(models.Model):
         ('uncompleted', 'Marked Not Completed'),
         ('deleted', 'Deleted'),
         ('purged_by_class_deletion', 'Purged by Class Deletion'),
-        ('admin_scale_duplicate', 'Scaled Copy'),
+        ('admin_scale_duplicate', 'Created'),
     ]
 
     # What happened
