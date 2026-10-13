@@ -8,7 +8,7 @@ Scale the assignment set by duplicating existing rows into unassigned copies.
 """
 import random
 import uuid
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 
 from django.core.management.base import BaseCommand, CommandError
 from django.db import connection, transaction
@@ -141,7 +141,7 @@ class Command(BaseCommand):
             return pk
 
         now = timezone.now()
-        objs, stamps, plans = [], [], []
+        objs, stamps, history_stamps, plans = [], [], [], []
         for source in rng.choices(candidates, k=copies_needed):
             shift = rng.randint(1, max_shift)
             span = (source.end_date - source.start_date).days
@@ -166,6 +166,11 @@ class Command(BaseCommand):
                 )
             )
             stamps.append(created_at)
+            history_stamps.append(
+                created_at.replace(
+                    year=new_start.year, month=new_start.month, day=new_start.day
+                )
+            )
             plans.append((source, shift))
 
         if dry_run:
@@ -205,6 +210,7 @@ class Command(BaseCommand):
                 completed=obj.completed,
                 changes={
                     "batch": batch_id,
+                    "ran_at": now.isoformat(),
                     "factor": factor,
                     "source_assignment_pk": source.pk,
                     "shift_days": shift,
@@ -227,9 +233,9 @@ class Command(BaseCommand):
                 )
 
                 AssignmentHistory.objects.bulk_create(history_rows, batch_size=500)
-                for row, obj in zip(history_rows, objs):
+                for row, ts in zip(history_rows, history_stamps):
                     AssignmentHistory.objects.filter(pk=row.pk).update(
-                        changed_at=obj.created_at
+                        changed_at=ts
                     )
                 self._fix_postgres_sequence()
         finally:
@@ -301,13 +307,19 @@ class Command(BaseCommand):
         rows = AssignmentHistory.objects.filter(action=ACTION).order_by("changed_at")
         batches = {}
         for row in rows:
-            batch_id = (row.changes or {}).get("batch") or "(legacy)"
+            changes = row.changes or {}
+            batch_id = changes.get("batch") or "(legacy)"
             entry = batches.setdefault(
-                batch_id, {"count": 0, "first": row.changed_at, "rows": 0}
+                batch_id,
+                {"count": 0, "first": row.changed_at, "ran_at": None, "rows": 0},
             )
             entry["count"] += 1 if row.assignment_pk else 0
             entry["rows"] += 1
             entry["first"] = min(entry["first"], row.changed_at)
+            if changes.get("ran_at"):
+                ts = datetime.fromisoformat(changes["ran_at"])
+                if entry["ran_at"] is None or ts < entry["ran_at"]:
+                    entry["ran_at"] = ts
 
         if not batches:
             self.stdout.write("No scaling batches found.")
@@ -315,9 +327,10 @@ class Command(BaseCommand):
 
         self.stdout.write(f"{len(batches)} batch(es):")
         for batch_id, entry in batches.items():
+            started = entry["ran_at"] or entry["first"]
             self.stdout.write(
                 f"  {batch_id}: {entry['count']} copy(ies), "
-                f"started {entry['first']:%Y-%m-%d %H:%M} UTC"
+                f"started {started:%Y-%m-%d %H:%M} UTC"
             )
 
     @staticmethod

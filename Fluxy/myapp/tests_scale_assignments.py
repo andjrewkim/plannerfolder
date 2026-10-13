@@ -2,6 +2,7 @@ from datetime import date, timedelta
 
 from django.core.management import call_command
 from django.test import Client, TransactionTestCase
+from django.utils import timezone
 
 from .models import Assignment, AssignmentHistory, CustomUser, PlannerClass
 
@@ -172,6 +173,24 @@ class ScaleAssignmentsTests(TransactionTestCase):
         resp = client.get("/admin/myapp/assignmenthistory/analytics/")
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(resp.context["total_created"], created + scaled)
+
+    def test_history_changed_at_is_the_assignment_date(self):
+        make_world()
+        run_scale("--yes", "--factor", "2", "--seed", "10")
+
+        rows = AssignmentHistory.objects.filter(action="admin_scale_duplicate")
+        self.assertGreater(rows.count(), 0)
+        for row in rows:
+            copy = Assignment.objects.get(pk=row.assignment_pk)
+            self.assertEqual(row.changed_at.date(), copy.start_date)
+
+    def test_batches_listing_reports_the_run_time(self):
+        make_world()
+        run_scale("--yes", "--factor", "2", "--seed", "12")
+
+        out = run_scale("--batches")
+        self.assertIn("1 batch(es)", out)
+        self.assertIn(timezone.now().strftime("%Y-%m"), out)
 
     def test_copies_get_fresh_pks_and_sequence_is_safe(self):
         user, _ = make_world()
