@@ -163,8 +163,9 @@ class AssignmentHistoryAdmin(admin.ModelAdmin):
         # Exactly one 'created' row exists per assignment, and it carries a
         # snapshot of the assignment's own start_date. Bucketing by that date
         # (not by changed_at) shows when the work is actually for.
+        COUNTED_ACTIONS = ('created', 'admin_scale_duplicate')
         created = AssignmentHistory.objects.filter(
-            action='created', start_date__isnull=False,
+            action__in=COUNTED_ACTIONS, start_date__isnull=False,
         )
 
         if weeks_back is None:  # all time
@@ -217,7 +218,9 @@ class AssignmentHistoryAdmin(admin.ModelAdmin):
         weekday_data = [wd_map.get(i, 0) for i in range(1, 8)]
 
         # --- Headline numbers ---
-        total_created = AssignmentHistory.objects.filter(action='created').count()
+        total_created = AssignmentHistory.objects.filter(
+            action__in=COUNTED_ACTIONS,
+        ).count()
         in_range_total = in_range.count()
         n_weeks = max((chart_end - range_start).days // 7 + 1, 1)
 

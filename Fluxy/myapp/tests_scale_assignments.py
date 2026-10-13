@@ -1,7 +1,7 @@
 from datetime import date, timedelta
 
 from django.core.management import call_command
-from django.test import TransactionTestCase
+from django.test import Client, TransactionTestCase
 
 from .models import Assignment, AssignmentHistory, CustomUser, PlannerClass
 
@@ -131,6 +131,47 @@ class ScaleAssignmentsTests(TransactionTestCase):
             self.assertIsNotNone(row.changes["source_assignment_pk"])
             self.assertTrue(1 <= row.changes["shift_days"] <= 3)
             self.assertEqual(row.changes["batch"], batch_id)
+
+    def test_history_rows_use_a_declared_action(self):
+        make_world()
+        run_scale("--yes", "--factor", "2", "--seed", "6")
+
+        declared = dict(AssignmentHistory.ACTION_CHOICES)
+        self.assertIn("admin_scale_duplicate", declared)
+
+        row = AssignmentHistory.objects.filter(
+            action="admin_scale_duplicate"
+        ).first()
+        self.assertIsNotNone(row)
+        self.assertEqual(row.get_action_display(), declared["admin_scale_duplicate"])
+        self.assertNotEqual(row.get_action_display(), "admin_scale_duplicate")
+        self.assertEqual(
+            [k for k, _ in AssignmentHistory._meta.get_field("action").flatchoices],
+            [k for k, _ in AssignmentHistory.ACTION_CHOICES],
+        )
+
+    def test_stats_dashboard_counts_scaled_copies_as_creations(self):
+        make_world()
+        run_scale("--yes", "--factor", "2", "--seed", "8")
+
+        scaled = AssignmentHistory.objects.filter(
+            action="admin_scale_duplicate"
+        ).count()
+        created = AssignmentHistory.objects.filter(action="created").count()
+        self.assertGreater(scaled, 0)
+
+        staff = CustomUser.objects.create_user(
+            username="stats_admin", email="stats_admin@test.com", password="x"
+        )
+        staff.is_staff = True
+        staff.is_superuser = True
+        staff.save()
+
+        client = Client()
+        client.force_login(staff)
+        resp = client.get("/admin/myapp/assignmenthistory/analytics/")
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.context["total_created"], created + scaled)
 
     def test_copies_get_fresh_pks_and_sequence_is_safe(self):
         user, _ = make_world()
